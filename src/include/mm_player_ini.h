@@ -1,0 +1,329 @@
+/*
+ * libmm-player
+ *
+ * Copyright (c) 2000 - 2011 Samsung Electronics Co., Ltd. All rights reserved.
+ *
+ * Contact: JongHyuk Choi <jhchoi.choi@samsung.com>, YeJin Cho <cho.yejin@samsung.com>,
+ * Seungbae Shin <seungbae.shin@samsung.com>, YoungHwan An <younghwan_.an@samsung.com>
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+
+#ifndef __MM_PLAYER_INI_H__
+#define __MM_PLAYER_INI_H__
+
+#include <glib.h>
+
+#ifdef __cplusplus
+	extern "C" {
+#endif
+
+
+#if defined(MMFW_DEBUG_MODE)
+#define MM_PLAYER_INI_DEFAULT_PATH	"/opt/etc/mmfw_player.ini"
+#else
+#define MM_PLAYER_INI_DEFAULT_PATH	"/usr/etc/mmfw_player.ini"
+#endif 
+
+#define PLAYER_INI() mm_player_ini_get_structure()
+
+#define PLAYER_INI_MAX_STRLEN	80
+
+
+typedef enum __player_ini_videosink_element
+{
+	PLAYER_INI_VSINK_V4l2SINK = 0,
+	PLAYER_INI_VSINK_XIMAGESINK,
+	PLAYER_INI_VSINK_XVIMAGESINK,
+	PLAYER_INI_VSINK_FAKESINK,
+	PLAYER_INI_VSINK_EVASIMAGESINK,
+	PLAYER_INI_VSINK_GLIMAGESINK,	
+	PLAYER_INI_VSINK_NUM
+}PLAYER_INI_VSINK_ELEMENT;
+
+/* NOTE : MMPlayer has no initalizing API for library itself
+ * so we cannot decide when those ini values to be released.
+ * this is the reason of all string items are static array.
+ * make it do with malloc when MMPlayerInitialize() API created
+ * before that time, we should be careful with size limitation
+ * of each string item.
+ */
+
+/* @ mark means the item has tested */
+typedef struct __mm_player_ini
+{
+	/* general */
+	gboolean use_decodebin;	// @
+	gboolean use_sink_handler; // @
+	gboolean use_audio_filter; // @
+	PLAYER_INI_VSINK_ELEMENT videosink_element; // @
+	gchar name_of_audiosink[PLAYER_INI_MAX_STRLEN]; // @
+	gchar name_of_drmsrc[PLAYER_INI_MAX_STRLEN]; // @
+	gchar name_of_video_converter[PLAYER_INI_MAX_STRLEN];
+	gboolean skip_rescan; // @
+	gboolean generate_dot; // @
+	gboolean provide_clock; // @
+	gint live_state_change_timeout; // @
+	gint localplayback_state_change_timeout; // @
+	gint delay_before_repeat;
+	gint eos_delay; // @
+	gboolean multiple_codec_supported;
+	
+	gchar gst_param[5][256]; // @
+	gchar exclude_element_keyword[10][PLAYER_INI_MAX_STRLEN];
+	gboolean async_start;
+	gboolean disable_segtrap;
+
+	/* http streaming */
+	gchar name_of_httpsrc[PLAYER_INI_MAX_STRLEN]; // @
+	gchar http_temp_template[PLAYER_INI_MAX_STRLEN];
+	gboolean http_use_buffering;
+	guint http_buffering_low_limit;
+	guint http_buffering_high_limit;
+	guint http_max_size_bytes;
+	guint http_timeout;
+	gint http_blocksize;
+	gdouble http_buffering_time;
+
+	/* rtsp streaming */
+	gchar name_of_rtspsrc[PLAYER_INI_MAX_STRLEN]; // @
+	guint rtsp_buffering_time;
+	guint rtsp_rebuffering_time;
+	guint rtsp_audio_packet_drop_rate;
+	guint rtsp_video_packet_drop_rate;
+	gboolean rtsp_dump_video_frame;
+	gboolean rtsp_dump_audio_frame;
+	gboolean rtsp_do_typefinding;
+	gboolean rtsp_stack_debug;
+	gboolean rtsp_error_concealment; /* testing purpose */
+
+	/* hw accelation */
+	gboolean use_video_hw_accel; // @
+	
+	/* priority */
+	gboolean use_priority_setting;
+	gint demux_priority;
+	gint audiosink_priority;
+	gint videosink_priority;
+	gint ringbuffer_priority;
+
+	/* subtitle */
+	gboolean use_subtitle_setting;
+	gchar subtitle_uri[PLAYER_INI_MAX_STRLEN]; // @
+	gboolean subtitle_silent;
+	
+} mm_player_ini_t;
+
+/* default values if each values are not specified in inifile */
+/* general */
+#define DEFAULT_USE_DECODEBIN			FALSE
+#define DEFAULT_USE_AUDIO_FILTER		FALSE
+#define DEFAULT_USE_SINK_HANDLER		TRUE
+#define DEFAULT_SKIP_RESCAN			TRUE
+#define DEFAULT_GENERATE_DOT			FALSE
+#define DEFAULT_PROVIDE_CLOCK			TRUE
+#define DEFAULT_DELAY_BEFORE_REPEAT	 50 /* msec */
+#define DEFAULT_EOS_DELAY 				150 /* msec */
+#define DEFAULT_DRMSRC					"drmsrc"
+#define DEFAULT_VIDEOSINK				PLAYER_INI_VSINK_XVIMAGESINK
+#define DEFAULT_AUDIOSINK				"avsysaudiosink"
+#define DEFAULT_GST_PARAM				""
+#define DEFAULT_EXCLUDE_KEYWORD		""
+#define DEFAULT_ASYNC_START			TRUE
+#define DEFAULT_DISABLE_SEGTRAP		TRUE
+#define DEFAULT_VIDEO_CONVERTER		""
+#define DEFAULT_MULTIPLE_CODEC_SUPPORTED 				TRUE
+#define DEFAULT_LIVE_STATE_CHANGE_TIMEOUT 				30 /* sec */
+#define DEFAULT_LOCALPLAYBACK_STATE_CHANGE_TIMEOUT 	10 /* sec */
+/* http streaming */
+#define DEFAULT_HTTPSRC						"souphttpsrc"
+#define DEFAULT_HTTP_TEMP_TEMPLATE			""
+#define DEFAULT_HTTP_USE_BUFFERING			TRUE					
+#define DEFAULT_HTTP_BUFFERING_LOW_LIMIT		1					/* percent */
+#define DEFAULT_HTTP_BUFFERING_HIGH_LIMIT	15					/* percent */
+#define DEFAULT_HTTP_MAX_SIZE_BYTES			4194304 				/* bytes : 4 MBytes  */
+#define DEFAULT_HTTP_TIMEOUT					30 					/* sec */
+#define DEFAULT_HTTP_BLOCKSIZE				1048576				/* bytes : 1 MBytes */
+#define DEFAULT_HTTP_BUFFERING_TIME			1.2 					/* sec */
+/* rtsp streaming */
+#define DEFAULT_RTSPSRC							"secrtspsrc"
+#define DEFAULT_RTSP_LATENCY						7000 /* msec */
+#define DEFAULT_RTSP_BUFFERING					5000 /* msec */
+#define DEFAULT_RTSP_REBUFFERING					15000 /* msec */
+#define DEFAULT_RTSP_AUDIO_PACKET_DROP_RATE 	0 /* percent */
+#define DEFAULT_RTSP_VIDEO_PACKET_DROP_RATE 	0 /* percent */
+#define DEFAULT_RTSP_DO_TYPEFINDING				FALSE
+#define DEFAULT_RTSP_DUMP_VIDEO_FRAME			FALSE
+#define DEFAULT_RTSP_DUMP_AUDIO_FRAME			FALSE
+#define DEFAULT_RTSP_STACK_DEBUG					FALSE
+#define DEFAULT_RTSP_ERROR_CONCEALMENT			TRUE
+/* hw accel */
+#define DEFAULT_USE_VIDEO_HW_ACCEL	FALSE
+/* priority */
+#define DEFAULT_USE_PRIORITY_SETTING	FALSE
+#define DEFAULT_PRIORITY_DEMUX		96
+#define DEFAULT_PRIORITY_VIDEO_SINK	97
+#define DEFAULT_PRIORITY_AUDIO_SINK	98
+#define DEFAULT_PRIORITY_RINGBUFFER	99
+/* subtitle */
+#define DEFAULT_USE_SUBTITLE_SETTING	FALSE
+#define DEFAULT_SUBTITLE_URI			""
+#define DEFAULT_SUBTITLE_SILENT		FALSE
+
+
+/* NOTE : following content should be same with above default values */
+/* FIXIT : need smarter way to generate default ini file. */
+/* FIXIT : finally, it should be an external file */
+#define MM_PLAYER_DEFAULT_INI \
+"\
+[general] \n\
+\n\
+; if disabled typefind element will used directely \n\
+use decodebin = no ; async state change problem exist \n\
+\n\
+use sink handler = yes \n\
+\n\
+disable segtrap = yes ; same effect with --gst-disable-segtrap \n\
+\n\
+; set default video sink but, it can be replaced with others selected by application\n\
+; 0:v4l2sink, 1:ximagesink, 2:xvimagesink, 3:fakesink 4:evasimagesink 5:glimagesink\n\
+videosink element = 2 \n\
+\n\
+video converter element = \n\
+\n\
+audiosink element = avsysaudiosink \n\
+\n\
+drmsrc element = drmsrc \n\
+\n\
+; if yes. gstreamer will not update registry \n\
+skip rescan = yes \n\
+\n\
+delay before repeat = 50 ; msec\n\
+\n\
+; comma separated list of tocken which elemnts has it in it's name will not be used \n\
+element exclude keyword = \n\
+\n\
+async start = yes \n\
+\n\
+multiple codec supported = yes \n\
+\n\
+; parameters for initializing gstreamer \n\
+gstparam1 = \n\
+gstparam2 = \n\
+gstparam3 = \n\
+gstparam4 = \n\
+gstparam5 = \n\
+\n\
+; generating dot file representing pipeline state \n\
+generate dot = no \n\
+\n\
+; parameter for clock provide in audiosink \n\
+provide clock = yes \n\
+\n\
+; allowed timeout for changing pipeline state \n\
+live state change timeout = 30 ; sec \n\
+localplayback state change timeout = 4 ; sec \n\
+\n\
+; delay in msec for sending EOS \n\
+eos delay = 150 ; msec \n\
+\n\
+\n\
+[http streaming] \n\
+\n\
+httppsrc element = souphttpsrc \n\
+\n\
+; if set, use file or not use memory for buffering\n\
+http temp template = /opt/media/XXXXXX\n\
+\n\
+http use buffering = yes \n\
+\n\
+http buffering low limit = 1 ; percent\n\
+\n\
+http buffering high limit = 15 ; percent\n\
+\n\
+http max size bytes = 4194304 ; bytes\n\
+\n\
+http timeout = 30 ; sec \n\
+\n\
+http blocksize = 1048576 ; bytes \n\
+\n\
+http buffering time = 1.2 \n\
+\n\
+\n\
+[rtsp streaming] \n\
+\n\
+rtspsrc element = secrtspsrc \n\
+\n\
+rtsp buffering time = 5000; msec \n\
+\n\
+rtsp rebuffering time = 15000; msec \n\
+\n\
+rtsp audio packet drop rate = 0; percent \n\
+\n\
+rtsp video packet drop rate = 0; percent \n\
+\n\
+rtsp do typefinding = no; if no, caps on rtspsrc:src pad will be used for autoplugging \n\
+\n\
+rtsp dump video frame = no \n\
+\n\
+rtsp dump audio frame = no \n\
+\n\
+rtsp stack debug = no \n\
+\n\
+rtsp error concealment = yes \n\
+\n\
+\n\
+[hw accelation] \n\
+use video hw accel = yes \n\
+\n\
+\n\
+[features] \n\
+\n\
+audio filter = no \n\
+\n\
+\n\
+[priority] \n\
+\n\
+use priority setting = no \n\
+\n\
+demux = 95 \n\
+\n\
+videosink = 96 \n\
+\n\
+audiosink = 97\n\
+\n\
+ringbuffer = 98 \n\
+\n\
+[subtitle]\n\
+\n\
+use subtitle setting = no\n\
+\n\
+subtitle uri = \n\
+\n\
+subtitle silent = no\n\
+\n\
+"
+
+int
+mm_player_ini_load(void);
+
+mm_player_ini_t*
+mm_player_ini_get_structure(void);
+
+
+#ifdef __cplusplus
+	}
+#endif
+
+#endif

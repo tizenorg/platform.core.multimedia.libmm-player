@@ -1,0 +1,4 @@
+@PREFIX@/include/mmf/mm_player.h
+@PREFIX@/lib/*.a
+@PREFIX@/lib/*.la
+@PREFIX@/lib/pkgconfig/*

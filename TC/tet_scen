@@ -1,0 +1,29 @@
+# auto generated tet_scen
+all
+	"Starting Full Test Suite"
+	/utc/utc_mm_player_create_func
+	/utc/utc_mm_player_destroy_func
+	/utc/utc_mm_player_realize_func
+	/utc/utc_mm_player_unrealize_func
+	/utc/utc_mm_player_start_func
+	/utc/utc_mm_player_stop_func
+	/utc/utc_mm_player_pause_func
+	/utc/utc_mm_player_resume_func
+	/utc/utc_mm_player_set_volume_func
+	/utc/utc_mm_player_get_volume_func
+	/utc/utc_mm_player_set_position_func
+	/utc/utc_mm_player_get_position_func
+	/utc/utc_mm_player_set_mute_func
+	/utc/utc_mm_player_get_mute_func
+	/utc/utc_mm_player_activate_section_repeat_func
+	/utc/utc_mm_player_deactivate_section_repeat_func
+	/utc/utc_mm_player_set_subtitle_silent_func
+	/utc/utc_mm_player_get_subtitle_silent_func
+	/utc/utc_mm_player_get_state_func
+	/utc/utc_mm_player_set_message_callback_func
+	/utc/utc_mm_player_set_audio_stream_callback_func
+	/utc/utc_mm_player_get_attribute_func
+	/utc/utc_mm_player_get_attribute_info_func
+	/utc/utc_mm_player_set_attribute_func
+	"Completed Full Test Suite"
+# EOF
