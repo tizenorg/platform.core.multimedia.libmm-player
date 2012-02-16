@@ -133,7 +133,7 @@ gboolean hls_parse_playlist_update_client (void *hls_handle, char* playlist)
 	}
 	else 
 	{
-		g_print ("\n\n!!!!!!!!!!!!!!!! RELOADED but NO changes!!!!!!\n\n");
+		debug_log("\n\n!!!!!!!!!!!!!!!! RELOADED but NO changes!!!!!!\n\n");
 	}
 
 	/* clean up */

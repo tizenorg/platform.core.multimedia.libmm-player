@@ -92,15 +92,6 @@ _mmplayer_get_attribute(MMHandleType hplayer,  char **err_atr_name, const char *
 	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 	return_val_if_fail(attribute_name, MM_ERROR_COMMON_INVALID_ARGUMENT);
 
-#if 0
-	/* update duration for VBR */
-	if (strcmp(attribute_name, "content_duration") == 0 && player->can_support_codec == FOUND_PLUGIN_AUDIO)
-	{
-		player->need_update_content_attrs = TRUE;
-		_mmplayer_update_content_attrs(player);
-	}
-#endif	
-
 	attrs = MMPLAYER_GET_ATTRS(hplayer);
 
 	return_val_if_fail(attrs, MM_ERROR_COMMON_INVALID_ARGUMENT);
@@ -330,12 +321,14 @@ _mmplayer_construct_attribute(mm_player_t* player)
 		{"content_duration",				MM_ATTRS_TYPE_INT, 		MM_ATTRS_FLAG_RW, (void *)0},
 		{"content_bitrate",					MM_ATTRS_TYPE_INT, 		MM_ATTRS_FLAG_RW, (void *)0},
 		{"content_max_bitrate",				MM_ATTRS_TYPE_INT, 		MM_ATTRS_FLAG_RW, (void *)0},
+		{"content_video_found",				MM_ATTRS_TYPE_INT, 		MM_ATTRS_FLAG_RW, (void *)0},
 		{"content_video_codec",			MM_ATTRS_TYPE_STRING,	MM_ATTRS_FLAG_RW, (void *)NULL},
 		{"content_video_bitrate",			MM_ATTRS_TYPE_INT, 		MM_ATTRS_FLAG_RW, (void *)0},
 		{"content_video_fps",				MM_ATTRS_TYPE_INT,		MM_ATTRS_FLAG_RW, (void *)0},
 		{"content_video_width",			MM_ATTRS_TYPE_INT, 		MM_ATTRS_FLAG_RW, (void *)0},
 		{"content_video_height",			MM_ATTRS_TYPE_INT, 		MM_ATTRS_FLAG_RW, (void *)0},
 		{"content_video_track_num",		MM_ATTRS_TYPE_INT, 		MM_ATTRS_FLAG_RW, (void *)0},
+		{"content_audio_found",				MM_ATTRS_TYPE_INT, 		MM_ATTRS_FLAG_RW, (void *)0},
 		{"content_audio_codec",			MM_ATTRS_TYPE_STRING, 	MM_ATTRS_FLAG_RW, (void *)NULL},
 		{"content_audio_bitrate",			MM_ATTRS_TYPE_INT, 		MM_ATTRS_FLAG_RW, (void *)0},
 		{"content_audio_channels",			MM_ATTRS_TYPE_INT, 		MM_ATTRS_FLAG_RW, (void *)0},
@@ -423,6 +416,15 @@ _mmplayer_construct_attribute(mm_player_t* player)
 	mm_attrs_get_index (attrs, "streaming_udp_timeout", &idx);
 	mmf_attrs_set_valid_type (attrs, idx, MM_ATTRS_VALID_TYPE_INT_RANGE);
 	mmf_attrs_set_valid_range (attrs, idx, 0, MMPLAYER_MAX_INT);
+
+	/* content */
+	mm_attrs_get_index (attrs, "content_video_found", &idx);
+	mmf_attrs_set_valid_type (attrs, idx, MM_ATTRS_VALID_TYPE_INT_RANGE);
+	mmf_attrs_set_valid_range (attrs, idx, 0, 1);
+
+	mm_attrs_get_index (attrs, "content_audio_found", &idx);
+	mmf_attrs_set_valid_type (attrs, idx, MM_ATTRS_VALID_TYPE_INT_RANGE);
+	mmf_attrs_set_valid_range (attrs, idx, 0, 1);
 
 	/* display */
 	mm_attrs_get_index (attrs, "display_zoom", &idx);

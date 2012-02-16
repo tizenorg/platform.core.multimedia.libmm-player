@@ -43,6 +43,7 @@
 #include "mm_player_asm.h"
 #include "mm_player_ahs.h"
 #include "mm_player_pd.h"
+#include "mm_player_streaming.h"
 
 /*===========================================================================================
 |																							|
@@ -55,6 +56,7 @@
 ---------------------------------------------------------------------------*/
 
 #define MM_PLAYER_IMGB_MPLANE_MAX	4
+#define MM_PLAYER_STREAM_COUNT_MAX 3
 
 /*---------------------------------------------------------------------------
 |    GLOBAL CONSTANT DEFINITIONS:											|
@@ -73,7 +75,7 @@ enum tag_info
 	TAG_TRACK_NUMBER = 0x0200
 };
 
-/* bw.jang :+: 080607 async mode makes trouble. alsasink sometimes fails to pause. */
+/* async mode makes trouble. alsasink sometimes fails to pause. */
 enum alassink_sync
 {
 	ALSASINK_SYNC,
@@ -180,7 +182,7 @@ enum VideoElementID
 /* text pipeline's element id */
 enum SubtitleElementID
 {
-	MMPLAYER_T_BIN = 0, /* NOTE : MMPLAYER_SUB_BIN should be zero */
+	MMPLAYER_T_PIPE = 0, /* NOTE : MMPLAYER_T_PIPE should be zero */
 	MMPLAYER_T_SRC,
 	MMPLAYER_T_QUEUE,
 	MMPLAYER_T_SUBPARSE,
@@ -201,8 +203,6 @@ enum MidiElementID
 	MMPLAYER_MIDI_NUM
 };
 
-
-/* bw.jang :+: for state management */
 enum PlayerCommandState
 {
 	MMPLAYER_COMMAND_NONE,
@@ -217,8 +217,6 @@ enum PlayerCommandState
 	MMPLAYER_COMMAND_NUM
 };
 
-
-/* yhahn:+: */
 enum FilterActionType
 {
 	MM_PLAYER_FILTER_NONE,
@@ -335,24 +333,6 @@ typedef struct {
 	gulong sig;
 } MMPlayerSignalItem;
 
-
-typedef struct {
-	gboolean is_buffering;
-	gboolean audio_only;
-	gboolean need_update;
-	guint buffering_repeat_cnt;
-	gint buffering_percent;
-	guint buffer_size_byte;
-	guint buffer_limit_criterion_byte;
-	guint buffer_high_limit_byte;
-	guint buffer_low_limit_byte;
-	guint buffer_high_limit_percent;
-	guint buffer_low_limit_percent;
-	gint buffer_avg_in_byterate;
-	gint buffer_avg_out_byterate;
-	gdouble buffering_time;
-}MMPlayerBufferingInfo;
-
 /* image buffer definition ***************************************************
 
     +------------------------------------------+ ---
@@ -450,6 +430,9 @@ typedef struct {
 	gchar *pd_file_location;
 	MMPlayerPDMode pd_mode;
 
+	/* streaming player */
+	mm_player_streaming_t *streamer;
+
 	/* gstreamer pipeline */
 	MMPlayerGstPipelineInfo	*pipeline;
 	gboolean pipeline_is_constructed;
@@ -461,7 +444,7 @@ typedef struct {
 
 	void* buffer_cb_user_param;
 
-	/* cs78.lee :+: for video stream callback */
+	/* for video stream callback */
 	mm_player_video_stream_callback video_stream_cb;
 	void* video_stream_cb_user_param;
 	int use_video_stream;
@@ -477,13 +460,13 @@ typedef struct {
 	/* video capture callback*/
 	gulong video_capture_cb_probe_id;
 	
-	/* sound info sbs:+:20090311 */
+	/* sound info */
 	MMPlayerSoundInfo	sound;
 
 	/* application client id for dnse */
 	MMAudioFilterClient app_id_set_up_dnse;
 
-	/* me.kim :+: 090406 audio filter infomation */
+	/* audio filter infomation */
 	MMAudioFilterInfo audio_filter_info;
 	gboolean DNSeBypass; /* FIXIT : please use '_' rather than big character */
 	gboolean isAMR;
@@ -526,9 +509,6 @@ typedef struct {
 
 	/* last error */
 	gchar last_error_msg[1024]; /* FIXIT : should it be dynamic ? */
-
-//	gint64	acc_time;
-//int64	total_time;
 
 	gint videodec_linked;
 	gint audiodec_linked;
@@ -587,16 +567,22 @@ typedef struct {
 	gboolean is_subtitle_off;
 
 	/* contents bitrate for buffering management */
-	guint bitrate;
-	guint maximum_bitrate;
-
-	MMPlayerBufferingInfo buffering_info;
+	guint bitrate[MM_PLAYER_STREAM_COUNT_MAX];
+	guint total_bitrate;
+	guint updated_bitrate_count;
+	guint maximum_bitrate[MM_PLAYER_STREAM_COUNT_MAX];
+	guint total_maximum_bitrate;
+	guint updated_maximum_bitrate_count;
 
 	/* prevent it from posting duplicatly*/
 	gboolean sent_bos;
 
 	/* timeout source for lazy pause */
 	guint lazy_pause_event_id;
+
+	gboolean keep_detecting_vcodec;
+
+	gboolean play_subtitle;
 } mm_player_t;
 
 /*===========================================================================================
@@ -625,6 +611,7 @@ int _mmplayer_pause(MMHandleType hplayer);
 int _mmplayer_resume(MMHandleType hplayer);
 int _mmplayer_set_position(MMHandleType hplayer, int format, int pos);
 int _mmplayer_get_position(MMHandleType hplayer, int format, unsigned long *pos);
+int _mmplayer_adjust_subtitle_postion(MMHandleType hplayer, int format,  int pos);
 int _mmplayer_activate_section_repeat(MMHandleType hplayer, unsigned long start, unsigned long end);
 int _mmplayer_deactivate_section_repeat(MMHandleType hplayer);
 int _mmplayer_push_buffer(MMHandleType hplayer, unsigned char *buf, int size);

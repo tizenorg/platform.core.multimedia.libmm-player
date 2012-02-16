@@ -65,8 +65,6 @@ pd_download_callback(GstBus *bus, GstMessage *msg, gpointer data)
 				
 				ret = gst_element_post_message (pd_downloader->pushsrc, new_msg);
 				__mm_player_pd_stop (pd_downloader);
-			
-				g_print ("\n\n\nError posting msg = %d\n\n\n\n", ret);
 			}
 			break;
 
@@ -96,8 +94,6 @@ pd_download_callback(GstBus *bus, GstMessage *msg, gpointer data)
 
 mm_player_pd_t * __mm_player_pd_create ()
 {
-	g_print (">>>>>>>>>>>CREATE PD downloader\n");
-
 	mm_player_pd_t *pd_downloader = NULL;
 	
 	pd_downloader = (mm_player_pd_t *) malloc (sizeof (mm_player_pd_t));
@@ -106,7 +102,6 @@ mm_player_pd_t * __mm_player_pd_create ()
 		debug_error ("Failed to create pd_downloader handle...\n");
 		return NULL;
 	}
-	g_print (">>>>>>>>>>>CREATE PD downloader DONE\n");
 
 	return pd_downloader;
 	
@@ -114,13 +109,11 @@ mm_player_pd_t * __mm_player_pd_create ()
 
 gboolean __mm_player_pd_destroy (mm_player_pd_t *pd_downloader)
 {
-	g_print ("\n >>>>>>>>>>>Destroying PD download\n");
 	debug_log ("<<<<<\n");
 
 	if (NULL == pd_downloader)
 	{
 		debug_error ("Invalid argument...\n");
-		g_print ("Invalid argument...\n");
 		return TRUE;
 	}
 
@@ -130,9 +123,6 @@ gboolean __mm_player_pd_destroy (mm_player_pd_t *pd_downloader)
 	free (pd_downloader);
 	pd_downloader = NULL;
 
-	g_print ("\n >>>>>>>>>>>Destroying PD download DONE\n");
-	debug_log (">>>>>\n");
-	
 	return TRUE;
 }
 
@@ -145,8 +135,6 @@ gboolean __mm_player_pd_initialize (mm_player_pd_t *pd_downloader, gchar *src_ur
 		debug_error (" Invalid argument\n");
 		return FALSE;
 	}
-
-	g_print (">>>>>>> PD Initialize...\n");
 
 	pd_downloader->download_uri = g_strdup (src_uri);
 	pd_downloader->pd_file_dmp_location = g_strdup (dst_uri);
@@ -225,8 +213,6 @@ gboolean __mm_player_pd_start (mm_player_pd_t *pd_downloader)
 
 	debug_log ("src location = %s, save location = %s\n", pd_downloader->download_uri, pd_downloader->pd_file_dmp_location);
 
-	g_print ("Going to download PD-uri -> %s\n", pd_downloader->download_uri);
-
 	/* Start to download */
 	sret = gst_element_set_state (pd_downloader->download_pipe, GST_STATE_PLAYING);
 	if (GST_STATE_CHANGE_FAILURE == sret)
@@ -246,8 +232,6 @@ gboolean __mm_player_pd_start (mm_player_pd_t *pd_downloader)
 
 	debug_log ("get-state :: sret = %d\n", sret);
 
-	g_print ("\n\n\nPD downloader :: cur_state = %d and pending_state = %d\n\n\n", cur_state, pending_state);
-	
 	debug_log (">>>\n");
 
 	return TRUE;

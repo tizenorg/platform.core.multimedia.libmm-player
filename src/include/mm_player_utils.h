@@ -232,9 +232,8 @@ int util_factory_rank_compare(GstPluginFeature *f1, GstPluginFeature *f2); // @
 
 bool util_exist_file_path(const char *file_path);
 bool util_write_file_backup(const char *backup_path, char *data_ptr, int data_size);
-bool util_remove_file_backup(const char *backup_path); /* tskim:Midi:+:For Midi Player */
+bool util_remove_file_backup(const char *backup_path); /* For Midi Player */
 
-/* sbs:+:080903 */
 int util_is_midi_type_by_mem(void *mem, int size);
 int util_is_midi_type_by_file(const char *file_path);
 

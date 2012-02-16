@@ -142,25 +142,17 @@ mm_player_ini_load(void)
 
 		/* http streaming */
 		MMPLAYER_INI_GET_STRING( g_player_ini.name_of_httpsrc, "http streaming:httpsrc element", DEFAULT_HTTPSRC );
-		MMPLAYER_INI_GET_STRING( g_player_ini.http_temp_template, "http streaming:http temp template", DEFAULT_HTTP_TEMP_TEMPLATE );
-		g_player_ini.http_use_buffering = iniparser_getboolean(dict, "http streaming:http use buffering", DEFAULT_HTTP_USE_BUFFERING);
-		g_player_ini.http_buffering_low_limit = iniparser_getint(dict, "http streaming:http buffering low limit", DEFAULT_HTTP_BUFFERING_LOW_LIMIT);
-		g_player_ini.http_buffering_high_limit = iniparser_getint(dict, "http streaming:http buffering high limit", DEFAULT_HTTP_BUFFERING_HIGH_LIMIT);
+		MMPLAYER_INI_GET_STRING( g_player_ini.http_file_buffer_path, "http streaming:http file buffer path", DEFAULT_HTTP_FILE_BUFFER_PATH );
+		g_player_ini.http_buffering_limit = iniparser_getdouble(dict, "http streaming:http buffering high limit", DEFAULT_HTTP_BUFFERING_LIMIT);
 		g_player_ini.http_max_size_bytes = iniparser_getint(dict, "http streaming:http max size bytes", DEFAULT_HTTP_MAX_SIZE_BYTES);
-		g_player_ini.http_timeout = iniparser_getint(dict, "http streaming:http timeout", DEFAULT_HTTP_TIMEOUT);
-		g_player_ini.http_blocksize = iniparser_getint(dict, "http streaming:http blocksize", DEFAULT_HTTP_BLOCKSIZE);
 		g_player_ini.http_buffering_time = iniparser_getdouble(dict, "http streaming:http buffering time", DEFAULT_HTTP_BUFFERING_TIME);		
+		g_player_ini.http_timeout = iniparser_getint(dict, "http streaming:http timeout", DEFAULT_HTTP_TIMEOUT);
 
 		/* rtsp streaming */
 		MMPLAYER_INI_GET_STRING( g_player_ini.name_of_rtspsrc, "rtsp streaming:rtspsrc element", DEFAULT_RTSPSRC );
 		g_player_ini.rtsp_buffering_time = iniparser_getint(dict, "rtsp streaming:rtsp buffering time", DEFAULT_RTSP_BUFFERING);
 		g_player_ini.rtsp_rebuffering_time = iniparser_getint(dict, "rtsp streaming:rtsp rebuffering time", DEFAULT_RTSP_REBUFFERING);
-		g_player_ini.rtsp_audio_packet_drop_rate = iniparser_getint(dict, "rtsp streaming:rtsp audio packet drop rate", DEFAULT_RTSP_AUDIO_PACKET_DROP_RATE);
-		g_player_ini.rtsp_video_packet_drop_rate = iniparser_getint(dict, "rtsp streaming:rtsp video packet drop rate", DEFAULT_RTSP_VIDEO_PACKET_DROP_RATE);
 		g_player_ini.rtsp_do_typefinding = iniparser_getboolean(dict, "rtsp streaming:rtsp do typefinding", DEFAULT_RTSP_DO_TYPEFINDING);
-		g_player_ini.rtsp_dump_video_frame = iniparser_getboolean(dict, "rtsp streaming:rtsp dump video frame", DEFAULT_RTSP_DUMP_VIDEO_FRAME);		
-		g_player_ini.rtsp_dump_audio_frame = iniparser_getboolean(dict, "rtsp streaming:rtsp dump audio frame", DEFAULT_RTSP_DUMP_AUDIO_FRAME);
-		g_player_ini.rtsp_stack_debug = iniparser_getboolean(dict, "rtsp streaming:rtsp stack debug", DEFAULT_RTSP_STACK_DEBUG);
 		g_player_ini.rtsp_error_concealment = iniparser_getboolean(dict, "rtsp streaming:rtsp error concealment", DEFAULT_RTSP_ERROR_CONCEALMENT);
 
 		/* hw accelation */
@@ -172,12 +164,6 @@ mm_player_ini_load(void)
 		g_player_ini.videosink_priority = iniparser_getint(dict, "priority:videosink", DEFAULT_PRIORITY_VIDEO_SINK);
 		g_player_ini.audiosink_priority = iniparser_getint(dict, "priority:audiosink", DEFAULT_PRIORITY_AUDIO_SINK);
 		g_player_ini.ringbuffer_priority = iniparser_getint(dict, "priority:ringbuffer", DEFAULT_PRIORITY_RINGBUFFER);
-
-
-		/* subtitle */
-		g_player_ini.use_subtitle_setting = iniparser_getboolean(dict, "subtitle:use subtitle setting", DEFAULT_USE_SUBTITLE_SETTING);
-		MMPLAYER_INI_GET_STRING( g_player_ini.subtitle_uri, "subtitle:subtitle uri", DEFAULT_SUBTITLE_URI );
-		g_player_ini.subtitle_silent = iniparser_getboolean(dict, "subtitle:use subtitle silent", DEFAULT_SUBTITLE_SILENT);
 	}	
 	else /* if dict is not available just fill the structure with default value */
 	{
@@ -217,25 +203,17 @@ mm_player_ini_load(void)
 
 		/* http streaming */
 		strcpy( g_player_ini.name_of_httpsrc, DEFAULT_HTTPSRC );
-		strcpy( g_player_ini.http_temp_template, DEFAULT_HTTP_TEMP_TEMPLATE );
-		g_player_ini.http_use_buffering = DEFAULT_HTTP_USE_BUFFERING;
-		g_player_ini.http_buffering_low_limit = DEFAULT_HTTP_BUFFERING_LOW_LIMIT;
-		g_player_ini.http_buffering_high_limit = DEFAULT_HTTP_BUFFERING_HIGH_LIMIT;
+		strcpy( g_player_ini.http_file_buffer_path, DEFAULT_HTTP_FILE_BUFFER_PATH );
+		g_player_ini.http_buffering_limit = DEFAULT_HTTP_BUFFERING_LIMIT;
 		g_player_ini.http_max_size_bytes = DEFAULT_HTTP_MAX_SIZE_BYTES;
-		g_player_ini.http_timeout = DEFAULT_HTTP_TIMEOUT;
-		g_player_ini.http_blocksize = DEFAULT_HTTP_BLOCKSIZE;
 		g_player_ini.http_buffering_time = DEFAULT_HTTP_BUFFERING_TIME;		
+		g_player_ini.http_timeout = DEFAULT_HTTP_TIMEOUT;
 		
 		/* rtsp streaming */
 		strcpy( g_player_ini.name_of_rtspsrc, DEFAULT_RTSPSRC );
 		g_player_ini.rtsp_buffering_time = DEFAULT_RTSP_BUFFERING;
 		g_player_ini.rtsp_rebuffering_time = DEFAULT_RTSP_REBUFFERING;
-		g_player_ini.rtsp_audio_packet_drop_rate = DEFAULT_RTSP_AUDIO_PACKET_DROP_RATE;
-		g_player_ini.rtsp_video_packet_drop_rate = DEFAULT_RTSP_VIDEO_PACKET_DROP_RATE;
 		g_player_ini.rtsp_do_typefinding = DEFAULT_RTSP_DO_TYPEFINDING;
-		g_player_ini.rtsp_dump_video_frame = DEFAULT_RTSP_DUMP_VIDEO_FRAME;	
-		g_player_ini.rtsp_dump_audio_frame = DEFAULT_RTSP_DUMP_AUDIO_FRAME;
-		g_player_ini.rtsp_stack_debug = DEFAULT_RTSP_STACK_DEBUG;
 		g_player_ini.rtsp_error_concealment = DEFAULT_RTSP_ERROR_CONCEALMENT;
 
 		/* hw accelation */
@@ -247,11 +225,6 @@ mm_player_ini_load(void)
 		g_player_ini.videosink_priority = DEFAULT_PRIORITY_VIDEO_SINK;
 		g_player_ini.audiosink_priority = DEFAULT_PRIORITY_AUDIO_SINK;
 		g_player_ini.ringbuffer_priority = DEFAULT_PRIORITY_RINGBUFFER;
-
-		/* subtitle */
-		g_player_ini.use_subtitle_setting = DEFAULT_USE_SUBTITLE_SETTING;
-		strcpy( g_player_ini.subtitle_uri, DEFAULT_SUBTITLE_URI );
-		g_player_ini.subtitle_silent = DEFAULT_SUBTITLE_SILENT;
 	}
 
 	/* free dict as we got our own structure */
@@ -298,25 +271,17 @@ mm_player_ini_load(void)
 	
 	/* http streaming */
 	debug_log("name_of_httpsrc : %s\n", g_player_ini.name_of_httpsrc);
-	debug_log("http_temp_template : %s \n", g_player_ini.http_temp_template);
-	debug_log("http_use_buffering : %d \n", g_player_ini.http_use_buffering);	
-	debug_log("http_buffering_low_limit : %d \n", g_player_ini.http_buffering_low_limit);
-	debug_log("http_buffering_high_limit : %d \n", g_player_ini.http_buffering_high_limit);
+	debug_log("http_file_buffer_path : %s \n", g_player_ini.http_file_buffer_path);
+	debug_log("http_buffering_limit : %f \n", g_player_ini.http_buffering_limit);
 	debug_log("http_max_size_bytes : %d \n", g_player_ini.http_max_size_bytes);
-	debug_log("http_timeout : %d \n", g_player_ini.http_timeout);
-	debug_log("http_blocksize : %d \n", g_player_ini.http_blocksize);
 	debug_log("http_buffering_time : %f \n", g_player_ini.http_buffering_time);
+	debug_log("http_timeout : %d \n", g_player_ini.http_timeout);
 	
 	/* rtsp streaming */
 	debug_log("name_of_rtspsrc : %s\n", g_player_ini.name_of_rtspsrc);
 	debug_log("rtsp_buffering_time(msec) : %d\n", g_player_ini.rtsp_buffering_time);
 	debug_log("rtsp_rebuffering_time(msec) : %d\n", g_player_ini.rtsp_rebuffering_time);
-	debug_log("rtsp_audio_packet_drop_rate : %d \n", g_player_ini.rtsp_audio_packet_drop_rate);
-	debug_log("rtsp_video_packet_drop_rate : %d \n", g_player_ini.rtsp_video_packet_drop_rate);
 	debug_log("rtsp_do_typefinding : %d \n", g_player_ini.rtsp_do_typefinding);
-	debug_log("rtsp_dump_video_frame : %d \n", g_player_ini.rtsp_dump_video_frame);
-	debug_log("rtsp_dump_audio_frame : %d \n", g_player_ini.rtsp_dump_audio_frame);
-	debug_log("rtsp_stack_debug : %d \n", g_player_ini.rtsp_stack_debug);
 	debug_log("rtsp_error_concealment : %d \n", g_player_ini.rtsp_error_concealment);
 
 	/* hw accel */
@@ -329,11 +294,6 @@ mm_player_ini_load(void)
 	debug_log("videosink_priority : %d\n", g_player_ini.videosink_priority);
 	debug_log("ringbuffer_priority : %d\n", g_player_ini.ringbuffer_priority);
 
-	/* subtitle */
-	debug_log("use_subtitle_setting : %d\n", g_player_ini.use_subtitle_setting);
-	debug_log("subtitle_uri : %s\n", g_player_ini.subtitle_uri);
-	debug_log("subtitle_silent : %d\n", g_player_ini.subtitle_silent);
-	
 	debug_log("---------------------------------------------------\n");	
 
 	return MM_ERROR_NONE;
@@ -364,7 +324,6 @@ static
 void __mm_player_ini_force_setting(void)
 {
 	/* FIXIT : remove it when all other elements are available on simulator, SDK */
-	
 	#if ! defined(__arm__)
 		debug_warning("player is running on simulator. force to use ximagesink\n");
 		g_player_ini.videosink_element = PLAYER_INI_VSINK_XIMAGESINK;
@@ -372,45 +331,10 @@ void __mm_player_ini_force_setting(void)
 
 		strcpy( g_player_ini.name_of_drmsrc, "filesrc" );
 
-		// Force setting for simulator :+:091218 
+		// Force setting for simulator  
 		strcpy( g_player_ini.name_of_audiosink, "alsasink" );
 
-		
-//		__get_string_list( (gchar**) g_player_ini.exclude_element_keyword, "");
-		
 	#endif
-
-	#if defined(VDF_SDK) || defined (SEC_SDK)
-		debug_warning("player is running on SDK.\n");
-		debug_warning("So, it seems like that some plugin values are not same with those\n");
-		debug_warning("which are written in default ini file.\n");
-
-		g_player_ini.videosink_element = PLAYER_INI_VSINK_XIMAGESINK;
-		g_player_ini.use_audio_filter = FALSE;
-
-		strcpy( g_player_ini.name_of_drmsrc, "filesrc" );
-	#endif
-
-	#if defined(NEW_SOUND) 
-		strcpy (g_player_ini.name_of_audiosink, "soundsink"); // :+:090707
-	#endif
-
-	/* FIXIT : The HW quality of volans is not better than protector.
-	 * So, it can't use same timeout value because state change(resume) is sometimes failed in volans.
-	 * Thus, it should be set more than 10sec. 
-	 */
-	#if defined(_MM_PROJECT_VOLANS)
-		g_player_ini.localplayback_state_change_timeout = 10;
-		debug_log("localplayback_state_change_timeout is set as 30sec by force\n");
-	#endif
-
-	#if 0
-	#if defined(_MM_PROJECT_VOLANS)
-		debug_warning("player is running on VOLANS\n");
-		g_player_ini.use_audio_filter = FALSE;		// (+)090702, disabled temporally
-	#endif
-	#endif
-	
 }
 
 mm_player_ini_t* 

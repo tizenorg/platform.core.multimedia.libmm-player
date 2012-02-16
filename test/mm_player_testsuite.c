@@ -24,7 +24,7 @@
 |  INCLUDE FILES																			|
 |  																							|
 ========================================================================================== */
-//#define MTRACE;
+//#define TRACE;
 #include <glib.h>
 #include <mm_types.h>
 #include <mm_error.h>
@@ -38,9 +38,9 @@
 #include <pthread.h>
 #include <mm_util_imgp.h> // video capture
 
-#ifdef MTRACE
-#include <unistd.h> //mtrace
-#include <stdlib.h> //mtrace
+#ifdef TRACE
+#include <unistd.h>
+#include <stdlib.h>
 #endif
 
 #include <dlfcn.h>
@@ -156,7 +156,7 @@ do \
                 free(x_err_attrs_name);
 
 
-#define R2VS_TEST_EACH_FILTER_MODE	//hjkim:+: 090309
+#define R2VS_TEST_EACH_FILTER_MODE
 
 //#define AUDIO_FILTER_EFFECT // temp for debianize
 
@@ -205,6 +205,7 @@ enum
 #ifdef AUDIO_FILTER_EFFECT
 	CURRENT_STATUS_R2VS,
 #endif
+	CURRENT_STATUS_ADJUST_SUBTITLE_POSITION,
 	CURRENT_STATUS_SUBTITLE_FILENAME,
 	CURRENT_STATUS_RESIZE_VIDEO,	
 };
@@ -357,10 +358,10 @@ bool testsuite_sample_cb(void *stream, int stream_size, void *user_param);
 |  FUNCTION DEFINITIONS																		|
 |  																							|
 ========================================================================================== */
-#ifdef _USE_XVIMAGESINK //tskim:~:ImplementationFullscreen_090119
+#ifdef _USE_XVIMAGESINK 
 void change_fullscreen(GtkWidget* widget);
 gboolean softkey_cb_select_and_back(GtkWidget *widget, SoftkeyPosition position, gpointer data);
-#endif //tskim:~:ImplementationFullscreen_090119
+#endif
 
 
 /*---------------------------------------------------------------------------
@@ -475,8 +476,6 @@ static bool msg_callback(int message, MMMessageParamType *param, void *user_para
 			g_print("error : code = %x\n", param->code);
 			if (param->code == MM_ERROR_PLAYER_CODEC_NOT_FOUND)
 				g_print("##  error string = %s\n", param->data);
-			//g_print("Got MM_MESSAGE_ERROR, testsuite will be exit\n");
-			//quit_program ();							// 090519
 			break;
 
 		case MM_MESSAGE_WARNING:
@@ -485,24 +484,17 @@ static bool msg_callback(int message, MMMessageParamType *param, void *user_para
 
 		case MM_MESSAGE_END_OF_STREAM:
 			g_print("end of stream\n");
-			mm_player_stop(g_player);		//bw.jang :+:
-			//bw.jang :-: MMPlayerUnrealize(g_player);
-			//bw.jang :-: MMPlayerDestroy(g_player);
-			//bw.jang :-: g_player = 0;
 
 			if (g_bArgPlay == TRUE ) {
 
 				g_timeout_add(100, timeout_quit_program, 0);
 
-//				quit_program();
 			}
 			break;
 
 		case MM_MESSAGE_STATE_CHANGED:
 			g_current_state = param->state.current;
-			//bw.jang :=:
 			//g_print("current state : %d\n", g_current_state);
-			//-->
 			switch(g_current_state)
 			{
 				case MM_PLAYER_STATE_NONE:
@@ -518,7 +510,6 @@ static bool msg_callback(int message, MMMessageParamType *param, void *user_para
 					g_print("                                                            ==> [MediaPlayerApp] Player is [PAUSED]\n");
 					break;
 			}
-			//::
 			break;
 		case MM_MESSAGE_BEGIN_OF_STREAM:
 		{
@@ -784,6 +775,13 @@ static void toggle_subtitle_silent(bool silent)
 	}
 }
 
+static void adjust_subtitle_position(int position)
+{
+	if ( mm_player_adjust_subtitle_position(g_player, MM_PLAYER_POS_FORMAT_TIME, position) != MM_ERROR_NONE )
+	{
+		g_print("failed to adjust subtitle position\n");
+	}
+}
 
 
 static void set_volume(MMPlayerVolumeType *pvolume)
@@ -807,7 +805,7 @@ static void get_volume(MMPlayerVolumeType* pvolume)
 	}
 }
 
-#ifdef MTRACE
+#ifdef TRACE
 static gboolean
 progress_timer_cb(gpointer u_data) // @
 {
@@ -840,7 +838,7 @@ static void player_play()
 	int bRet = FALSE;
 
 	bRet = mm_player_start(g_player);
-#ifdef MTRACE
+#ifdef TRACE
 	g_timeout_add( 500,  progress_timer_cb, g_player );
 #endif
 }
@@ -886,7 +884,7 @@ static void player_rotate()
 }
 	
 
-#ifdef MTRACE
+#ifdef TRACE
 //	usleep (1000000);
 //	g_print ("aaaaa\n");
 //	g_timeout_add( 500,  progress_timer_cb, g_player );
@@ -1091,7 +1089,6 @@ static int set_r2vs(char* char_mode)
 			mode = mode |MM_AUDIO_FILTER_SV;
 			r2vs_mode = 3;
 		}
-//hjkim:+:090203, Add for SPK mode test
 		else if(strncmp(tmp_mode+idx_filter, "6", 1 ) == 0)
 		{
 			filter_info.output_mode = MM_AUDIO_FILTER_OUTPUT_EAR;
@@ -1204,7 +1201,6 @@ static void print_info()
 #if 0
 	MMHandleType tag_prop = 0, content_prop = 0;
 
-#if 1 // hcjeon:-:enable it later. // enabled!!!:+:100112
 	/* set player configuration */
 	MMPlayerGetAttrs(g_player, MM_PLAYER_ATTRS_TAG, &tag_prop);
 	MMPlayerGetAttrs(g_player, MM_PLAYER_ATTRS_CONTENT, &content_prop);
@@ -1296,7 +1292,6 @@ static void print_info()
 	printf( "====================================================================================\n" );
 	printf("Time analysis...\n");
 
-#endif
 	//MMTA_ACUM_ITEM_SHOW_RESULT();
 #endif
 }
@@ -1370,12 +1365,10 @@ void display_sub_basic()
 	g_print("sr. Togle Section Play\n");
 	g_print("[display ]x. Change display geometry method\t");
 	g_print("dv. display visible\t");
-	g_print("rv. resize video - fimcconvert only\n");	
+	g_print("rv. resize video - fimcconvert only\n");
 
 	g_print("[ sound  ] k. Toggle Fadeup\t");
-	g_print("z. Apply DNSE   \t");
-
-
+	g_print("z. Apply DNSE   \t\n");
 
 #if 0	// not available now
   	g_print("        Progressive Download\n");
@@ -1387,7 +1380,8 @@ void display_sub_basic()
 #endif
 
 	g_print("[subtitle] $. Set subtitle uri\t");
-	g_print("%%. Toggle subtitle silent  \n");
+	g_print("%%. Toggle subtitle silent  \t");
+	g_print("<. Adjust subtitle postion  \n");
 
 	g_print("[   etc  ] j. Information\t");
 	g_print("l. Buffering Mode\n");
@@ -1497,6 +1491,10 @@ static void displaymenu()
 	else if (g_menu_state == CURRENT_STATUS_SUBTITLE_FILENAME)
 	{
 		g_print(" ** input  subtitle file path.\n");
+	}
+	else if (g_menu_state == CURRENT_STATUS_ADJUST_SUBTITLE_POSITION)
+	{
+		g_print("*** input adjusted value(msec)\n");
 	}
 	else
 	{
@@ -1782,7 +1780,7 @@ void _interpret_main_menu(char *cmd)
 		}
 		else if (strncmp(cmd, "j", 1) == 0)
 		{
-			 	print_info(); // enabled!!!:+:100112
+			 	print_info(); 
 		}
 		else if (strncmp(cmd, "o", 1) == 0)
 		{
@@ -1816,7 +1814,7 @@ void _interpret_main_menu(char *cmd)
 		{
 				g_menu_state = CURRENT_STATUS_DISPLAYMETHOD;
 		}
-#ifdef _USE_XVIMAGESINK //tskim:~:ImplementationFullscreen_090119
+#ifdef _USE_XVIMAGESINK 
 		else if (strncmp (cmd, "x", 1) == 0)
 		{
 				change_fullscreen(overlay);
@@ -1868,6 +1866,10 @@ void _interpret_main_menu(char *cmd)
 
 			reset_menu_state();
 		}
+		else if(strncmp(cmd, "<", 1) == 0)
+		{
+				g_menu_state = CURRENT_STATUS_ADJUST_SUBTITLE_POSITION;
+		}
 		else
 		{
 				g_print("unknown menu \n");
@@ -1907,8 +1909,7 @@ void _interpret_main_menu(char *cmd)
 		else if (strncmp (cmd, "rv", 2) == 0)
 		{
 			g_menu_state = CURRENT_STATUS_RESIZE_VIDEO;
-		}		
-
+		}
 		else if (strncmp(cmd, "help", 4) == 0)
 		{
 			g_timeout_add(100, timeout_menu_display, 0);
@@ -2034,6 +2035,17 @@ static void interpret (char *cmd)
 
 			reset_menu_state();
 		}
+		break;
+
+		case CURRENT_STATUS_ADJUST_SUBTITLE_POSITION:
+		{
+			int position = atol(cmd);
+			 g_printf("\n ------------------ %d \n", position);
+			adjust_subtitle_position(position);
+
+			reset_menu_state();
+		}
+		break;
 
 	}
 
@@ -2066,7 +2078,7 @@ static gboolean
 }
 #endif
 
-#ifdef _USE_XVIMAGESINK //tskim:~:ImplementationFullscreen_090119
+#ifdef _USE_XVIMAGESINK 
 GtkWidget *event_win;
 
 void change_fullscreen(GtkWidget* widget)
@@ -2175,12 +2187,11 @@ void make_window()
 
 	overlay = gtk_overlay_drawing_new();
 	gtk_overlay_drawing_set_type(overlay, GTK_OVERLAY_TYPE_YUV420);
-	gtk_widget_set_size_request(overlay, FULL_WIDTH, FULL_HEIGHT); // sbs:+:081203
+	gtk_widget_set_size_request(overlay, FULL_WIDTH, FULL_HEIGHT);
 
 	allocation.x = 0;
 	allocation.y = 0;
 
-	// sbs:+:081203
 	allocation.width = FULL_WIDTH;
 	allocation.height = FULL_HEIGHT;
 
@@ -2209,7 +2220,7 @@ int main(int argc, char *argv[])
 		GIOChannel *stdin_channel;
 		MMTA_INIT();
 
-#ifdef MTRACE
+#ifdef TRACE
 		mtrace();
 		MMHandleType prop;
 		GError *error = NULL;

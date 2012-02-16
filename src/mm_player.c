@@ -632,6 +632,30 @@ int mm_player_get_buffer_position(MMHandleType player, MMPlayerPosFormatType for
 	return result;
 }
 
+int mm_player_adjust_subtitle_position(MMHandleType player, MMPlayerPosFormatType format, int pos)
+{
+	int result = MM_ERROR_NONE;
+
+	debug_log("\n");
+
+	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+
+	if (format >= MM_PLAYER_POS_FORMAT_NUM)
+	{
+		debug_error("wrong format\n");
+		return MM_ERROR_COMMON_INVALID_ARGUMENT;
+	}
+
+	MMPLAYER_CMD_LOCK( player );
+
+	result = _mmplayer_adjust_subtitle_postion(player, format, pos);
+
+	MMPLAYER_CMD_UNLOCK( player );
+
+	return result;
+}
+
+
 int mm_player_set_subtitle_silent(MMHandleType player, int silent)
 {
 	int result = MM_ERROR_NONE;

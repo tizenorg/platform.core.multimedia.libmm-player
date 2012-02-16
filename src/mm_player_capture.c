@@ -179,17 +179,29 @@ __mmplayer_capture_thread(gpointer data)
 			debug_log("e[0]=%d, e[1]=%d\n", player->captured.e[0], player->captured.e[1]);
 			debug_log("a[0]=%p, a[1]=%p\n", player->captured.a[0], player->captured.a[1]);
 
+			if (mm_attrs_get_int_by_name(player->attrs, "content_video_width", &(player->captured.w[0])) != MM_ERROR_NONE)
+			{
+				debug_error("failed to get content width attribute\n");
+				goto ERROR;
+			}
+
+			if (mm_attrs_get_int_by_name(player->attrs, "content_video_height", &(player->captured.h[0])) != MM_ERROR_NONE)
+			{
+				debug_error("failed to get content height attribute\n");
+				goto ERROR;
+			}
+
 			linear_y_plane_size = (player->captured.w[0] * player->captured.h[0]);
 			linear_uv_plane_size = (player->captured.w[0] * player->captured.h[0]/2);
-			linear_y_plane = (unsigned char*) g_try_malloc(linear_y_plane_size);
 
+			linear_y_plane = (unsigned char*) g_try_malloc(linear_y_plane_size);
 			if (linear_y_plane == NULL)
 			{
 				msg.code = MM_ERROR_PLAYER_NO_FREE_SPACE;
 				goto ERROR;
 			}
-			linear_uv_plane = (unsigned char*) g_try_malloc(linear_uv_plane_size);
 
+			linear_uv_plane = (unsigned char*) g_try_malloc(linear_uv_plane_size);
 			if (linear_uv_plane == NULL)
 			{
 				msg.code = MM_ERROR_PLAYER_NO_FREE_SPACE;

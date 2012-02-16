@@ -293,6 +293,11 @@
 	<td>VALID TYPE</td>
 	</tr>
 	<tr>
+	<td>"content_video_found"</td>
+	<td>string</td>
+	<td>N/A</td>
+	</tr>
+	<tr>
 	<td>"content_video_codec"</td>
 	<td>string</td>
 	<td>N/A</td>
@@ -301,6 +306,11 @@
 	<td>"content_video_track_num"</td>
 	<td>int</td>
 	<td>range</td>
+	</tr>
+	<tr>
+	<td>"content_audio_found"</td>
+	<td>string</td>
+	<td>N/A</td>
 	</tr>
 	<tr>
 	<td>"content_audio_codec"</td>
@@ -1235,6 +1245,31 @@ printf("mute status:%d\n", mute);
  * @endcode 
  */
 int mm_player_get_mute(MMHandleType player, int *mute);
+
+/**
+ * This function is to adjust subtitle postion. So, subtitle can show at the adjusted position. \n
+ * If pos is negative, subtitle will be displayed previous time, the other hand forward time. \n
+ *
+ * @param	player	[in]	Handle of player
+ * @param	pos		[in]	postion to be adjusted
+ *
+ * @return	This function returns zero on success, or negative value with error
+ *			code
+ * @see		mm_player_adjust_subtitle_position
+ * @remark	None
+ * @par Example
+ * @code
+int pos;
+
+pos = 5000;
+if (mm_player_adjust_subtitle_position(g_player, MM_PLAYER_POS_FORMAT_TIME, pos) != MM_ERROR_NONE)
+{
+	printf("failed to adjust subtitle postion.\n");
+}
+ * @endcode
+ */
+
+int mm_player_adjust_subtitle_position(MMHandleType player, MMPlayerPosFormatType format, int pos);
 
 /**
  * This function is to set subtitle silent status. So, subtitle can show or hide during playback \n
