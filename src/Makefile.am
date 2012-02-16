@@ -30,7 +30,8 @@ libmmfplayer_la_SOURCES = mm_player.c \
 			  mm_player_ahs_hls.c \
 			  mm_player_ahs.c \
 			  mm_player_capture.c \
-			  mm_player_pd.c
+			  mm_player_pd.c \
+			  mm_player_streaming.c
 
 libmmfplayer_la_CFLAGS =  -I$(srcdir)/include \
 			  $(MMCOMMON_CFLAGS) \
@@ -51,7 +52,8 @@ noinst_HEADERS += include/mm_player_utils.h \
 		 include/mm_player_ahs.h \
 		 include/mm_player_ahs_hls.h \
 		 include/mm_player_capture.h \
-		 include/mm_player_pd.h 
+		 include/mm_player_pd.h \
+		 include/mm_player_streaming.h
 
 libmmfplayer_la_DEPENDENCIES = $(top_builddir)/src/libmmfplayer_m3u8.la
 
