@@ -75,6 +75,8 @@ void __mm_player_streaming_deinitialize (mm_player_streaming_t* streamer)
 {
 	debug_fenter();
 
+	return_if_fail(streamer);
+
 	streamer->buffer_size = DEFAULT_BUFFER_SIZE;
 	streamer->buffer_low_percent = DEFAULT_BUFFER_LOW_PERCENT;
 	streamer->buffer_high_percent = DEFAULT_BUFFER_HIGH_PERCENT;
@@ -96,8 +98,11 @@ void __mm_player_streaming_destroy (mm_player_streaming_t* streamer)
 {
 	debug_fenter();
 
-	free (streamer);
-	streamer = NULL;
+	if(streamer)
+	{
+		free (streamer);
+		streamer = NULL;
+	}
 
 	debug_fleave();
 

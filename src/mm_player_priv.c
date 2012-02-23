@@ -5888,17 +5888,23 @@ __mmplayer_release_extended_streaming(mm_player_t* player)
 	/* destroy can called at anytime */
        if (MMPLAYER_IS_HTTP_LIVE_STREAMING(player))
        {
-		__mm_player_ahs_stop (player->ahs_player);
-		__mm_player_ahs_deinitialize (player->ahs_player);
-		__mm_player_ahs_destroy(player->ahs_player);
-		player->ahs_player = NULL;
+		if (player->ahs_player)
+		{
+			__mm_player_ahs_stop (player->ahs_player);
+			__mm_player_ahs_deinitialize (player->ahs_player);
+			__mm_player_ahs_destroy(player->ahs_player);
+			player->ahs_player = NULL;
+		}
        }
 
        if (MMPLAYER_IS_STREAMING(player))
        {
-		__mm_player_streaming_deinitialize (player->streamer);
-		__mm_player_streaming_destroy(player->streamer);
-		player->streamer = NULL;
+		if (player->streamer)
+		{
+			__mm_player_streaming_deinitialize (player->streamer);
+			__mm_player_streaming_destroy(player->streamer);
+			player->streamer = NULL;
+		}
        }
 }
 
