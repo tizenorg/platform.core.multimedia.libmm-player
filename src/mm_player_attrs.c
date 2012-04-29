@@ -25,6 +25,7 @@
 |  INCLUDE FILES																			|
 |  																							|
 ========================================================================================== */
+#include <vconf.h>
 #include "mm_player_priv.h"
 #include "mm_player_attrs.h"
 #include <mm_attrs_private.h>
@@ -309,11 +310,11 @@ _mmplayer_construct_attribute(mm_player_t* player)
 		/*streaming */
 		{"streaming_type",					MM_ATTRS_TYPE_INT, 		MM_ATTRS_FLAG_RW, (void *) STREAMING_SERVICE_NONE },
 		{"streaming_udp_timeout",			MM_ATTRS_TYPE_INT,		MM_ATTRS_FLAG_RW, (void *)10000},
-		{"streaming_user_agent",			MM_ATTRS_TYPE_STRING, 	MM_ATTRS_FLAG_RW, (void *)NULL},
+		{"streaming_user_agent",			MM_ATTRS_TYPE_STRING, 	MM_ATTRS_FLAG_RW, (void *) vconf_get_str(VCONFKEY_ADMIN_UAGENT)},
 		{"streaming_wap_profile",			MM_ATTRS_TYPE_STRING, 	MM_ATTRS_FLAG_RW, (void *)NULL},
 		{"streaming_network_bandwidth",	MM_ATTRS_TYPE_INT,		MM_ATTRS_FLAG_RW, (void *)128000},
 		{"streaming_cookie",				MM_ATTRS_TYPE_STRING, 	MM_ATTRS_FLAG_RW, (void *)NULL},
-		{"streaming_proxy",				MM_ATTRS_TYPE_STRING, 	MM_ATTRS_FLAG_RW, (void *)NULL},
+		{"streaming_proxy",				MM_ATTRS_TYPE_STRING, 	MM_ATTRS_FLAG_RW, (void *) vconf_get_str(VCONFKEY_NETWORK_PROXY)},
 		/* subtitle */
 		{"subtitle_uri",					MM_ATTRS_TYPE_STRING, 	MM_ATTRS_FLAG_RW, (void *)NULL},
 		{"subtitle_silent",					MM_ATTRS_TYPE_INT, 		MM_ATTRS_FLAG_RW, (void *)0},

@@ -280,8 +280,9 @@ bool util_check_valid_url ( const char *proxy )
 	bool ret = TRUE;
 	
 	return_val_if_fail ( proxy, FALSE );
+	return_val_if_fail ( strlen(proxy), FALSE ); 
 
-       if ( inet_aton(proxy, &proxy_addr) != 0 )
+       	if ( inet_aton(proxy, &proxy_addr) != 0 )
 	{
 		debug_warning("invalid proxy is set. \n");
 		ret = FALSE;

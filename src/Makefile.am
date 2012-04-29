@@ -42,6 +42,7 @@ libmmfplayer_la_CFLAGS =  -I$(srcdir)/include \
 			  $(GST_APP_CFLAGS) \
 			  $(MMSESSION_CFLAGS) \
 			  $(AUDIOSESSIONMGR_CFLAGS) \
+			  $(VCONF_CFLAGS) \
 			  $(CRYPTO_CFLAGS)
 
 noinst_HEADERS += include/mm_player_utils.h \
@@ -67,6 +68,7 @@ libmmfplayer_la_LIBADD = $(GST_LIBS) \
 			 $(CRYPTO_LIBS) \
 			 $(MMSESSION_LIBS) \
 			 $(AUDIOSESSIONMGR_LIBS) \
+			 $(VCONF_LIBS) \
 			 $(top_builddir)/src/libmmfplayer_m3u8.la
 
 libmmfplayer_la_CFLAGS += $(MMLOG_CFLAGS) -DMMF_LOG_OWNER=0x008 -DMMF_DEBUG_PREFIX=\"MMF-PLAYER\" -D_INTERNAL_SESSION_MANAGER_

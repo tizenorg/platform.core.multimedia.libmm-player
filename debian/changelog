@@ -1,3 +1,19 @@
+libmm-player (0.2.14-0) unstable; urgency=low
+
+  * Fix UA/Proxy default value to be set using vconf
+  * Git: pkgs/l/libmm-player
+  * Tag: libmm-player_0.2.14-0 
+
+ -- YeJin Cho <cho.yejin@samsung.com>  Wed, 21 Mar 2012 14:48:09 +0900
+
+libmm-player (0.2.13-0) unstable; urgency=low
+
+  * Change ini default file path
+  * Git: pkgs/l/libmm-player
+  * Tag: libmm-player_0.2.13-0
+
+ -- YeJin Cho <cho.yejin@samsung.com>  Wed, 21 Mar 2012 14:38:53 +0900
+
 libmm-player (0.2.12-0) unstable; urgency=low
 
   * update to latest code

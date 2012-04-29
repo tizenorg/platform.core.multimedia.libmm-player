@@ -4,20 +4,20 @@ Priority: extra
 Maintainer: Shin Seung Bae <seungbae.shin@samsung.com>, JongHyuk Choi <jhchoi.choi@samsung.com>
 Uploaders: Young Hwan Ahn <younghwan_.an@samsung.com>
            Cho Ye Jin <cho.yejin@samsung.com>, KwangHui Cho <kwanghui.cho@samsung.com>, Jeon Hee Chul <heechul.jeon@samsung.com>, Wonhyung Cho <wh01.cho@samsung.com>
-Build-Depends: debhelper (>= 5), autotools-dev, libmm-log-dev, libmm-common-dev, libgstreamer0.10-dev, libgstreamer-plugins-base0.10-dev, iniparser-dev, libmm-sound-dev, libmm-ta-dev, libappcore-efl-dev, libefreet-dev, libmm-session-dev,  libaudiosessionmgr-dev (>=0.1.1), libmm-utility-dev, libmm-common-internal-dev
+Build-Depends: debhelper (>= 5), autotools-dev, libmm-log-dev, libmm-common-dev, libgstreamer0.10-dev, libgstreamer-plugins-base0.10-dev, iniparser-dev, libmm-sound-dev, libmm-ta-dev, libappcore-efl-dev, libefreet-dev, libmm-session-dev,  libaudiosessionmgr-dev (>=0.1.1), libmm-utility-dev, libmm-common-internal-dev, libvconf-dev
 Standards-Version: 3.7.2
 
 Package: libmm-player
 Section: libs
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, libmm-log, libmm-common, libgstreamer0.10-0, libgstreamer-plugins-base0.10-0, libmm-ta, libmm-session-0, libaudiosessionmgr-0 (>=0.1.1), pulseaudio, pulseaudio-module-bluetooth[armel], libmm-utility
+Depends: ${shlibs:Depends}, ${misc:Depends}, libmm-log, libmm-common, libgstreamer0.10-0, libgstreamer-plugins-base0.10-0, libmm-ta, libmm-session-0, libaudiosessionmgr-0 (>=0.1.1), pulseaudio, pulseaudio-module-bluetooth[armel], libmm-utility, libvconf-0
 Description: Multimedia Framework Player Library
 
 Package: libmm-player-dev
 XB-Generate-Docs: yes
 Section: libdevel
 Architecture: any
-Depends: libmm-player (= ${Source-Version}), libmm-log-sdk-dev, libmm-common-dev, libgstreamer0.10-sdk-dev, libgstreamer-plugins-base0.10-sdk-dev, libmm-sound-sdk-dev, libmm-ta-sdk-dev, libmm-session-sdk-dev,  libaudiosessionmgr-sdk-dev (>=0.1.1), libmm-utility-dev
+Depends: libmm-player (= ${Source-Version}), libmm-log-sdk-dev, libmm-common-dev, libgstreamer0.10-sdk-dev, libgstreamer-plugins-base0.10-sdk-dev, libmm-sound-sdk-dev, libmm-ta-sdk-dev, libmm-session-sdk-dev,  libaudiosessionmgr-sdk-dev (>=0.1.1), libmm-utility-dev, libvconf-dev
 Description: Multimedia Framework Player Library (DEV)
 
 Package: libmm-player-internal-dev

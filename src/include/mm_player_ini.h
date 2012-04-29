@@ -30,11 +30,7 @@
 #endif
 
 
-#if defined(MMFW_DEBUG_MODE)
-#define MM_PLAYER_INI_DEFAULT_PATH	"/opt/etc/mmfw_player.ini"
-#else
 #define MM_PLAYER_INI_DEFAULT_PATH	"/usr/etc/mmfw_player.ini"
-#endif 
 
 #define PLAYER_INI() mm_player_ini_get_structure()
 
