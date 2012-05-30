@@ -5,6 +5,7 @@ Release:    1
 Group:      System/Libraries
 License:    Apache-2.0
 Source0:    %{name}-%{version}.tar.gz
+Source1001: packaging/libmm-player.manifest 
 Requires(post):  /sbin/ldconfig
 Requires(postun):  /sbin/ldconfig
 BuildRequires:  pkgconfig(mm-ta)
@@ -41,6 +42,7 @@ Requires:   %{name} = %{version}-%{release}
 %setup -q
 
 %build
+cp %{SOURCE1001} .
 
 ./autogen.sh
 
@@ -70,12 +72,14 @@ rm -rf %{buildroot}
 
 
 %files
+%manifest libmm-player.manifest
 %defattr(-,root,root,-)
 %{_libdir}/*.so.*
 %{_bindir}/*
 
 
 %files devel
+%manifest libmm-player.manifest
 %defattr(-,root,root,-)
 %{_libdir}/*.so
 %{_includedir}/mmf/*.h
