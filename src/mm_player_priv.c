@@ -2512,7 +2512,7 @@ _mmplayer_update_video_param(mm_player_t* player) // @
 	            		debug_warning("still we don't have xid on player attribute. create it's own surface.\n");
 			}
 
-			if ( PLAYER_INI()->videosink_element == PLAYER_INI_VSINK_XVIMAGESINK )
+			if ( PLAYER_INI()->videosink_element == PLAYER_INI_VSINK_XVIMAGESINK || PLAYER_INI()->videosink_element == PLAYER_INI_VSINK_XIMAGESINK)
 			{
 				mm_attrs_get_int_by_name(attrs, "display_force_aspect_ration", &force_aspect_ratio);
 				mm_attrs_get_int_by_name(attrs, "display_zoom", &zoom);
