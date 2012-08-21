@@ -24,6 +24,8 @@
 #define __MM_PLAYER_INI_H__
 
 #include <glib.h>
+#include <mm_types.h>
+#include "mm_player_sndeffect.h"
 
 #ifdef __cplusplus
 	extern "C" {
@@ -34,19 +36,8 @@
 
 #define PLAYER_INI() mm_player_ini_get_structure()
 
-#define PLAYER_INI_MAX_STRLEN	80
-
-
-typedef enum __player_ini_videosink_element
-{
-	PLAYER_INI_VSINK_V4l2SINK = 0,
-	PLAYER_INI_VSINK_XIMAGESINK,
-	PLAYER_INI_VSINK_XVIMAGESINK,
-	PLAYER_INI_VSINK_FAKESINK,
-	PLAYER_INI_VSINK_EVASIMAGESINK,
-	PLAYER_INI_VSINK_GLIMAGESINK,	
-	PLAYER_INI_VSINK_NUM
-}PLAYER_INI_VSINK_ELEMENT;
+#define PLAYER_INI_MAX_STRLEN	100
+#define PLAYER_INI_MAX_PARAM_STRLEN	256
 
 /* NOTE : MMPlayer has no initalizing API for library itself
  * so we cannot decide when those ini values to be released.
@@ -62,8 +53,10 @@ typedef struct __mm_player_ini
 	/* general */
 	gboolean use_decodebin;	// @
 	gboolean use_sink_handler; // @
-	gboolean use_audio_filter; // @
-	PLAYER_INI_VSINK_ELEMENT videosink_element; // @
+	gint video_surface;
+	gchar videosink_element_x[PLAYER_INI_MAX_STRLEN];
+	gchar videosink_element_evas[PLAYER_INI_MAX_STRLEN];
+	gchar videosink_element_fake[PLAYER_INI_MAX_STRLEN];
 	gchar name_of_audiosink[PLAYER_INI_MAX_STRLEN]; // @
 	gchar name_of_drmsrc[PLAYER_INI_MAX_STRLEN]; // @
 	gchar name_of_video_converter[PLAYER_INI_MAX_STRLEN];
@@ -76,10 +69,23 @@ typedef struct __mm_player_ini
 	gint eos_delay; // @
 	gboolean multiple_codec_supported;
 	
-	gchar gst_param[5][256]; // @
+	gchar gst_param[5][PLAYER_INI_MAX_PARAM_STRLEN]; // @
 	gchar exclude_element_keyword[10][PLAYER_INI_MAX_STRLEN];
 	gboolean async_start;
 	gboolean disable_segtrap;
+
+	/* audio filter */
+	gboolean use_audio_filter_preset;
+	gboolean audio_filter_preset_list[MM_AUDIO_FILTER_PRESET_NUM];
+	gboolean audio_filter_preset_earphone_only_list[MM_AUDIO_FILTER_PRESET_NUM];
+
+	gboolean use_audio_filter_custom;
+	gboolean audio_filter_custom_list[MM_AUDIO_FILTER_CUSTOM_NUM];
+	gboolean audio_filter_custom_earphone_only_list[MM_AUDIO_FILTER_CUSTOM_NUM];
+	gint audio_filter_custom_eq_num;
+	gint audio_filter_custom_ext_num;
+	gint audio_filter_custom_min_level_list[MM_AUDIO_FILTER_CUSTOM_NUM];
+	gint audio_filter_custom_max_level_list[MM_AUDIO_FILTER_CUSTOM_NUM];
 
 	/* http streaming */
 	gchar name_of_httpsrc[PLAYER_INI_MAX_STRLEN]; // @
@@ -110,7 +116,16 @@ typedef struct __mm_player_ini
 /* default values if each values are not specified in inifile */
 /* general */
 #define DEFAULT_USE_DECODEBIN				FALSE
-#define DEFAULT_USE_AUDIO_FILTER			FALSE
+#define DEFAULT_USE_AUDIO_FILTER_PRESET			FALSE
+#define DEFAULT_AUDIO_FILTER_PRESET_LIST		""
+#define DEFAULT_AUDIO_FILTER_PRESET_LIST_EARPHONE_ONLY	""
+#define DEFAULT_USE_AUDIO_FILTER_CUSTOM			FALSE
+#define DEFAULT_AUDIO_FILTER_CUSTOM_LIST		""
+#define DEFAULT_AUDIO_FILTER_CUSTOM_LIST_EARPHONE_ONLY	""
+#define DEFAULT_AUDIO_FILTER_CUSTOM_EQ_NUM		0
+#define DEFAULT_AUDIO_FILTER_CUSTOM_EQ_MIN		0
+#define DEFAULT_AUDIO_FILTER_CUSTOM_EQ_MAX		0
+#define DEFAULT_AUDIO_FILTER_CUSTOM_EXT_NUM		0
 #define DEFAULT_USE_SINK_HANDLER			TRUE
 #define DEFAULT_SKIP_RESCAN				TRUE
 #define DEFAULT_GENERATE_DOT				FALSE
@@ -118,7 +133,10 @@ typedef struct __mm_player_ini
 #define DEFAULT_DELAY_BEFORE_REPEAT	 		50 /* msec */
 #define DEFAULT_EOS_DELAY 				150 /* msec */
 #define DEFAULT_DRMSRC					"drmsrc"
-#define DEFAULT_VIDEOSINK				PLAYER_INI_VSINK_XVIMAGESINK
+#define DEFAULT_VIDEO_SURFACE				MM_DISPLAY_SURFACE_X
+#define DEFAULT_VIDEOSINK_X				"xvimagesink"
+#define DEFAULT_VIDEOSINK_EVAS				"evasimagesink"
+#define DEFAULT_VIDEOSINK_FAKE				"fakesink"
 #define DEFAULT_AUDIOSINK				"avsysaudiosink"
 #define DEFAULT_GST_PARAM				""
 #define DEFAULT_EXCLUDE_KEYWORD				""

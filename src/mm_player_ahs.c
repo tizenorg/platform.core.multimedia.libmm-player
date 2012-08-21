@@ -20,7 +20,7 @@
  * limitations under the License.
  *
  */
-
+#include <vconf.h>
 #include "mm_player_ahs.h"
 #include "mm_player_priv.h"
 #include "mm_player_utils.h"
@@ -77,6 +77,8 @@ on_new_buffer_from_appsink (GstElement * appsink, void* data)
 	{
 		ahs_player->seg_size = ahs_player->seg_size + GST_BUFFER_SIZE (InBuf);
 		
+              //g_print ("******** Pushing buffer size = %d and total_seg_size = %"G_GUINT64_FORMAT"\n", GST_BUFFER_SIZE (InBuf), ahs_player->seg_size);
+
 		if (ahs_player->cur_key_uri)
 		{
 			GstBuffer *OutBuf = NULL;
@@ -92,13 +94,15 @@ on_new_buffer_from_appsink (GstElement * appsink, void* data)
 			
 			if (ahs_is_buffer_discontinuous(ahs_player)) 
 			{
+   				g_print ("\n\n\n\nMarking fragment as discontinuous...\n\n\n\n\n");
     				GST_BUFFER_FLAG_SET (OutBuf, GST_BUFFER_FLAG_DISCONT);
-                            	ahs_clear_discontinuous (ahs_player);
+                            ahs_clear_discontinuous (ahs_player);
   			}
 
 			fret = gst_app_src_push_buffer ((GstAppSrc *)ahs_player->appsrc, OutBuf);
 			if (fret != GST_FLOW_OK)
 			{
+				g_print ("\n\nError in pushing buffer to appsrc: reason - %s\n\n", gst_flow_get_name(fret));
 				__mm_player_ahs_stop (ahs_player);
 			}
 
@@ -112,6 +116,7 @@ on_new_buffer_from_appsink (GstElement * appsink, void* data)
 			
 			if (ahs_is_buffer_discontinuous(ahs_player)) 
 			{
+   				g_print ("\n\n\n\n \t\t(((((((((((((((((((((((   Marking fragment as discontinuous... ))))))))))))))))))))))))\n\n\n\n\n");
     				GST_BUFFER_FLAG_SET (InBuf, GST_BUFFER_FLAG_DISCONT);
 				ahs_clear_discontinuous (ahs_player);
   			}
@@ -119,6 +124,7 @@ on_new_buffer_from_appsink (GstElement * appsink, void* data)
 			fret = gst_app_src_push_buffer ((GstAppSrc *)ahs_player->appsrc, InBuf);
 			if (fret != GST_FLOW_OK)
 			{
+				g_print ("\n\nError in pushing buffer to appsrc: reason - %s\n\n", gst_flow_get_name(fret));
 				__mm_player_ahs_stop (ahs_player);
 			}
 		}
@@ -195,6 +201,7 @@ manifest_update_thread(gpointer data)
 			bret = g_cond_timed_wait (ahs_player->manifest_update_cond, ahs_player->manifest_mutex, &next_update);
 
 			g_mutex_unlock (ahs_player->manifest_mutex);
+#if 1
 			tmp_update.tv_sec = 0;
 			tmp_update.tv_usec = 0;
 			
@@ -202,14 +209,15 @@ manifest_update_thread(gpointer data)
 
 			if (bret == TRUE)
 			{
-				debug_log ("\n\n@@@@@@@@@ Sombody signalled manifest waiting... going to update current manifest file and diff = %d\n\n\n", 
-				((next_update.tv_sec * 1000000)+ next_update.tv_usec) - ((tmp_update.tv_sec * 1000000)+ tmp_update.tv_usec));
+				debug_log ("\n\n@@@@@@@@@ Sombody signalled manifest waiting... going to update current manifest file and diff = %d\n\n\n",
+					((next_update.tv_sec * 1000000)+ next_update.tv_usec) - ((tmp_update.tv_sec * 1000000)+ tmp_update.tv_usec));
 			}
 			else
 			{
 				debug_log ("\n\n\n~~~~~~~~~~~Timeout happened, need to update current manifest file and diff = %d\n\n\n",
-				((next_update.tv_sec * 1000000)+ next_update.tv_usec) - ((tmp_update.tv_sec * 1000000)+ tmp_update.tv_usec));
+					((next_update.tv_sec * 1000000)+ next_update.tv_usec) - ((tmp_update.tv_sec * 1000000)+ tmp_update.tv_usec));
 			}
+#endif
 		}
 		else
 		{
@@ -219,6 +227,7 @@ manifest_update_thread(gpointer data)
 				g_mutex_unlock (ahs_player->manifest_mutex);
 				goto exit;
 			}
+			g_print ("NOT-LIVE : Waiting for trigger to start downloading manifest...\n");
 			g_cond_wait (ahs_player->manifest_update_cond, ahs_player->manifest_mutex);
 			g_mutex_unlock (ahs_player->manifest_mutex);
 
@@ -293,7 +302,7 @@ media_download_thread (gpointer data)
 			fret = gst_app_src_end_of_stream ((GstAppSrc *)ahs_player->appsrc);
 			if (GST_FLOW_OK != fret)
 			{
-				debug_error("Error in pushing EOS to appsrc : reason - %s", gst_flow_get_name (fret));
+				g_print ("Error in pushing EOS to appsrc : reason - %s", gst_flow_get_name (fret));
 			}
 			goto exit;
 		}
@@ -317,10 +326,11 @@ media_download_thread (gpointer data)
 			else
 			{
 				ahs_player->media_thread_exit = TRUE;
+				g_print ("media download thread exiting....");
 				fret = gst_app_src_end_of_stream ((GstAppSrc *)ahs_player->appsrc);
 				if (GST_FLOW_OK != fret)
 				{
-					debug_error("Error in pushing EOS to appsrc : reason - %s", gst_flow_get_name (fret));
+					g_print ("Error in pushing EOS to appsrc : reason - %s", gst_flow_get_name (fret));
 				}
 				goto exit;
 			}
@@ -344,8 +354,8 @@ media_download_thread (gpointer data)
 			ahs_create_key_download_pipeline (ahs_player);
 			g_cond_wait (ahs_player->key_eos_cond, ahs_player->media_mutex);
 			g_mutex_unlock (ahs_player->media_mutex);
-		
-			debug_log("Downloaded key url.. and key data is = %s\n", ahs_player->cur_key_data);
+
+			g_print ("Downloaded key url.. and key data is = %s\n", ahs_player->cur_key_data);
 		}
 
 		ahs_player->cur_media_uri = g_strdup (media_uri);
@@ -361,8 +371,8 @@ media_download_thread (gpointer data)
 		if (FALSE == bret)
 		{
 			goto exit;
-		}	
-	
+		}
+
 		/* waiting for media file to be downloaded */
 		g_mutex_lock (ahs_player->media_mutex);
 		if (ahs_player->media_thread_exit)
@@ -413,6 +423,12 @@ ahs_create_manifest_download_pipeline (mm_player_ahs_t *ahs_player)
 		debug_error ("Can't create manifest download src...");
 		return FALSE;
 	}
+
+	if (ahs_player->user_agent)
+	{
+		g_object_set (ahs_player->manifest_download_src, "user-agent", ahs_player->user_agent, NULL );
+	}
+
 	ahs_player->manifest_download_sink = gst_element_factory_make ("filesink", "AHS manifest download sink");
 	if (NULL == ahs_player->manifest_download_sink)
 	{
@@ -475,6 +491,8 @@ ahs_create_manifest_download_pipeline (mm_player_ahs_t *ahs_player)
 
 	debug_log ("src location = %s, save location = %s\n", ahs_player->cur_mf_uri, ahs_player->ahs_manifest_dmp_location);
 
+	g_print ("Going to download manifest-uri -> %s\n", ahs_player->cur_mf_uri);
+
 	/* Start to download */
 	sret = gst_element_set_state (ahs_player->manifest_download_pipeline, GST_STATE_PLAYING);
 
@@ -527,6 +545,12 @@ ahs_create_media_download_pipeline (mm_player_ahs_t *ahs_player)
 		debug_error ("Can't create media download src...");
 		return FALSE;
 	}
+
+	if (ahs_player->user_agent)
+	{
+		g_object_set (ahs_player->media_download_src, "user-agent", ahs_player->user_agent, NULL );
+	}
+
 	ahs_player->media_download_sink = gst_element_factory_make ("appsink", "AHS media download sink");
 	if (NULL == ahs_player->media_download_sink)
 	{
@@ -610,6 +634,12 @@ ahs_create_key_download_pipeline (mm_player_ahs_t *ahs_player)
 		debug_error ("Can't create key download src...");
 		return FALSE;
 	}
+
+	if (ahs_player->user_agent)
+	{
+		g_object_set (ahs_player->key_download_src, "user-agent", ahs_player->user_agent, NULL );
+	}
+
 	ahs_player->key_download_sink = gst_element_factory_make ("filesink", "AHS key download sink");
 	if (NULL == ahs_player->key_download_sink)
 	{
@@ -955,7 +985,7 @@ ahs_media_download_callback(GstBus *bus, GstMessage *msg, gpointer data)
 				ahs_player->cache_frag_count++;
 
 				
-				debug_log("***********  frag_cnt = %d and download rate = %d bps **************\n", ahs_player->cache_frag_count, ahs_player->download_rate);
+				g_print("***********  frag_cnt = %d and download rate = %d bps **************\n", ahs_player->cache_frag_count, ahs_player->download_rate);
 
 				/* first initial fragments go with least possible bit-rate */
 				if (ahs_player->cache_frag_count == DEFAULT_FRAGMENTS_CACHE)
@@ -975,7 +1005,7 @@ ahs_media_download_callback(GstBus *bus, GstMessage *msg, gpointer data)
 				g_mutex_lock (ahs_player->media_mutex);
 				g_cond_broadcast (ahs_player->media_eos_cond);
 				g_mutex_unlock (ahs_player->media_mutex);
-		
+
 				debug_log ("Signaled media ts EOS...\n");
 
 			}
@@ -1260,6 +1290,8 @@ mm_player_ahs_t * __mm_player_ahs_create ()
 	
 	ahs_player->hls_is_wait_for_reload = FALSE;
 
+	g_print ("\n >>>>>>>>>>>CREATE AHS download DONE\n");
+
 	return ahs_player;
 
 ERROR:
@@ -1299,12 +1331,26 @@ ERROR:
 
 gboolean __mm_player_ahs_initialize (mm_player_ahs_t *ahs_player, int uri_type, char *uri, GstElement *appsrc)
 {
+	gchar *system_ua = NULL;
+
 	debug_log ("<<<\n");
 
 	if (NULL == ahs_player)
 	{
 		debug_error (" Invalid argument\n");
 		return FALSE;
+	}
+
+	g_print ("\n\n Initialize \n\n");
+
+	ahs_player->user_agent = NULL;
+
+	system_ua = (char *)(vconf_get_str(VCONFKEY_ADMIN_UAGENT));
+
+	if (system_ua)
+	{
+		ahs_player->user_agent = g_strdup(system_ua);
+		debug_log ("hls user-agent = %s\n", ahs_player->user_agent);
 	}
 
 	/* initialize ahs common variables */
@@ -1345,6 +1391,8 @@ gboolean __mm_player_ahs_start (mm_player_ahs_t *ahs_player)
 		return FALSE;
 	}
 	
+	g_print ("\n >>>>>>>>>>> AHS download START\n");
+
 	/* download manifest file */
 	if (!ahs_create_manifest_download_pipeline (ahs_player))
 		return FALSE;
@@ -1367,6 +1415,8 @@ gboolean __mm_player_ahs_start (mm_player_ahs_t *ahs_player)
 		debug_error("failed to create thread : media\n");
 		goto ERROR;
 	}
+
+	g_print ("\n >>>>>>>>>>> AHS download START DONE\n");
 
 	debug_log (">>>\n");
 
@@ -1401,6 +1451,8 @@ gboolean __mm_player_ahs_pause (mm_player_ahs_t *ahs_player)
 		return FALSE;
 	}
 
+	g_print ("\n\n\n PAUSED \n\n\n");
+
 	g_mutex_lock (ahs_player->state_lock);
 	if (AHS_STATE_MEDIA_STREAMING != ahs_player->ahs_state)
 	{
@@ -1412,7 +1464,7 @@ gboolean __mm_player_ahs_pause (mm_player_ahs_t *ahs_player)
 
 	if (ahs_client_is_live (ahs_player))
 	{
-		debug_log("Live playlist flush now");
+		g_print ("Live playlist flush now");
 	}
 
 	return bret;
@@ -1423,6 +1475,8 @@ gboolean __mm_player_ahs_deinitialize (mm_player_ahs_t *ahs_player)
 {
 	debug_log ("<<<\n");
 
+	g_print ("\n >>>>>>>>>>> AHS deinitalize \n");
+
 	if (NULL == ahs_player)
 	{
 		debug_error (" Invalid argument\n");
@@ -1432,6 +1486,7 @@ gboolean __mm_player_ahs_deinitialize (mm_player_ahs_t *ahs_player)
 	if (FALSE == ahs_player->is_initialized)
 	{
 		debug_log ("already de-initlialized\n");
+		g_print ("\n\n######## already de-initlialized\n");
 
 		return TRUE;
 	}
@@ -1466,6 +1521,7 @@ gboolean __mm_player_ahs_deinitialize (mm_player_ahs_t *ahs_player)
 	if (ahs_player->ahs_manifest_dmp_location)
 		g_unlink(ahs_player->ahs_manifest_dmp_location);
 	
+	g_print ("\n >>>>>>>>>>> AHS deinitalize DONE \n");
 	debug_log (">>>\n");
 
 	return TRUE;
@@ -1551,11 +1607,13 @@ gboolean __mm_player_ahs_stop (mm_player_ahs_t *ahs_player)
 
 gboolean __mm_player_ahs_destroy (mm_player_ahs_t *ahs_player)
 {
+	g_print ("\n >>>>>>>>>>>Destroying AHS download\n");
 	debug_log ("<<<<<\n");
 
 	if (NULL == ahs_player)
 	{
 		debug_error ("Invalid argument...\n");
+		g_print ("Invalid argument...\n");
 		return TRUE;
 	}
 
@@ -1576,15 +1634,19 @@ gboolean __mm_player_ahs_destroy (mm_player_ahs_t *ahs_player)
 	if (ahs_player->key_eos_cond)
 		g_cond_broadcast (ahs_player->key_eos_cond);
 
+
+	g_print ("waiting for manifest thread to finish from destroy\n");
 	if (ahs_player->manifest_thread)
 	{
 		g_thread_join (ahs_player->manifest_thread);
 	}
+	g_print ("waiting for media thread to finish from destroy\n");
 	
 	if (ahs_player->media_thread)
 	{
 		g_thread_join (ahs_player->media_thread);
 	}
+	g_print ("DESTROY threads are DEAD \n");
 
 	/* initialize ahs common variables */
 	if (ahs_player->main_mf_uri)
@@ -1658,10 +1720,17 @@ gboolean __mm_player_ahs_destroy (mm_player_ahs_t *ahs_player)
 		ahs_player->ahs_client = NULL;
 	}
 
+	MMPLAYER_FREEIF(ahs_player->user_agent);
+
 	free (ahs_player);
 	ahs_player = NULL;
+
+	g_print ("\n >>>>>>>>>>>Destroying AHS download DONE\n");
 
 	debug_log (">>>>>\n");
 	
 	return TRUE;
+
 }
+
+

@@ -4,7 +4,7 @@
  * Copyright (c) 2000 - 2011 Samsung Electronics Co., Ltd. All rights reserved.
  *
  * Contact: JongHyuk Choi <jhchoi.choi@samsung.com>, YeJin Cho <cho.yejin@samsung.com>,
- * Seungbae Shin <seungbae.shin@samsung.com>, YoungHwan An <younghwan_.an@samsung.com>
+ * YoungHwan An <younghwan_.an@samsung.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,10 +26,12 @@
 |  																							|
 ========================================================================================== */
 #include <vconf.h>
-#include "mm_player_priv.h"
-#include "mm_player_attrs.h"
 #include <mm_attrs_private.h>
 #include <mm_attrs.h>
+#include <gst/interfaces/xoverlay.h>
+
+#include "mm_player_priv.h"
+#include "mm_player_attrs.h"
 
 /*===========================================================================================
 |																							|
@@ -37,166 +39,166 @@
 |  																							|
 ========================================================================================== */
 
-/*---------------------------------------------------------------------------
-|    GLOBAL CONSTANT DEFINITIONS:											|
----------------------------------------------------------------------------*/
-
-/*---------------------------------------------------------------------------
-|    IMPORTED VARIABLE DECLARATIONS:										|
----------------------------------------------------------------------------*/
-
-/*---------------------------------------------------------------------------
-|    IMPORTED FUNCTION DECLARATIONS:										|
----------------------------------------------------------------------------*/
-
-/*---------------------------------------------------------------------------
-|    LOCAL #defines:														|
----------------------------------------------------------------------------*/
-
-/*---------------------------------------------------------------------------
-|    LOCAL CONSTANT DEFINITIONS:											|
----------------------------------------------------------------------------*/
-
-/*---------------------------------------------------------------------------
-|    LOCAL DATA TYPE DEFINITIONS:											|
----------------------------------------------------------------------------*/
-
-/*---------------------------------------------------------------------------
-|    GLOBAL VARIABLE DEFINITIONS:											|
----------------------------------------------------------------------------*/
-
-/*---------------------------------------------------------------------------
-|    LOCAL VARIABLE DEFINITIONS:											|
----------------------------------------------------------------------------*/
+typedef struct{
+	char *name;
+	int value_type;
+	int flags;				// r, w
+	void *default_value;
+	int valid_type;			// validity type
+	int value_min;			//<- set validity value range
+	int value_max;		//->
+}MMPlayerAttrsSpec;
 
 /*---------------------------------------------------------------------------
 |    LOCAL FUNCTION PROTOTYPES:												|
 ---------------------------------------------------------------------------*/
-static gboolean __mmplayer_apply_attribute(mm_player_t* player, const char *attribute_name);
+int
+__mmplayer_apply_attribute(MMHandleType handle, const char *attribute_name);
 
 /*===========================================================================================
-|																							|
-|  FUNCTION DEFINITIONS																		|
-|  																							|
+|																										|
+|  FUNCTION DEFINITIONS																					|
+|  																										|
 ========================================================================================== */
 
-
 int
-_mmplayer_get_attribute(MMHandleType hplayer,  char **err_atr_name, const char *attribute_name, va_list args_list)
+_mmplayer_get_attribute(MMHandleType handle,  char **err_attr_name, const char *attribute_name, va_list args_list)
 {
 	int result = MM_ERROR_NONE;
 	MMHandleType attrs = 0;
-	mm_player_t* player = (mm_player_t*)hplayer;
 
-	debug_log("\n");
+	debug_fenter();
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	/* NOTE : Don't need to check err_attr_name because it can be set NULL */
+	/* if it's not want to know it. */
 	return_val_if_fail(attribute_name, MM_ERROR_COMMON_INVALID_ARGUMENT);
+	return_val_if_fail(handle, MM_ERROR_COMMON_INVALID_ARGUMENT);
 
-	attrs = MMPLAYER_GET_ATTRS(hplayer);
+	attrs = MM_PLAYER_GET_ATTRS(handle);
 
-	return_val_if_fail(attrs, MM_ERROR_COMMON_INVALID_ARGUMENT);
+	result = mm_attrs_get_valist(attrs, err_attr_name, attribute_name, args_list);
 
-	result = mm_attrs_get_valist(attrs, err_atr_name, attribute_name, args_list);
+	if ( result != MM_ERROR_NONE)
+		debug_error("failed to get %s attribute\n", attribute_name);
+
+	debug_fleave();
 
 	return result;
 }
 
-
 int
-_mmplayer_set_attribute(MMHandleType hplayer,  char **err_atr_name, const char *attribute_name, va_list args_list)
+_mmplayer_set_attribute(MMHandleType handle,  char **err_attr_name, const char *attribute_name, va_list args_list)
 {
 	int result = MM_ERROR_NONE;
-	mm_player_t* player = (mm_player_t*)hplayer;
 	MMHandleType attrs = 0;
 
-	debug_log("\n");
+	debug_fenter();
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	/* NOTE : Don't need to check err_attr_name because it can be set NULL */
+	/* if it's not want to know it. */
 	return_val_if_fail(attribute_name, MM_ERROR_COMMON_INVALID_ARGUMENT);
+	return_val_if_fail(handle, MM_ERROR_COMMON_INVALID_ARGUMENT);
 
-	attrs = MMPLAYER_GET_ATTRS(hplayer);
-
-	return_val_if_fail(attrs, MM_ERROR_COMMON_INVALID_ARGUMENT);
+	attrs = MM_PLAYER_GET_ATTRS(handle);
 
 	/* set attributes and commit them */
-	result = mm_attrs_set_valist(attrs, err_atr_name, attribute_name, args_list);
+	result = mm_attrs_set_valist(attrs, err_attr_name, attribute_name, args_list);
 
-	if (result == MM_ERROR_NONE)
-		__mmplayer_apply_attribute(player, attribute_name);
+	if (result != MM_ERROR_NONE)
+	{
+		debug_error("failed to set %s attribute\n", attribute_name);
+		return result;
+	}
+
+	result = __mmplayer_apply_attribute(handle, attribute_name);
+	if (result != MM_ERROR_NONE)
+	{
+		debug_error("failed to apply attributes\n");
+		return result;
+	}
+
+	debug_fleave();
 
 	return result;
 }
 
-
 int
-_mmplayer_get_attributes_info(MMHandleType player,  const char *attribute_name, MMPlayerAttrsInfo *dst_info)
+_mmplayer_get_attributes_info(MMHandleType handle,  const char *attribute_name, MMPlayerAttrsInfo *dst_info)
 {
 	int result = MM_ERROR_NONE;
 	MMHandleType attrs = 0;
 	MMAttrsInfo src_info = {0, };
-	
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+
+	debug_fenter();
+
 	return_val_if_fail(attribute_name, MM_ERROR_COMMON_INVALID_ARGUMENT);
 	return_val_if_fail(dst_info, MM_ERROR_COMMON_INVALID_ARGUMENT);
+	return_val_if_fail(handle, MM_ERROR_COMMON_INVALID_ARGUMENT);
 
-	attrs = MMPLAYER_GET_ATTRS(player);
-
-	return_val_if_fail(attrs, MM_ERROR_COMMON_INVALID_ARGUMENT);
+	attrs = MM_PLAYER_GET_ATTRS(handle);
 
 	result = mm_attrs_get_info_by_name(attrs, attribute_name, &src_info);
 
-	if (result == MM_ERROR_NONE)
+	if ( result != MM_ERROR_NONE)
 	{
-		memset(dst_info, 0x00, sizeof(MMPlayerAttrsInfo));
-		dst_info->type = src_info.type;
-		dst_info->flag = src_info.flag;
-		dst_info->validity_type= src_info.validity_type;
-
-		switch(src_info.validity_type)
-		{
-			case MM_ATTRS_VALID_TYPE_INT_ARRAY:
-				dst_info->int_array.array = src_info.int_array.array;
-				dst_info->int_array.count = src_info.int_array.count;
-			break;
-			
-			case MM_ATTRS_VALID_TYPE_INT_RANGE:
-				dst_info->int_range.min = src_info.int_range.min;
-				dst_info->int_range.max = src_info.int_range.max;
-			break;
-			
-			case MM_ATTRS_VALID_TYPE_DOUBLE_ARRAY:
-				dst_info->double_array.array = src_info.double_array.array;
-				dst_info->double_array.count = src_info.double_array.count;
-			break;
-			
-			case MM_ATTRS_VALID_TYPE_DOUBLE_RANGE:
-				dst_info->double_range.min = src_info.double_range.min;
-				dst_info->double_range.max = src_info.double_range.max;
-			break;
-			
-			default:
-			break;
-		}
+		debug_error("failed to get attribute info\n");
+		return result;
 	}
+
+	memset(dst_info, 0x00, sizeof(MMPlayerAttrsInfo));
+
+	dst_info->type = src_info.type;
+	dst_info->flag = src_info.flag;
+	dst_info->validity_type= src_info.validity_type;
+
+	switch(src_info.validity_type)
+	{
+		case MM_ATTRS_VALID_TYPE_INT_ARRAY:
+			dst_info->int_array.array = src_info.int_array.array;
+			dst_info->int_array.count = src_info.int_array.count;
+			dst_info->int_array.d_val = src_info.int_array.dval;
+		break;
+
+		case MM_ATTRS_VALID_TYPE_INT_RANGE:
+			dst_info->int_range.min = src_info.int_range.min;
+			dst_info->int_range.max = src_info.int_range.max;
+			dst_info->int_range.d_val = src_info.int_range.dval;
+		break;
+
+		case MM_ATTRS_VALID_TYPE_DOUBLE_ARRAY:
+			dst_info->double_array.array = src_info.double_array.array;
+			dst_info->double_array.count = src_info.double_array.count;
+			dst_info->double_array.d_val = src_info.double_array.dval;
+		break;
+
+		case MM_ATTRS_VALID_TYPE_DOUBLE_RANGE:
+			dst_info->double_range.min = src_info.double_range.min;
+			dst_info->double_range.max = src_info.double_range.max;
+			dst_info->double_range.d_val = src_info.double_range.dval;
+		break;
+
+		default:
+		break;
+	}
+
+	debug_fleave();
 
 	return result;
 }
 
-
-static gboolean
-__mmplayer_apply_attribute(mm_player_t* player, const char *attribute_name)
+int
+__mmplayer_apply_attribute(MMHandleType handle, const char *attribute_name)
 {
 	MMHandleType attrs = 0;
+	mm_player_t* player = 0;
 
-	debug_log("name: %s \n", attribute_name);
+	debug_fenter();
 
-	attrs = player->attrs;
+	return_val_if_fail(handle, MM_ERROR_COMMON_INVALID_ARGUMENT);
+	return_val_if_fail(attribute_name, MM_ERROR_COMMON_INVALID_ARGUMENT);
 
-	if ( !attrs )
-	{
-		return FALSE;
-	}
+	attrs = MM_PLAYER_GET_ATTRS(handle);;
+	player = MM_PLAYER_CAST(handle);
 
 	if ( g_strrstr(attribute_name, "display") )
 	{
@@ -211,279 +213,812 @@ __mmplayer_apply_attribute(mm_player_t* player, const char *attribute_name)
 			 * So, true should be returned here.
 			 * Otherwise, video can be diaplayed abnormal.
 			 */
-			return TRUE;
+			return MM_ERROR_NONE;
 		}
 
-		/* check video stream callback is used */
-		if( player->use_video_stream )
+		if ( MM_ERROR_NONE != _mmplayer_update_video_param( player ) )
 		{
-			if ( MM_ERROR_NONE != _mmplayer_update_video_param( player ) )
-			{
-				debug_error("failed to update video param for memsink\n");
-				return MM_ERROR_PLAYER_INTERNAL;
-			}
-
-			return FALSE;
-		}
-
-		if ( PLAYER_INI()->videosink_element == PLAYER_INI_VSINK_V4l2SINK )
-		{
-			if ( MM_ERROR_NONE != _mmplayer_update_video_param( player ) )
-			{
-				debug_error("failed to update video param\n");
-				return MM_ERROR_PLAYER_INTERNAL;
-			}
-		}
-		/* FIXIT : think about ximagesink, xvimagesink could be handled in same manner */
-		else
-		{
-			int display_method = 0;
-			int display_rotation = 0;
-			gboolean bvisible = 0;
-			int roi_x = 0;
-			int roi_y = 0;
-			int roi_w = 0;
-			int roi_h = 0;
-
-			#if 0
-			MMAttrsGetData(attrs, MM_PLAYER_DISPLAY_OVERLAY, &val,  &size);
-
-			/* set overlay id */
-			if ( val )
-			{
-				gst_x_overlay_set_xwindow_id(
-					GST_X_OVERLAY(player->pipeline->videobin[MMPLAYER_V_SINK].gst), *(int*)val);
-			}
-			else
-			{
-				debug_warning("still we don't have xid on player attribute. create it's own surface.\n");
-				return MM_ERROR_NONE;
-			}
-			#endif
-
-			mm_attrs_get_int_by_name(attrs, "display_rotation", &display_rotation);
-			mm_attrs_get_int_by_name(attrs, "display_method", &display_method);
-			mm_attrs_get_int_by_name(attrs, "display_roi_x", &roi_x);
-			mm_attrs_get_int_by_name(attrs, "display_roi_y", &roi_y);
-			mm_attrs_get_int_by_name(attrs, "display_roi_width", &roi_w);
-			mm_attrs_get_int_by_name(attrs, "display_roi_height", &roi_h);
-			mm_attrs_get_int_by_name(attrs, "display_visible", &bvisible);			
-
-			g_object_set(player->pipeline->videobin[MMPLAYER_V_SINK].gst,
-				"rotate", display_rotation,
-				"visible", bvisible,				
-				"display-geometry-method", display_method,
-				"dst-roi-x", roi_x,
-				"dst-roi-y", roi_y,
-				"dst-roi-w", roi_w,
-				"dst-roi-h", roi_h,
-				NULL );
-			
-			debug_log("setting video param \n"); 
-			debug_log("rotate:%d, geometry:%d, visible:%d \n", display_rotation, display_method, bvisible);
-			debug_log("dst-roi-x:%d, dst-roi-y:%d, dst-roi-w:%d, dst-roi-h:%d\n",
-				display_rotation, display_method, roi_x, roi_y, roi_w, roi_h );
-
+			debug_error("failed to update video param\n");
+			return MM_ERROR_PLAYER_INTERNAL;
 		}
 	}
 
-	return TRUE;
+	debug_fleave();
+
+	return MM_ERROR_NONE;
 }
 
-
-bool
-_mmplayer_construct_attribute(mm_player_t* player)
+MMHandleType
+_mmplayer_construct_attribute(MMHandleType handle)
 {
 	int idx = 0;
 	MMHandleType attrs = 0;
+	int num_of_attrs = 0;
+	mmf_attrs_construct_info_t *base = NULL;
+	gchar *system_ua = NULL;
+	gchar *system_proxy = NULL;
 
-	debug_log("\n");
+	debug_fenter();
 
-	return_val_if_fail(player != NULL, FALSE);
+	return_if_fail(handle);
 
-	mmf_attrs_construct_info_t player_attrs[] = {
-		/* profile  */
-		{"profile_uri",						MM_ATTRS_TYPE_STRING,	MM_ATTRS_FLAG_RW, (void *)0},
-		{"profile_user_param",				MM_ATTRS_TYPE_DATA, 	MM_ATTRS_FLAG_RW, (void *)0},
-		{"profile_play_count",				MM_ATTRS_TYPE_INT, 		MM_ATTRS_FLAG_RW, (void *)1},
-		{"profile_update_registry",			MM_ATTRS_TYPE_INT, 		MM_ATTRS_FLAG_RW, (void *)0},
-		/*streaming */
-		{"streaming_type",					MM_ATTRS_TYPE_INT, 		MM_ATTRS_FLAG_RW, (void *) STREAMING_SERVICE_NONE },
-		{"streaming_udp_timeout",			MM_ATTRS_TYPE_INT,		MM_ATTRS_FLAG_RW, (void *)10000},
-		{"streaming_user_agent",			MM_ATTRS_TYPE_STRING, 	MM_ATTRS_FLAG_RW, (void *) vconf_get_str(VCONFKEY_ADMIN_UAGENT)},
-		{"streaming_wap_profile",			MM_ATTRS_TYPE_STRING, 	MM_ATTRS_FLAG_RW, (void *)NULL},
-		{"streaming_network_bandwidth",	MM_ATTRS_TYPE_INT,		MM_ATTRS_FLAG_RW, (void *)128000},
-		{"streaming_cookie",				MM_ATTRS_TYPE_STRING, 	MM_ATTRS_FLAG_RW, (void *)NULL},
-		{"streaming_proxy",				MM_ATTRS_TYPE_STRING, 	MM_ATTRS_FLAG_RW, (void *) vconf_get_str(VCONFKEY_NETWORK_PROXY)},
-		/* subtitle */
-		{"subtitle_uri",					MM_ATTRS_TYPE_STRING, 	MM_ATTRS_FLAG_RW, (void *)NULL},
-		{"subtitle_silent",					MM_ATTRS_TYPE_INT, 		MM_ATTRS_FLAG_RW, (void *)0},
-		/* content */
-		{"content_duration",				MM_ATTRS_TYPE_INT, 		MM_ATTRS_FLAG_RW, (void *)0},
-		{"content_bitrate",					MM_ATTRS_TYPE_INT, 		MM_ATTRS_FLAG_RW, (void *)0},
-		{"content_max_bitrate",				MM_ATTRS_TYPE_INT, 		MM_ATTRS_FLAG_RW, (void *)0},
-		{"content_video_found",				MM_ATTRS_TYPE_INT, 		MM_ATTRS_FLAG_RW, (void *)0},
-		{"content_video_codec",			MM_ATTRS_TYPE_STRING,	MM_ATTRS_FLAG_RW, (void *)NULL},
-		{"content_video_bitrate",			MM_ATTRS_TYPE_INT, 		MM_ATTRS_FLAG_RW, (void *)0},
-		{"content_video_fps",				MM_ATTRS_TYPE_INT,		MM_ATTRS_FLAG_RW, (void *)0},
-		{"content_video_width",			MM_ATTRS_TYPE_INT, 		MM_ATTRS_FLAG_RW, (void *)0},
-		{"content_video_height",			MM_ATTRS_TYPE_INT, 		MM_ATTRS_FLAG_RW, (void *)0},
-		{"content_video_track_num",		MM_ATTRS_TYPE_INT, 		MM_ATTRS_FLAG_RW, (void *)0},
-		{"content_audio_found",				MM_ATTRS_TYPE_INT, 		MM_ATTRS_FLAG_RW, (void *)0},
-		{"content_audio_codec",			MM_ATTRS_TYPE_STRING, 	MM_ATTRS_FLAG_RW, (void *)NULL},
-		{"content_audio_bitrate",			MM_ATTRS_TYPE_INT, 		MM_ATTRS_FLAG_RW, (void *)0},
-		{"content_audio_channels",			MM_ATTRS_TYPE_INT, 		MM_ATTRS_FLAG_RW, (void *)0},
-		{"content_audio_samplerate",		MM_ATTRS_TYPE_INT, 		MM_ATTRS_FLAG_RW, (void *)0},
-		{"content_audio_track_num",		MM_ATTRS_TYPE_INT, 		MM_ATTRS_FLAG_RW, (void *)0},
-		{"content_audio_format",			MM_ATTRS_TYPE_INT, 		MM_ATTRS_FLAG_RW, (void *)0},
-		/* tag */
-		{"tag_artist",						MM_ATTRS_TYPE_STRING, 	MM_ATTRS_FLAG_RW, (void *)NULL},
-		{"tag_title",						MM_ATTRS_TYPE_STRING, 	MM_ATTRS_FLAG_RW, (void *)NULL},
-		{"tag_album",						MM_ATTRS_TYPE_STRING, 	MM_ATTRS_FLAG_RW, (void *)NULL},
-		{"tag_genre",						MM_ATTRS_TYPE_STRING, 	MM_ATTRS_FLAG_RW, (void *)NULL},
-		{"tag_author",					MM_ATTRS_TYPE_STRING, 	MM_ATTRS_FLAG_RW, (void *)NULL},
-		{"tag_copyright",					MM_ATTRS_TYPE_STRING, 	MM_ATTRS_FLAG_RW, (void *)NULL},
-		{"tag_date",						MM_ATTRS_TYPE_STRING, 	MM_ATTRS_FLAG_RW, (void *)NULL},
-		{"tag_description",					MM_ATTRS_TYPE_STRING, 	MM_ATTRS_FLAG_RW, (void *)NULL},
-		{"tag_track_num",					MM_ATTRS_TYPE_INT, 		MM_ATTRS_FLAG_RW, 	(void *)0},
-		/* display */
-		{"display_roi_x",					MM_ATTRS_TYPE_INT, 		MM_ATTRS_FLAG_RW, (void *)0},
-		{"display_roi_y",					MM_ATTRS_TYPE_INT, 		MM_ATTRS_FLAG_RW, (void *)0},
-		{"display_roi_width",				MM_ATTRS_TYPE_INT, 		MM_ATTRS_FLAG_RW, (void *)480},
-		{"display_roi_height",				MM_ATTRS_TYPE_INT, 		MM_ATTRS_FLAG_RW, (void *)800},
-		{"display_rotation",				MM_ATTRS_TYPE_INT, 		MM_ATTRS_FLAG_RW, (void *)MM_DISPLAY_ROTATION_NONE},
-		{"display_visible",					MM_ATTRS_TYPE_INT, 		MM_ATTRS_FLAG_RW, (void *)TRUE},
-		{"display_method",					MM_ATTRS_TYPE_INT, 		MM_ATTRS_FLAG_RW, (void *)0},
-		{"display_overlay",   		          	MM_ATTRS_TYPE_DATA, 	MM_ATTRS_FLAG_RW, (void *)NULL},
-		{"display_zoom",					MM_ATTRS_TYPE_INT,		MM_ATTRS_FLAG_RW, (void *)1},
-		{"display_surface_type",			MM_ATTRS_TYPE_INT,		MM_ATTRS_FLAG_RW, (void *)-1},
-		{"display_force_aspect_ration",         MM_ATTRS_TYPE_INT,        MM_ATTRS_FLAG_RW, (void *)1},		
-		/* sound */
-		{"sound_fadeup", 					MM_ATTRS_TYPE_INT, 		MM_ATTRS_FLAG_RW, (void *)FALSE},
-		{"sound_fadedown", 				MM_ATTRS_TYPE_INT, 		MM_ATTRS_FLAG_RW, (void *)FALSE},		
-		{"sound_bgm_mode", 				MM_ATTRS_TYPE_INT, 		MM_ATTRS_FLAG_RW, (void *)0},
-		{"sound_volume_type", 				MM_ATTRS_TYPE_INT, 		MM_ATTRS_FLAG_RW, (void *)MM_SOUND_VOLUME_TYPE_MEDIA},
-		{"sound_route", 					MM_ATTRS_TYPE_INT, 		MM_ATTRS_FLAG_RW, (void *)MM_AUDIOROUTE_USE_EXTERNAL_SETTING},
-		{"sound_stop_when_unplugged", 		MM_ATTRS_TYPE_INT, 		MM_ATTRS_FLAG_RW, (void *)TRUE},
-		{"sound_application_pid",			MM_ATTRS_TYPE_INT, 		MM_ATTRS_FLAG_RW, (void *)0},
-		{"sound_spk_out_only",				MM_ATTRS_TYPE_INT, 		MM_ATTRS_FLAG_RW, (void *)FALSE},
-		{"sound_priority",					MM_ATTRS_TYPE_INT, 		MM_ATTRS_FLAG_RW, (void *)0}, // 0: normal, 1: high 2: high with sound transition
-		/* pcm extraction */
-		{"pcm_extraction",					MM_ATTRS_TYPE_INT, 		MM_ATTRS_FLAG_RW, (void *)FALSE},
-		{"pcm_extraction_samplerate",		MM_ATTRS_TYPE_INT, 		MM_ATTRS_FLAG_RW, (void *)0},
-		{"pcm_extraction_start_msec",		MM_ATTRS_TYPE_INT, 		MM_ATTRS_FLAG_RW, (void *)0},
-		{"pcm_extraction_end_msec",		MM_ATTRS_TYPE_INT, 		MM_ATTRS_FLAG_RW, (void *)0},
-		/* etc */
-		{"profile_smooth_repeat",			MM_ATTRS_TYPE_INT, 		MM_ATTRS_FLAG_RW, (void *)FALSE},
-		{"profile_progress_interval",			MM_ATTRS_TYPE_INT, 		MM_ATTRS_FLAG_RW, (void *)500},
-		{"display_x",						MM_ATTRS_TYPE_INT, 		MM_ATTRS_FLAG_RW, (void *)0},
-		{"display_y",						MM_ATTRS_TYPE_INT, 		MM_ATTRS_FLAG_RW, (void *)0},
-		{"display_width",					MM_ATTRS_TYPE_INT, 		MM_ATTRS_FLAG_RW, (void *)0},
-		{"display_height",					MM_ATTRS_TYPE_INT, 		MM_ATTRS_FLAG_RW, (void *)0},
-		{"pd_mode",	                                        MM_ATTRS_TYPE_INT, 		MM_ATTRS_FLAG_RW, (void *)MM_PLAYER_PD_MODE_NONE},
+	MMPlayerAttrsSpec player_attrs[] =
+	{
+		{
+			"profile_uri",			// name
+			MM_ATTRS_TYPE_STRING,		// type
+			MM_ATTRS_FLAG_RW, 		// flag
+			(void *) NULL,			// default value
+			MM_ATTRS_VALID_TYPE_NONE,	// validity type
+			0,				// validity min value
+			0				// validity max value
+		},
+		{
+			"profile_user_param",
+			MM_ATTRS_TYPE_DATA,
+			MM_ATTRS_FLAG_RW,
+			(void *) NULL,
+			MM_ATTRS_VALID_TYPE_NONE,
+			0,
+			0
+		},
+		{
+			"profile_play_count",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) 1,			// -1 : repeat continually
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			-1,
+			MMPLAYER_MAX_INT
+		},
+		{
+			"profile_async_start",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) 1,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			0,
+			1
+		},
+		{	/* update registry for downloadable codec */
+			"profile_update_registry",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) 0,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			0,
+			1
+		},
+		{
+			"streaming_type",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) STREAMING_SERVICE_NONE,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			STREAMING_SERVICE_VOD,
+			STREAMING_SERVICE_NUM
+		},
+		{
+			"streaming_udp_timeout",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) 10000,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			0,
+			MMPLAYER_MAX_INT
+		},
+		{
+			"streaming_user_agent",
+			MM_ATTRS_TYPE_STRING,
+			MM_ATTRS_FLAG_RW,
+			(void *) NULL,
+			MM_ATTRS_VALID_TYPE_NONE,
+			0,
+			0
+		},
+		{
+			"streaming_wap_profile",
+			MM_ATTRS_TYPE_STRING,
+			MM_ATTRS_FLAG_RW,
+			(void *) NULL,
+			MM_ATTRS_VALID_TYPE_NONE,
+			0,
+			0
+		},
+		{
+			"streaming_network_bandwidth",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) 128000,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			0,
+			MMPLAYER_MAX_INT
+		},
+		{
+			"streaming_cookie",
+			MM_ATTRS_TYPE_STRING,
+			MM_ATTRS_FLAG_RW,
+			(void *) NULL,
+			MM_ATTRS_VALID_TYPE_NONE,
+			0,
+			0
+		},
+		{
+			"streaming_proxy",
+			MM_ATTRS_TYPE_STRING,
+			MM_ATTRS_FLAG_RW,
+			(void *) NULL,
+			MM_ATTRS_VALID_TYPE_NONE,
+			0,
+			0
+		},
+		{
+			"subtitle_uri",
+			MM_ATTRS_TYPE_STRING,
+			MM_ATTRS_FLAG_RW,
+			(void *) NULL,
+			MM_ATTRS_VALID_TYPE_NONE,
+			0,
+			0
+		},
+		{
+			"content_duration",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) 0,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			0,
+			MMPLAYER_MAX_INT
+		},
+		{
+			"content_bitrate",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) 0,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			0,
+			MMPLAYER_MAX_INT
+		},
+		{
+			"content_max_bitrate",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) 0,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			0,
+			MMPLAYER_MAX_INT
+		},
+		{
+			"content_video_found",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) 0,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			0,
+			1
+		},
+		{
+			"content_video_codec",
+			MM_ATTRS_TYPE_STRING,
+			MM_ATTRS_FLAG_RW,
+			(void *) NULL,
+			MM_ATTRS_VALID_TYPE_NONE,
+			0,
+			0
+		},
+		{
+			"content_video_bitrate",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) 0,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			0,
+			MMPLAYER_MAX_INT
+		},
+		{
+			"content_video_fps",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) 0,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			0,
+			MMPLAYER_MAX_INT
+		},
+		{
+			"content_video_width",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) 0,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			0,
+			MMPLAYER_MAX_INT
+		},
+		{
+			"content_video_height",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) 0,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			0,
+			MMPLAYER_MAX_INT
+		},
+		{
+			"content_video_track_num",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) 0,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			0,
+			MMPLAYER_MAX_INT
+		},
+		{
+			"content_audio_found",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) 0,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			0,
+			1
+		},
+		{
+			"content_audio_codec",
+			MM_ATTRS_TYPE_STRING,
+			MM_ATTRS_FLAG_RW,
+			(void *) NULL,
+			MM_ATTRS_VALID_TYPE_NONE,
+			0,
+			0
+		},
+		{
+			"content_audio_bitrate",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) 0,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			0,
+			MMPLAYER_MAX_INT
+		},
+		{
+			"content_audio_channels",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) 0,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			0,
+			MMPLAYER_MAX_INT
+		},
+		{
+			"content_audio_samplerate",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) 0,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			0,
+			MMPLAYER_MAX_INT
+		},
+		{
+			"content_audio_track_num",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) 0,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			0,
+			MMPLAYER_MAX_INT
+		},
+		{
+			"content_audio_format",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) 0,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			0,
+			MMPLAYER_MAX_INT
+		},
+		{
+			"tag_artist",
+			MM_ATTRS_TYPE_STRING,
+			MM_ATTRS_FLAG_RW,
+			(void *) NULL,
+			MM_ATTRS_VALID_TYPE_NONE,
+			0,
+			0
+		},
+		{
+			"tag_title",
+			MM_ATTRS_TYPE_STRING,
+			MM_ATTRS_FLAG_RW,
+			(void *) NULL,
+			MM_ATTRS_VALID_TYPE_NONE,
+			0,
+			0
+		},
+		{
+			"tag_album",
+			MM_ATTRS_TYPE_STRING,
+			MM_ATTRS_FLAG_RW,
+			(void *) NULL
+		},
+		{
+			"tag_genre",
+			MM_ATTRS_TYPE_STRING,
+			MM_ATTRS_FLAG_RW,
+			(void *) NULL,
+			MM_ATTRS_VALID_TYPE_NONE,
+			0,
+			0
+		},
+		{
+			"tag_author",
+			MM_ATTRS_TYPE_STRING,
+			MM_ATTRS_FLAG_RW,
+			(void *) NULL,
+			MM_ATTRS_VALID_TYPE_NONE,
+			0,
+			0
+		},
+		{
+			"tag_copyright",
+			MM_ATTRS_TYPE_STRING,
+			MM_ATTRS_FLAG_RW,
+			(void *) NULL,
+			MM_ATTRS_VALID_TYPE_NONE,
+			0,
+			0
+		},
+		{
+			"tag_date",
+			MM_ATTRS_TYPE_STRING,
+			MM_ATTRS_FLAG_RW,
+			(void *) NULL,
+			MM_ATTRS_VALID_TYPE_NONE,
+			0,
+			0
+		},
+		{
+			"tag_description",
+			MM_ATTRS_TYPE_STRING,
+			MM_ATTRS_FLAG_RW,
+			(void *) NULL,
+			MM_ATTRS_VALID_TYPE_NONE,
+			0,
+			0
+		},
+		{
+			"tag_track_num",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) 0,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			0,
+			MMPLAYER_MAX_INT
+		},
+		{
+			"tag_album_cover",
+			MM_ATTRS_TYPE_DATA,
+			MM_ATTRS_FLAG_RW,
+			(void *) NULL,
+			MM_ATTRS_VALID_TYPE_NONE,
+			0,
+			0
+		},
+		{
+			"display_roi_x",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) 0,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			0,
+			MMPLAYER_MAX_INT
+		},
+		{
+			"display_roi_y",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) 0,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			0,
+			MMPLAYER_MAX_INT
+		},
+		{
+			"display_roi_width",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) 480,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			0,
+			MMPLAYER_MAX_INT
+		},
+		{
+			"display_roi_height",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) 800,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			0,
+			MMPLAYER_MAX_INT
+		},
+		{
+			"display_rotation",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) MM_DISPLAY_ROTATION_NONE,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			MM_DISPLAY_ROTATION_NONE,
+			MM_DISPLAY_ROTATION_270
+		},
+		{
+			"display_visible",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) TRUE,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			0,
+			1
+		},
+		{
+			"display_method",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) MM_DISPLAY_METHOD_LETTER_BOX,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			MM_DISPLAY_METHOD_LETTER_BOX,
+			MM_DISPLAY_METHOD_CUSTOM_ROI
+		},
+		{
+			"display_overlay",
+			MM_ATTRS_TYPE_DATA,
+			MM_ATTRS_FLAG_RW,
+			(void *) NULL,
+			MM_ATTRS_VALID_TYPE_NONE,
+			0,
+			0
+		},
+		{
+			"display_overlay_ext",
+			MM_ATTRS_TYPE_DATA,
+			MM_ATTRS_FLAG_RW,
+			(void *) NULL,
+			MM_ATTRS_VALID_TYPE_NONE,
+			0,
+			0
+		},
+		{
+			"display_zoom",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) 1,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			1,
+			MMPLAYER_MAX_INT
+		},
+		{
+			"display_surface_type",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) 0,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			MM_DISPLAY_SURFACE_X,
+			MM_DISPLAY_SURFACE_NULL
+		},
+		{
+			"display_surface_use_multi",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) FALSE,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			FALSE,
+			TRUE
+		},
+		{
+			"display_evas_surface_sink",
+			MM_ATTRS_TYPE_STRING,
+			MM_ATTRS_FLAG_READABLE,
+			(void *) PLAYER_INI()->videosink_element_evas,
+			MM_ATTRS_VALID_TYPE_NONE,
+			0,
+			0
+		},
+		{
+			"display_force_aspect_ration",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) 1,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			0,
+			MMPLAYER_MAX_INT
+		},
+		{
+			"display_width",		// dest width of fimcconvert ouput
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) 0,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			0,
+			MMPLAYER_MAX_INT
+		},
+		{
+			"display_height",		// dest height of fimcconvert ouput
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) 0,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			0,
+			MMPLAYER_MAX_INT
+		},
+		{
+			"display_evas_do_scaling",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) TRUE,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			FALSE,
+			TRUE
+		},
+		{
+			"sound_fadeup",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) FALSE,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			FALSE,
+			TRUE
+		},
+		{
+			"sound_fadedown",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) FALSE,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			FALSE,
+			TRUE
+		},
+		{
+			"sound_volume_type",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) MM_SOUND_VOLUME_TYPE_MEDIA,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			MM_SOUND_VOLUME_TYPE_SYSTEM,
+			MM_SOUND_VOLUME_TYPE_CALL
+		},
+		{
+			"sound_route",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) MM_AUDIOROUTE_USE_EXTERNAL_SETTING,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			MM_AUDIOROUTE_USE_EXTERNAL_SETTING,
+			MM_AUDIOROUTE_CAPTURE_STEREOMIC_ONLY
+		},
+		{
+			"sound_stop_when_unplugged",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) TRUE,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			FALSE,
+			TRUE
+		},
+		{
+			"sound_application_pid",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) 0,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			0,
+			MMPLAYER_MAX_INT
+		},
+		{
+			"sound_spk_out_only",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) FALSE,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			FALSE,
+			TRUE
+		},
+		{
+			"sound_priority",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) 0,			// 0: normal, 1: high 2: high with sound transition
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			0,
+			2
+		},
+		{
+			"pcm_extraction",		// enable pcm extraction
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) FALSE,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			FALSE,
+			TRUE
+		},
+		{
+			"pcm_extraction_samplerate",	// set samplerate for pcm extraction
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) 0,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			0,
+			MMPLAYER_MAX_INT
+		},
+		{
+			"pcm_extraction_start_msec",	// set start position to extract pcm
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) 0,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			0,
+			MMPLAYER_MAX_INT
+		},
+		{
+			"pcm_extraction_end_msec",	// set end position to extract pcm
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) 0,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			0,
+			MMPLAYER_MAX_INT
+		},
+		{
+			"profile_smooth_repeat",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) FALSE,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			0,
+			MMPLAYER_MAX_INT
+		},
+		{
+			"profile_progress_interval",	// will be deprecated
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) 500,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			0,
+			MMPLAYER_MAX_INT
+		},
+		{
+			"display_x",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) 0,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			0,
+			MMPLAYER_MAX_INT
+		},
+		{
+			"display_y",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) 0,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			0,
+			MMPLAYER_MAX_INT
+		},
+		{
+			"pd_mode",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) MM_PLAYER_PD_MODE_NONE,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			MM_PLAYER_PD_MODE_NONE,
+			MM_PLAYER_PD_MODE_URI		// not tested yet, because of no fixed scenario
+		},
+		{
+			"pd_location",			// location of the file to write
+			MM_ATTRS_TYPE_STRING,
+			MM_ATTRS_FLAG_RW,
+			(void *) NULL,
+			MM_ATTRS_VALID_TYPE_NONE,
+			0,
+			0
+		}
 	};
 
-	player->attrs = mmf_attrs_new_from_data( "mmplayer_attrs",
-												player_attrs,
-												ARRAY_SIZE(player_attrs),
-												NULL,
-												NULL);
+	num_of_attrs = ARRAY_SIZE(player_attrs);
 
-	if ( ! player->attrs )
+	base = (mmf_attrs_construct_info_t* )malloc(num_of_attrs * sizeof(mmf_attrs_construct_info_t));
+
+	if ( !base )
 	{
 		debug_error("Cannot create mmplayer attribute\n");
 		goto ERROR;
 	}
 
-	attrs = player->attrs;
+	/* initialize values of attributes */
+	for ( idx = 0; idx < num_of_attrs; idx++ )
+	{
+		base[idx].name = player_attrs[idx].name;
+		base[idx].value_type = player_attrs[idx].value_type;
+		base[idx].flags = player_attrs[idx].flags;
+		base[idx].default_value = player_attrs[idx].default_value;
+	}
 
-	/* profile */
-	mm_attrs_get_index (attrs, "profile_uri", &idx);
-	mmf_attrs_set_valid_type (attrs, idx, MM_ATTRS_VALID_TYPE_INT_RANGE);
-	mmf_attrs_set_valid_range (attrs, idx, 0, MMPLAYER_MAX_INT);
+	attrs = mmf_attrs_new_from_data(
+					"mmplayer_attrs",
+					base,
+					num_of_attrs,
+					NULL,
+					NULL);
 
-	mm_attrs_get_index (attrs, "profile_play_count", &idx);
-	mmf_attrs_set_valid_type (attrs, idx, MM_ATTRS_VALID_TYPE_INT_RANGE);
-	mmf_attrs_set_valid_range (attrs, idx, -1, MMPLAYER_MAX_INT);
+	/* clean */
+	MMPLAYER_FREEIF(base);
 
-	mm_attrs_get_index (attrs, "streaming_type", &idx);
-	mmf_attrs_set_valid_type (attrs, idx, MM_ATTRS_VALID_TYPE_INT_RANGE);
-	mmf_attrs_set_valid_range (attrs, idx, STREAMING_SERVICE_VOD, STREAMING_SERVICE_NUM);
+	if ( !attrs )
+	{
+		debug_error("Cannot create mmplayer attribute\n");
+		goto ERROR;
+	}
 
-	mm_attrs_get_index (attrs, "streaming_network_bandwidth", &idx);
-	mmf_attrs_set_valid_type (attrs, idx, MM_ATTRS_VALID_TYPE_INT_RANGE);
-	mmf_attrs_set_valid_range (attrs, idx, 0, MMPLAYER_MAX_INT);
+	/* set validity type and range */
+	for ( idx = 0; idx < num_of_attrs; idx++ )
+	{
+		switch ( player_attrs[idx].valid_type)
+		{
+			case MM_ATTRS_VALID_TYPE_INT_RANGE:
+			{
+				mmf_attrs_set_valid_type (attrs, idx, MM_ATTRS_VALID_TYPE_INT_RANGE);
+				mmf_attrs_set_valid_range (attrs, idx,
+						player_attrs[idx].value_min,
+						player_attrs[idx].value_max,
+						player_attrs[idx].default_value);
+			}
+			break;
 
-	mm_attrs_get_index (attrs, "streaming_udp_timeout", &idx);
-	mmf_attrs_set_valid_type (attrs, idx, MM_ATTRS_VALID_TYPE_INT_RANGE);
-	mmf_attrs_set_valid_range (attrs, idx, 0, MMPLAYER_MAX_INT);
+			case MM_ATTRS_VALID_TYPE_INT_ARRAY:
+			case MM_ATTRS_VALID_TYPE_DOUBLE_ARRAY:
+			case MM_ATTRS_VALID_TYPE_DOUBLE_RANGE:
+			default:
+			break;
+		}
+	}
 
-	/* content */
-	mm_attrs_get_index (attrs, "content_video_found", &idx);
-	mmf_attrs_set_valid_type (attrs, idx, MM_ATTRS_VALID_TYPE_INT_RANGE);
-	mmf_attrs_set_valid_range (attrs, idx, 0, 1);
+	/* set proxy and user agent */
+	system_ua = vconf_get_str(VCONFKEY_ADMIN_UAGENT);
+	system_proxy = vconf_get_str(VCONFKEY_NETWORK_PROXY);
 
-	mm_attrs_get_index (attrs, "content_audio_found", &idx);
-	mmf_attrs_set_valid_type (attrs, idx, MM_ATTRS_VALID_TYPE_INT_RANGE);
-	mmf_attrs_set_valid_range (attrs, idx, 0, 1);
+	if (system_ua)
+	{
+			mm_attrs_set_string_by_name(attrs, "streaming_user_agent", system_ua);
+			g_free(system_ua);
+	}
 
-	/* display */
-	mm_attrs_get_index (attrs, "display_zoom", &idx);
-	mmf_attrs_set_valid_type (attrs, idx, MM_ATTRS_VALID_TYPE_INT_RANGE);
-	mmf_attrs_set_valid_range (attrs, idx, 1, MMPLAYER_MAX_INT);
+	if (system_proxy)
+	{
+			mm_attrs_set_string_by_name(attrs, "streaming_proxy", system_proxy);
+			g_free(system_proxy);
+	}
 
-	mm_attrs_get_index (attrs, "display_method", &idx);
-	mmf_attrs_set_valid_type (attrs, idx, MM_ATTRS_VALID_TYPE_INT_RANGE);
-	mmf_attrs_set_valid_range (attrs, idx, MM_DISPLAY_METHOD_LETTER_BOX, MM_DISPLAY_METHOD_CUSTOM_ROI);
+	/* commit */
+	mmf_attrs_commit(attrs);
 
-	mm_attrs_get_index (attrs, "display_surface_type", &idx);
-	mmf_attrs_set_valid_type (attrs, idx, MM_ATTRS_VALID_TYPE_INT_RANGE);
-	mmf_attrs_set_valid_range (attrs, idx, MM_DISPLAY_SURFACE_X, MM_DISPLAY_SURFACE_NULL);
+	debug_fleave();
 
-	/* sound */
-	mm_attrs_get_index (attrs, "sound_volume_table", &idx);
-	mmf_attrs_set_valid_type (attrs, idx, MM_ATTRS_VALID_TYPE_INT_RANGE);
-	mmf_attrs_set_valid_range (attrs, idx, MM_SOUND_VOLUME_TYPE_SYSTEM, MM_SOUND_VOLUME_TYPE_CALL);
-
-	mm_attrs_get_index (attrs, "sound_volume_type", &idx);
-	mmf_attrs_set_valid_type (attrs, idx, MM_ATTRS_VALID_TYPE_INT_RANGE);
-	mmf_attrs_set_valid_range (attrs, idx, MM_SOUND_VOLUME_TYPE_SYSTEM, MM_SOUND_VOLUME_TYPE_CALL);
-
-	mm_attrs_get_index (attrs, "sound_route", &idx);
-	mmf_attrs_set_valid_type (attrs, idx, MM_ATTRS_VALID_TYPE_INT_RANGE);
-	mmf_attrs_set_valid_range (attrs, idx, MM_AUDIOROUTE_USE_EXTERNAL_SETTING, MM_AUDIOROUTE_CAPTURE_STEREOMIC_ONLY);
-
-	mm_attrs_get_index (attrs, "sound_fadedown", &idx);
-	mmf_attrs_set_valid_type (attrs, idx, MM_ATTRS_VALID_TYPE_INT_RANGE);
-	mmf_attrs_set_valid_range (attrs, idx, 0, 1);
-
-	mm_attrs_get_index (attrs, "sound_priority", &idx);
-	mmf_attrs_set_valid_type (attrs, idx, MM_ATTRS_VALID_TYPE_INT_RANGE);
-	mmf_attrs_set_valid_range (attrs, idx, 0, 2);
-
-	mm_attrs_get_index (attrs, "pd_mode", &idx);
-	mmf_attrs_set_valid_type (attrs, idx, MM_ATTRS_VALID_TYPE_INT_RANGE);
-	mmf_attrs_set_valid_range (attrs, idx, MM_PLAYER_PD_MODE_NONE, MM_PLAYER_PD_MODE_FILE);
-	
-	return TRUE;
+	return attrs;
 
 ERROR:
-
-	_mmplayer_release_attrs(player);
+	_mmplayer_deconstruct_attribute(handle);
 
 	return FALSE;
 }
 
-
-void
-_mmplayer_release_attrs(mm_player_t* player) // @
+bool
+_mmplayer_deconstruct_attribute(MMHandleType handle) // @
 {
+	debug_fenter();
+
+	mm_player_t *player = MM_PLAYER_CAST(handle);
+
 	return_if_fail( player );
 
 	if (player->attrs)
 	{
 		mmf_attrs_free (player->attrs);
+		player->attrs = 0;
 	}
 
-	player->attrs = 0;
+	debug_fleave();
 }

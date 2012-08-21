@@ -34,7 +34,6 @@
 	extern "C" {
 #endif
 
-
 /* general */
 #ifndef ARRAY_SIZE
 #define ARRAY_SIZE(arr)		(sizeof(arr) / sizeof((arr)[0]))
@@ -48,8 +47,10 @@ if ( x ) \
 x = NULL;
 
 #define MMPLAYER_CMD_LOCK(x_player)		g_mutex_lock( ((mm_player_t*)x_player)->cmd_lock )
-
 #define MMPLAYER_CMD_UNLOCK(x_player)	g_mutex_unlock( ((mm_player_t*)x_player)->cmd_lock )
+
+#define MMPLAYER_MSG_POST_LOCK(x_player)	g_mutex_lock( ((mm_player_t*)x_player)->msg_cb_lock )
+#define MMPLAYER_MSG_POST_UNLOCK(x_player)	g_mutex_unlock( ((mm_player_t*)x_player)->msg_cb_lock )
 
 #define MMPLAYER_GET_ATTRS(x_player)		((mm_player_t*)x_player)->attrs
 
@@ -71,12 +72,20 @@ x = NULL;
 #define GST_PAD_LINK 				gst_pad_link
 #endif
 
+/* debug caps string */
+#define MMPLAYER_LOG_GST_CAPS_TYPE(x_caps) \
+do \
+{ \
+	gchar* caps_type = NULL; \
+	caps_type = gst_caps_to_string(x_caps); \
+	debug_log ("caps: %s\n", caps_type ); \
+	MMPLAYER_FREEIF (caps_type) \
+} while (0);
 
 /* message posting */
 #define MMPLAYER_POST_MSG( x_player, x_msgtype, x_msg_param ) \
 debug_log("posting %s to application\n", #x_msgtype); \
 __mmplayer_post_message(x_player, x_msgtype, x_msg_param);
-
 
 /* setting player state */
 #define MMPLAYER_SET_STATE( x_player, x_state ) \
@@ -115,7 +124,12 @@ if ( ! x_var ) \
 	goto ERROR; \
 }
 
-
+#define MMPLAYER_CHECK_CMD_IF_EXIT( x_player ) \
+if ( x_player->cmd == MMPLAYER_COMMAND_UNREALIZE || x_player->cmd == MMPLAYER_COMMAND_DESTROY ) \
+{ \
+	debug_log("it's exit state...\n");\
+	goto ERROR;  \
+}
 /* volume */
 /* 
 |----|-------|-------|-------|-------|
@@ -215,7 +229,7 @@ debug_log("------------------------------------------------------------\n");
 #define MMPLAYER_IS_STREAMING(x_player)  			__is_streaming(x_player)
 #define MMPLAYER_IS_RTSP_STREAMING(x_player) 	__is_rtsp_streaming(x_player)
 #define MMPLAYER_IS_HTTP_STREAMING(x_player)  	__is_http_streaming(x_player)
-#define MMPLAYER_IS_HTTP_PROGRESSIVE_DOWN(x_player)	__is_http_progressive_down(x_player)
+#define MMPLAYER_IS_HTTP_PD(x_player)			__is_http_progressive_down(x_player)
 #define MMPLAYER_IS_HTTP_LIVE_STREAMING(x_player)  __is_http_live_streaming(x_player)
 #define MMPLAYER_IS_LIVE_STREAMING(x_player)  	__is_live_streaming(x_player)
 

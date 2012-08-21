@@ -49,7 +49,7 @@ do \
 	gchar* str = iniparser_getstring(dict, x_ini, x_default); \
  \
 	if ( str &&  \
-		( strlen( str ) > 1 ) && \
+		( strlen( str ) > 0 ) && \
 		( strlen( str ) < PLAYER_INI_MAX_STRLEN ) ) \
 	{ \
 		strcpy ( x_item, str ); \
@@ -58,6 +58,61 @@ do \
 	{ \
 		strcpy ( x_item, x_default ); \
 	} \
+}while(0)
+
+/* x_ini is the list of index to set TRUE at x_list[index] */
+#define MMPLAYER_INI_GET_BOOLEAN_FROM_LIST( x_list, x_list_max, x_ini, x_default ) \
+do \
+{ \
+		int index = 0; \
+		const char *delimiters = " ,"; \
+		char *usr_ptr = NULL; \
+		char *token = NULL; \
+		gchar temp_arr[PLAYER_INI_MAX_STRLEN] = {0}; \
+		MMPLAYER_INI_GET_STRING(temp_arr, x_ini, x_default); \
+		token = strtok_r( temp_arr, delimiters, &usr_ptr ); \
+		while (token) \
+		{ \
+			index = atoi(token); \
+			if (index < 0 || index > x_list_max -1) \
+			{ \
+				debug_warning("%d is not valid index\n", index); \
+			} \
+			else \
+			{ \
+				x_list[index] = TRUE; \
+			} \
+			token = strtok_r( NULL, delimiters, &usr_ptr ); \
+		} \
+}while(0)
+
+/* x_ini is the list of value to be set at x_list[index] */
+#define MMPLAYER_INI_GET_INT_FROM_LIST( x_list, x_list_max, x_ini, x_default ) \
+do \
+{ \
+		int index = 0; \
+		int value = 0; \
+		const char *delimiters = " ,"; \
+		char *usr_ptr = NULL; \
+		char *token = NULL; \
+		gchar temp_arr[PLAYER_INI_MAX_STRLEN] = {0}; \
+		MMPLAYER_INI_GET_STRING(temp_arr, x_ini, x_default); \
+		token = strtok_r( temp_arr, delimiters, &usr_ptr ); \
+		while (token) \
+		{ \
+			if ( index > x_list_max -1) \
+			{ \
+				debug_error("%d is not valid index\n", index); \
+				break; \
+			} \
+			else \
+			{ \
+				value = atoi(token); \
+				x_list[index] = value; \
+				index++; \
+			} \
+			token = strtok_r( NULL, delimiters, &usr_ptr ); \
+		} \
 }while(0)
 
 int 
@@ -112,21 +167,23 @@ mm_player_ini_load(void)
 	{
 		/* general */
 		g_player_ini.use_decodebin = iniparser_getboolean(dict, "general:use decodebin", DEFAULT_USE_DECODEBIN);
-		g_player_ini.use_audio_filter = iniparser_getboolean(dict, "features:audio filter", DEFAULT_USE_AUDIO_FILTER);
 		g_player_ini.use_sink_handler = iniparser_getboolean(dict, "general:use sink handler", DEFAULT_USE_SINK_HANDLER);
 		g_player_ini.disable_segtrap = iniparser_getboolean(dict, "general:disable segtrap", DEFAULT_DISABLE_SEGTRAP);
 		g_player_ini.skip_rescan = iniparser_getboolean(dict, "general:skip rescan", DEFAULT_SKIP_RESCAN);
-		g_player_ini.videosink_element = iniparser_getint(dict, "general:videosink element", DEFAULT_VIDEOSINK);
+		g_player_ini.video_surface = DEFAULT_VIDEO_SURFACE;
 		g_player_ini.generate_dot = iniparser_getboolean(dict, "general:generate dot", DEFAULT_GENERATE_DOT);
 		g_player_ini.provide_clock= iniparser_getboolean(dict, "general:provide clock", DEFAULT_PROVIDE_CLOCK);
 		g_player_ini.live_state_change_timeout = iniparser_getint(dict, "general:live state change timeout", DEFAULT_LIVE_STATE_CHANGE_TIMEOUT);
 		g_player_ini.localplayback_state_change_timeout = iniparser_getint(dict, "general:localplayback state change timeout", DEFAULT_LOCALPLAYBACK_STATE_CHANGE_TIMEOUT);
 		g_player_ini.eos_delay = iniparser_getint(dict, "general:eos delay", DEFAULT_EOS_DELAY);
 		g_player_ini.async_start = iniparser_getboolean(dict, "general:async start", DEFAULT_ASYNC_START);
-		g_player_ini.multiple_codec_supported = iniparser_getboolean(dict, "general:multiple codec supported", DEFAULT_MULTIPLE_CODEC_SUPPORTED);		
+		g_player_ini.multiple_codec_supported = iniparser_getboolean(dict, "general:multiple codec supported", DEFAULT_MULTIPLE_CODEC_SUPPORTED);
 
 		g_player_ini.delay_before_repeat = iniparser_getint(dict, "general:delay before repeat", DEFAULT_DELAY_BEFORE_REPEAT);
 
+		MMPLAYER_INI_GET_STRING( g_player_ini.videosink_element_x, "general:videosink element x", DEFAULT_VIDEOSINK_X);
+		MMPLAYER_INI_GET_STRING( g_player_ini.videosink_element_evas, "general:videosink element evas", DEFAULT_VIDEOSINK_EVAS);
+		MMPLAYER_INI_GET_STRING( g_player_ini.videosink_element_fake, "general:videosink element fake", DEFAULT_VIDEOSINK_FAKE);
 		MMPLAYER_INI_GET_STRING( g_player_ini.name_of_drmsrc, "general:drmsrc element", DEFAULT_DRMSRC );
 		MMPLAYER_INI_GET_STRING( g_player_ini.name_of_audiosink, "general:audiosink element", DEFAULT_AUDIOSINK );
 		MMPLAYER_INI_GET_STRING( g_player_ini.name_of_video_converter, "general:video converter element", DEFAULT_VIDEO_CONVERTER );
@@ -139,6 +196,63 @@ mm_player_ini_load(void)
 		MMPLAYER_INI_GET_STRING( g_player_ini.gst_param[2], "general:gstparam3", DEFAULT_GST_PARAM );
 		MMPLAYER_INI_GET_STRING( g_player_ini.gst_param[3], "general:gstparam4", DEFAULT_GST_PARAM );
 		MMPLAYER_INI_GET_STRING( g_player_ini.gst_param[4], "general:gstparam5", DEFAULT_GST_PARAM );
+
+		/* audio filter (Preset)*/
+		g_player_ini.use_audio_filter_preset = iniparser_getboolean(dict, "sound effect:audio filter preset", DEFAULT_USE_AUDIO_FILTER_PRESET);
+		if (g_player_ini.use_audio_filter_preset)
+		{
+			MMPLAYER_INI_GET_BOOLEAN_FROM_LIST( g_player_ini.audio_filter_preset_list, MM_AUDIO_FILTER_PRESET_NUM,
+					"sound effect:audio filter preset list", DEFAULT_AUDIO_FILTER_PRESET_LIST );
+			MMPLAYER_INI_GET_BOOLEAN_FROM_LIST( g_player_ini.audio_filter_preset_earphone_only_list, MM_AUDIO_FILTER_PRESET_NUM,
+					"sound effect:audio filter preset earphone only", DEFAULT_AUDIO_FILTER_PRESET_LIST_EARPHONE_ONLY );
+		}
+		/* for audio filter custom (EQ / Extension filters) */
+		g_player_ini.use_audio_filter_custom = iniparser_getboolean(dict, "sound effect:audio filter custom", DEFAULT_USE_AUDIO_FILTER_CUSTOM);
+		if (g_player_ini.use_audio_filter_custom)
+		{
+			MMPLAYER_INI_GET_BOOLEAN_FROM_LIST( g_player_ini.audio_filter_custom_list, MM_AUDIO_FILTER_CUSTOM_NUM,
+					"sound effect:audio filter custom list", DEFAULT_AUDIO_FILTER_CUSTOM_LIST );
+			MMPLAYER_INI_GET_BOOLEAN_FROM_LIST( g_player_ini.audio_filter_custom_earphone_only_list, MM_AUDIO_FILTER_CUSTOM_NUM,
+					"sound effect:audio filter custom earphone only", DEFAULT_AUDIO_FILTER_CUSTOM_LIST_EARPHONE_ONLY );
+			/* for audio filter custom : EQ */
+			if (g_player_ini.audio_filter_custom_list[MM_AUDIO_FILTER_CUSTOM_EQ])
+			{
+				g_player_ini.audio_filter_custom_eq_num = iniparser_getint(dict, "sound effect:audio filter eq num",
+						DEFAULT_AUDIO_FILTER_CUSTOM_EQ_NUM);
+				if (g_player_ini.audio_filter_custom_eq_num < DEFAULT_AUDIO_FILTER_CUSTOM_EQ_NUM || g_player_ini.audio_filter_custom_eq_num > MM_AUDIO_FILTER_EQ_BAND_MAX)
+				{
+					debug_error("audio_filter_custom_eq_num(%d) is not valid range(%d - %d), set the value %d",
+						g_player_ini.audio_filter_custom_eq_num, DEFAULT_AUDIO_FILTER_CUSTOM_EQ_NUM, MM_AUDIO_FILTER_EQ_BAND_MAX, DEFAULT_AUDIO_FILTER_CUSTOM_EQ_NUM);
+					g_player_ini.audio_filter_custom_eq_num = DEFAULT_AUDIO_FILTER_CUSTOM_EQ_NUM;
+				}
+			}
+			/* for audio filter custom : extension filters */
+			g_player_ini.audio_filter_custom_ext_num = iniparser_getint(dict, "sound effect:audio filter ext num",
+					DEFAULT_AUDIO_FILTER_CUSTOM_EXT_NUM);
+			if (g_player_ini.audio_filter_custom_ext_num > 0)
+			{
+				MMPLAYER_INI_GET_INT_FROM_LIST( g_player_ini.audio_filter_custom_min_level_list, MM_AUDIO_FILTER_CUSTOM_NUM,
+						"sound effect:audio filter custom min list", DEFAULT_AUDIO_FILTER_CUSTOM_LIST );
+				MMPLAYER_INI_GET_INT_FROM_LIST( g_player_ini.audio_filter_custom_max_level_list, MM_AUDIO_FILTER_CUSTOM_NUM,
+						"sound effect:audio filter custom max list", DEFAULT_AUDIO_FILTER_CUSTOM_LIST );
+			}
+		}
+#if 0
+		int i;
+		for (i=0; i<MM_AUDIO_FILTER_PRESET_NUM; i++)
+		{
+			debug_log("audio_filter_preset_list: %d (is it for earphone only?(%d))\n", g_player_ini.audio_filter_preset_list[i], g_player_ini.audio_filter_preset_earphone_only_list[i]);
+		}
+		for (i=0; i<MM_AUDIO_FILTER_CUSTOM_NUM; i++)
+		{
+			debug_log("audio_filter_custom_list : %d (is it for earphone only?(%d))\n", g_player_ini.audio_filter_custom_list[i], g_player_ini.audio_filter_custom_earphone_only_list[i]);
+		}
+		debug_log("audio_filter_custom : eq_num(%d), ext_num(%d)\n", g_player_ini.audio_filter_custom_eq_num, g_player_ini.audio_filter_custom_ext_num )
+		for (i=0; i<MM_AUDIO_FILTER_CUSTOM_NUM; i++)
+		{
+			debug_log("aaudio_filter_custom_level_min_max_list : min(%d), max(%d)\n", g_player_ini.audio_filter_custom_min_level_list[i], g_player_ini.audio_filter_custom_max_level_list[i]);
+		}
+#endif
 
 		/* http streaming */
 		MMPLAYER_INI_GET_STRING( g_player_ini.name_of_httpsrc, "http streaming:httpsrc element", DEFAULT_HTTPSRC );
@@ -173,44 +287,48 @@ mm_player_ini_load(void)
 		g_player_ini.use_decodebin = DEFAULT_USE_DECODEBIN;
 		g_player_ini.use_sink_handler = DEFAULT_USE_SINK_HANDLER;
 		g_player_ini.disable_segtrap = DEFAULT_DISABLE_SEGTRAP;
-		g_player_ini.use_audio_filter = DEFAULT_USE_AUDIO_FILTER; 
+		g_player_ini.use_audio_filter_preset = DEFAULT_USE_AUDIO_FILTER_PRESET;
+		g_player_ini.use_audio_filter_custom = DEFAULT_USE_AUDIO_FILTER_CUSTOM;
 		g_player_ini.skip_rescan = DEFAULT_SKIP_RESCAN;
-		g_player_ini.videosink_element = DEFAULT_VIDEOSINK;
+		g_player_ini.video_surface = DEFAULT_VIDEO_SURFACE;
+		strncpy( g_player_ini.videosink_element_x, DEFAULT_VIDEOSINK_X, PLAYER_INI_MAX_STRLEN - 1 );
+		strncpy( g_player_ini.videosink_element_evas, DEFAULT_VIDEOSINK_EVAS, PLAYER_INI_MAX_STRLEN - 1 );
+		strncpy( g_player_ini.videosink_element_fake, DEFAULT_VIDEOSINK_FAKE, PLAYER_INI_MAX_STRLEN - 1 );
 		g_player_ini.generate_dot = DEFAULT_GENERATE_DOT;
 		g_player_ini.provide_clock= DEFAULT_PROVIDE_CLOCK;
 		g_player_ini.live_state_change_timeout = DEFAULT_LIVE_STATE_CHANGE_TIMEOUT;
-		g_player_ini.localplayback_state_change_timeout = DEFAULT_LOCALPLAYBACK_STATE_CHANGE_TIMEOUT;		
+		g_player_ini.localplayback_state_change_timeout = DEFAULT_LOCALPLAYBACK_STATE_CHANGE_TIMEOUT;
 		g_player_ini.eos_delay = DEFAULT_EOS_DELAY;
 		g_player_ini.multiple_codec_supported = DEFAULT_MULTIPLE_CODEC_SUPPORTED;
 		g_player_ini.async_start = DEFAULT_ASYNC_START;
 		g_player_ini.delay_before_repeat = DEFAULT_DELAY_BEFORE_REPEAT;
 
 
-		strcpy( g_player_ini.name_of_drmsrc, DEFAULT_DRMSRC );
-		strcpy( g_player_ini.name_of_audiosink, DEFAULT_AUDIOSINK );
-		strcpy( g_player_ini.name_of_video_converter, DEFAULT_VIDEO_CONVERTER);
+		strncpy( g_player_ini.name_of_drmsrc, DEFAULT_DRMSRC, PLAYER_INI_MAX_STRLEN - 1 );
+		strncpy( g_player_ini.name_of_audiosink, DEFAULT_AUDIOSINK, PLAYER_INI_MAX_STRLEN -1 );
+		strncpy( g_player_ini.name_of_video_converter, DEFAULT_VIDEO_CONVERTER, PLAYER_INI_MAX_STRLEN -1 );
 
 		{
 			__get_string_list( (gchar**) g_player_ini.exclude_element_keyword, DEFAULT_EXCLUDE_KEYWORD);
 		}
 
 
-		strcpy( g_player_ini.gst_param[0], DEFAULT_GST_PARAM );
-		strcpy( g_player_ini.gst_param[1], DEFAULT_GST_PARAM );
-		strcpy( g_player_ini.gst_param[2], DEFAULT_GST_PARAM );
-		strcpy( g_player_ini.gst_param[3], DEFAULT_GST_PARAM );
-		strcpy( g_player_ini.gst_param[4], DEFAULT_GST_PARAM );
+		strncpy( g_player_ini.gst_param[0], DEFAULT_GST_PARAM, PLAYER_INI_MAX_PARAM_STRLEN - 1 );
+		strncpy( g_player_ini.gst_param[1], DEFAULT_GST_PARAM, PLAYER_INI_MAX_PARAM_STRLEN - 1 );
+		strncpy( g_player_ini.gst_param[2], DEFAULT_GST_PARAM, PLAYER_INI_MAX_PARAM_STRLEN - 1 );
+		strncpy( g_player_ini.gst_param[3], DEFAULT_GST_PARAM, PLAYER_INI_MAX_PARAM_STRLEN - 1 );
+		strncpy( g_player_ini.gst_param[4], DEFAULT_GST_PARAM, PLAYER_INI_MAX_PARAM_STRLEN - 1 );
 
 		/* http streaming */
-		strcpy( g_player_ini.name_of_httpsrc, DEFAULT_HTTPSRC );
-		strcpy( g_player_ini.http_file_buffer_path, DEFAULT_HTTP_FILE_BUFFER_PATH );
+		strncpy( g_player_ini.name_of_httpsrc, DEFAULT_HTTPSRC, PLAYER_INI_MAX_STRLEN - 1 );
+		strncpy( g_player_ini.http_file_buffer_path, DEFAULT_HTTP_FILE_BUFFER_PATH, PLAYER_INI_MAX_STRLEN - 1 );
 		g_player_ini.http_buffering_limit = DEFAULT_HTTP_BUFFERING_LIMIT;
 		g_player_ini.http_max_size_bytes = DEFAULT_HTTP_MAX_SIZE_BYTES;
 		g_player_ini.http_buffering_time = DEFAULT_HTTP_BUFFERING_TIME;		
 		g_player_ini.http_timeout = DEFAULT_HTTP_TIMEOUT;
 		
 		/* rtsp streaming */
-		strcpy( g_player_ini.name_of_rtspsrc, DEFAULT_RTSPSRC );
+		strncpy( g_player_ini.name_of_rtspsrc, DEFAULT_RTSPSRC, PLAYER_INI_MAX_STRLEN - 1 );
 		g_player_ini.rtsp_buffering_time = DEFAULT_RTSP_BUFFERING;
 		g_player_ini.rtsp_rebuffering_time = DEFAULT_RTSP_REBUFFERING;
 		g_player_ini.rtsp_do_typefinding = DEFAULT_RTSP_DO_TYPEFINDING;
@@ -241,11 +359,15 @@ mm_player_ini_load(void)
 
 	/* general */
 	debug_log("use_decodebin : %d\n", g_player_ini.use_decodebin);
-	debug_log("use_audio_filter : %d\n", g_player_ini.use_audio_filter);
+	debug_log("use_audio_filter_preset : %d\n", g_player_ini.use_audio_filter_preset);
+	debug_log("use_audio_filter_custom : %d\n", g_player_ini.use_audio_filter_custom);
 	debug_log("use_sink_handler : %d\n", g_player_ini.use_sink_handler);
 	debug_log("disable_segtrap : %d\n", g_player_ini.disable_segtrap);
 	debug_log("skip rescan : %d\n", g_player_ini.skip_rescan);
-	debug_log("videosink element(0:v4l2sink, 1:ximagesink, 2:xvimagesink, 3:fakesink) : %d\n", g_player_ini.videosink_element);
+	debug_log("video surface(0:X, 1:EVAS, 2:GL, 3:NULL) : %d\n", g_player_ini.video_surface);
+	debug_log("videosink element x: %s\n", g_player_ini.videosink_element_x);
+	debug_log("videosink element evas: %s\n", g_player_ini.videosink_element_evas);
+	debug_log("videosink element fake: %s\n", g_player_ini.videosink_element_fake);
 	debug_log("generate_dot : %d\n", g_player_ini.generate_dot);
 	debug_log("provide_clock : %d\n", g_player_ini.provide_clock);
 	debug_log("live_state_change_timeout(sec) : %d\n", g_player_ini.live_state_change_timeout);
@@ -324,17 +446,55 @@ static
 void __mm_player_ini_force_setting(void)
 {
 	/* FIXIT : remove it when all other elements are available on simulator, SDK */
+	
 	#if ! defined(__arm__)
 		debug_warning("player is running on simulator. force to use ximagesink\n");
-		g_player_ini.videosink_element = PLAYER_INI_VSINK_XIMAGESINK;
-		g_player_ini.use_audio_filter = FALSE;
+		//g_player_ini.videosink_element = PLAYER_INI_VSINK_XIMAGESINK;
+		g_player_ini.use_audio_filter_preset = FALSE;
+		g_player_ini.use_audio_filter_custom = FALSE;
 
 		strcpy( g_player_ini.name_of_drmsrc, "filesrc" );
 
-		// Force setting for simulator  
+		// Force setting for simulator :+:091218 
 		strcpy( g_player_ini.name_of_audiosink, "alsasink" );
 
+		
+//		__get_string_list( (gchar**) g_player_ini.exclude_element_keyword, "");
+		
 	#endif
+
+	#if defined(VDF_SDK) || defined (SEC_SDK)
+		debug_warning("player is running on SDK.\n");
+		debug_warning("So, it seems like that some plugin values are not same with those\n");
+		debug_warning("which are written in default ini file.\n");
+
+		//g_player_ini.videosink_element = PLAYER_INI_VSINK_XIMAGESINK;
+		g_player_ini.use_audio_filter_preset = FALSE;
+		g_player_ini.use_audio_filter_custom = FALSE;
+
+		strcpy( g_player_ini.name_of_drmsrc, "filesrc" );
+	#endif
+
+	#if defined(NEW_SOUND) 
+		strcpy (g_player_ini.name_of_audiosink, "soundsink"); // :+:090707
+	#endif
+
+	/* FIXIT : The HW quality of volans is not better than protector.
+	 * So, it can't use same timeout value because state change(resume) is sometimes failed in volans.
+	 * Thus, it should be set more than 10sec. 
+	 */
+	#if defined(_MM_PROJECT_VOLANS)
+		g_player_ini.localplayback_state_change_timeout = 10;
+		debug_log("localplayback_state_change_timeout is set as 30sec by force\n");
+	#endif
+
+	#if 0
+	#if defined(_MM_PROJECT_VOLANS)
+		debug_warning("player is running on VOLANS\n");
+		g_player_ini.use_audio_filter = FALSE;		// (+)090702, disabled temporally
+	#endif
+	#endif
+	
 }
 
 mm_player_ini_t* 

@@ -47,6 +47,9 @@ typedef struct
 	/* manifest file (mf) uris */
 	gchar *main_mf_uri;
 	
+	/* user agent */
+	gchar *user_agent;
+
 	gchar *cur_mf_uri;
 	gchar *cur_media_uri;
 	gchar *cur_key_uri;

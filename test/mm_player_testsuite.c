@@ -24,7 +24,7 @@
 |  INCLUDE FILES																			|
 |  																							|
 ========================================================================================== */
-//#define TRACE;
+//#define MTRACE;
 #include <glib.h>
 #include <mm_types.h>
 #include <mm_error.h>
@@ -38,9 +38,9 @@
 #include <pthread.h>
 #include <mm_util_imgp.h> // video capture
 
-#ifdef TRACE
-#include <unistd.h>
-#include <stdlib.h>
+#ifdef MTRACE
+#include <unistd.h> //mtrace
+#include <stdlib.h> //mtrace
 #endif
 
 #include <dlfcn.h>
@@ -124,6 +124,8 @@ FILE* g_pcm_dump_fp;
 #endif
 #endif
 
+#define MM_PLAYER_TS_PD_PATH		"/mnt/ums/pd_test.mp4"
+
 #ifdef PCM_DUMP
 #define DUMP_PCM_NAME "/opt/test.pcm"
 #endif
@@ -155,10 +157,6 @@ do \
 		g_print("failed to set %s", (*x_err_attrs_name)); \
                 free(x_err_attrs_name);
 
-
-#define R2VS_TEST_EACH_FILTER_MODE
-
-//#define AUDIO_FILTER_EFFECT // temp for debianize
 
 #define MMTS_SAMPLELIST_INI_DEFAULT_PATH "/opt/etc/mmts_filelist.ini"
 #define MMTS_DEFAULT_INI	\
@@ -203,7 +201,9 @@ enum
 	CURRENT_STATUS_SPEED_PLAYBACK,
 	CURRENT_STATUS_SECTION_REPEAT,
 #ifdef AUDIO_FILTER_EFFECT
-	CURRENT_STATUS_R2VS,
+	CURRENT_STATUS_SOUND_EFFECT,
+	CURRENT_STATUS_SOUND_EFFECT_EQ,
+	CURRENT_STATUS_SOUND_EFFECT_EXT,
 #endif
 	CURRENT_STATUS_ADJUST_SUBTITLE_POSITION,
 	CURRENT_STATUS_SUBTITLE_FILENAME,
@@ -327,6 +327,11 @@ bool			g_bArgPlay = FALSE;
 static MMHandleType g_player = 0;
 unsigned int		g_video_xid = 0;
 
+/* for sound effect */
+int g_custom_filter_type = 0;
+int g_eq_band_num = 0;
+int g_eq_index = 0;
+
 int g_audio_dsp = FALSE;
 int g_video_dsp = FALSE;
 
@@ -358,7 +363,7 @@ bool testsuite_sample_cb(void *stream, int stream_size, void *user_param);
 |  FUNCTION DEFINITIONS																		|
 |  																							|
 ========================================================================================== */
-#ifdef _USE_XVIMAGESINK 
+#ifdef _USE_XVIMAGESINK
 void change_fullscreen(GtkWidget* widget);
 gboolean softkey_cb_select_and_back(GtkWidget *widget, SoftkeyPosition position, gpointer data);
 #endif
@@ -471,6 +476,12 @@ int	_save(unsigned char * src, int length)
 static bool msg_callback(int message, MMMessageParamType *param, void *user_param)
 {
 	switch (message) {
+		case MM_MESSAGE_PD_DOWNLOADER_START:
+			g_print("                                                            ==> [MMPlayerTestsuite] PD downloader START\n");
+			break;
+		case MM_MESSAGE_PD_DOWNLOADER_END:
+			g_print("                                                            ==> [MMPlayerTestsuite] PD downloader END\n");
+			break;
 		case MM_MESSAGE_ERROR:
 			quit_pushing = TRUE;
 			g_print("error : code = %x\n", param->code);
@@ -488,32 +499,31 @@ static bool msg_callback(int message, MMMessageParamType *param, void *user_para
 			if (g_bArgPlay == TRUE ) {
 
 				g_timeout_add(100, timeout_quit_program, 0);
-
 			}
 			break;
 
 		case MM_MESSAGE_STATE_CHANGED:
 			g_current_state = param->state.current;
-			//g_print("current state : %d\n", g_current_state);
+
 			switch(g_current_state)
 			{
 				case MM_PLAYER_STATE_NONE:
-					g_print("                                                            ==> [MediaPlayerApp] Player is [NULL]\n");
+					g_print("                                                            ==> [MMPlayerTestsuite] Player is [NULL]\n");
 					break;
 				case MM_PLAYER_STATE_READY:
-					g_print("                                                            ==> [MediaPlayerApp] Player is [READY]\n");
+					g_print("                                                            ==> [MMPlayerTestsuite] Player is [READY]\n");
 					break;
 				case MM_PLAYER_STATE_PLAYING:
-					g_print("                                                            ==> [MediaPlayerApp] Player is [PLAYING]\n");
+					g_print("                                                            ==> [MMPlayerTestsuite] Player is [PLAYING]\n");
 					break;
 				case MM_PLAYER_STATE_PAUSED:
-					g_print("                                                            ==> [MediaPlayerApp] Player is [PAUSED]\n");
+					g_print("                                                            ==> [MMPlayerTestsuite] Player is [PAUSED]\n");
 					break;
 			}
 			break;
 		case MM_MESSAGE_BEGIN_OF_STREAM:
 		{
-					g_print("                                                            ==> [MediaPlayerApp] BOS\n");
+					g_print("                                                            ==> [MMPlayerTestsuite] BOS\n");
 		}
 		break;
 
@@ -585,7 +595,7 @@ static bool msg_callback(int message, MMMessageParamType *param, void *user_para
 		break;
 		
 		case MM_MESSAGE_SEEK_COMPLETED:
-			g_print("                                                            ==> [MediaPlayerApp] SEEK_COMPLETED\n");
+			g_print("                                                            ==> [mm_player_testsuite] SEEK_COMPLETED\n");
 			break;
 
 		case MM_MESSAGE_UPDATE_SUBTITLE:
@@ -742,17 +752,6 @@ static void input_filename(char *filename)
 #endif /* _USE_XVIMAGESINK */
 
 	mm_player_set_message_callback(g_player, msg_callback, (void*)g_player);
-
-	if ( mm_player_realize(g_player) != MM_ERROR_NONE )
-	{
-		g_print("realize is failed\n");
-	}
-	/* wait until realized */
-	//bw.jang :-:
-	//while (g_current_state != MM_PLAYER_STATE_READY);
-
-	//if (g_bArgPlay)
-	//	player_play();
 }
 
 static void input_subtitle_filename(char *subtitle_filename)
@@ -805,7 +804,7 @@ static void get_volume(MMPlayerVolumeType* pvolume)
 	}
 }
 
-#ifdef TRACE
+#ifdef MTRACE
 static gboolean
 progress_timer_cb(gpointer u_data) // @
 {
@@ -837,8 +836,14 @@ static void player_play()
 {
 	int bRet = FALSE;
 
+	if ( mm_player_realize(g_player) != MM_ERROR_NONE )
+	{
+		g_print("realize is failed\n");
+		return;
+	}
+
 	bRet = mm_player_start(g_player);
-#ifdef TRACE
+#ifdef MTRACE
 	g_timeout_add( 500,  progress_timer_cb, g_player );
 #endif
 }
@@ -884,7 +889,7 @@ static void player_rotate()
 }
 	
 
-#ifdef TRACE
+#ifdef MTRACE
 //	usleep (1000000);
 //	g_print ("aaaaa\n");
 //	g_timeout_add( 500,  progress_timer_cb, g_player );
@@ -976,220 +981,174 @@ void set_video_callback()
 	 mm_player_set_video_stream_callback(g_player, testsuite_video_cb, NULL);
 }
 #ifdef AUDIO_FILTER_EFFECT
-static int set_r2vs(char* char_mode)
+static int set_sound_effect(char* char_mode)
 {
-	int idx_filter = 0, ret = 0;
+	int filter_type = MM_AUDIO_FILTER_TYPE_NONE;
+	int type = 0;
 
-	MMAudioFilterInfo filter_info;
-	memset(&filter_info, 0, sizeof(filter_info));
-
-	int mode = MM_AUDIO_FILTER_NONE, r2vs_mode = 0;
-	int len = strlen(char_mode);
-	char tmp_mode[MAX_STRING_LEN];
-	strncpy(tmp_mode, char_mode, len);
-
-	//g_print("set_r2vs - char_mode[%d][%s][%s]--------------------\n", len, char_mode, tmp_mode);
-
-	filter_info.output_mode = MM_AUDIO_FILTER_OUTPUT_SPK;
-
-	for(idx_filter = 0; idx_filter < len; idx_filter++)
+	if(strncmp(char_mode, "01", 2 ) == 0)
 	{
-		//g_print("tmp_mode[%d]=[%c]\n", idx_filter, tmp_mode[idx_filter]);
-
-		if(strncmp(tmp_mode+idx_filter, "0", 1 ) == 0)
-		{
-			mode = MM_AUDIO_FILTER_NONE;
-			r2vs_mode = 0;
-		}
-#ifndef R2VS_TEST_EACH_FILTER_MODE
-		else if(strncmp(tmp_mode+idx_filter, "1", 1 ) == 0)
-		{
-			mode = mode | MM_AUDIO_FILTER_3D;
-			r2vs_mode = 3;
-		}
-		else if(strncmp(tmp_mode+idx_filter, "2", 1 ) == 0)
-		{
-			mode = mode | MM_AUDIO_FILTER_EQUALIZER;
-			r2vs_mode = 3;
-		}
-		else if(strncmp(tmp_mode+idx_filter, "3", 1 ) == 0)
-		{
-			mode = mode | MM_AUDIO_FILTER_REVERB;
-			r2vs_mode = 3;
-		}
-#else
-		else if(strncmp(tmp_mode+idx_filter, "1", 1 ) == 0)
-		{
-			mode = mode | MM_AUDIO_FILTER_3D;
-			idx_filter++;
-			g_print("3D filter mode = [%c]\n", tmp_mode[idx_filter]);
-			if (strncmp(tmp_mode+idx_filter, "1", 1 ) == 0)
-				filter_info.sound_3d.mode = MM_3DSOUND_WIDE;
-			else if (strncmp(tmp_mode+idx_filter, "2", 1 ) == 0)
-				filter_info.sound_3d.mode = MM_3DSOUND_DYNAMIC;
-			else if (strncmp(tmp_mode+idx_filter, "3", 1 ) == 0)
-				filter_info.sound_3d.mode = MM_3DSOUND_SURROUND;
-			else
-				filter_info.sound_3d.mode = MM_3DSOUND_WIDE;
-
-			r2vs_mode = 3;
-		}
-		else if(strncmp(tmp_mode+idx_filter, "2", 1 ) == 0)
-		{
-			mode = mode | MM_AUDIO_FILTER_EQUALIZER;
-			idx_filter++;
-			g_print("EQ filter mode = [%c]\n", tmp_mode[idx_filter]);
-			if (strncmp(tmp_mode+idx_filter, "1", 1 ) == 0)
-				filter_info.equalizer.mode = MM_EQ_ROCK;
-			else if (strncmp(tmp_mode+idx_filter, "2", 1 ) == 0)
-				filter_info.equalizer.mode = MM_EQ_JAZZ;
-			else if (strncmp(tmp_mode+idx_filter, "3", 1 ) == 0)
-				filter_info.equalizer.mode = MM_EQ_LIVE;
-			else if (strncmp(tmp_mode+idx_filter, "4", 1 ) == 0)
-				filter_info.equalizer.mode = MM_EQ_CLASSIC;
-			else if (strncmp(tmp_mode+idx_filter, "5", 1 ) == 0)
-				filter_info.equalizer.mode = MM_EQ_FULL_BASS;
-			else if (strncmp(tmp_mode+idx_filter, "6", 1 ) == 0)
-				filter_info.equalizer.mode = MM_EQ_FULL_BASS_AND_TREBLE;
-			else if (strncmp(tmp_mode+idx_filter, "7", 1 ) == 0)
-				filter_info.equalizer.mode = MM_EQ_DANCE;
-			else if (strncmp(tmp_mode+idx_filter, "8", 1 ) == 0)
-				filter_info.equalizer.mode = MM_EQ_POP;
-			else if (strncmp(tmp_mode+idx_filter, "9", 1 ) == 0)
-				filter_info.equalizer.mode = MM_EQ_FULL_TREBLE;
-			else
-				filter_info.equalizer.mode = MM_EQ_ROCK;
-
-			r2vs_mode = 3;
-		}
-		else if(strncmp(tmp_mode+idx_filter, "3", 1 ) == 0)
-		{
-			mode = mode | MM_AUDIO_FILTER_REVERB;
-			idx_filter++;
-			g_print("Reberb filter mode = [%c]\n", tmp_mode[idx_filter]);
-			if (strncmp(tmp_mode+idx_filter, "1", 1 ) == 0)
-				filter_info.reverb.mode = MM_REVERB_JAZZ_CLUB;
-			else if (strncmp(tmp_mode+idx_filter, "2", 1 ) == 0)
-				filter_info.reverb.mode = MM_REVERB_CONCERT_HALL;
-			else if (strncmp(tmp_mode+idx_filter, "3", 1 ) == 0)
-				filter_info.reverb.mode = MM_REVERB_STADIUM;
-			else
-				filter_info.reverb.mode = MM_REVERB_JAZZ_CLUB;
-
-			r2vs_mode = 3;
-		}
-#endif
-		else if(strncmp(tmp_mode+idx_filter, "4", 1 ) == 0)
-		{
-			mode = MM_AUDIO_FILTER_BE;
-			r2vs_mode = 2;
-		}
-		else if(strncmp(tmp_mode+idx_filter, "5", 1 ) == 0)
-		{
-			mode = mode |MM_AUDIO_FILTER_SV;
-			r2vs_mode = 3;
-		}
-		else if(strncmp(tmp_mode+idx_filter, "6", 1 ) == 0)
-		{
-			filter_info.output_mode = MM_AUDIO_FILTER_OUTPUT_EAR;
-		}
-		else if(strncmp(tmp_mode+idx_filter, "7", 1 ) == 0 )
-		{
-			mode = MM_AUDIO_FILTER_MTMV;
-			r2vs_mode = 4;
-		}
-		else if(strncmp(tmp_mode+idx_filter, "8", 1 ) == 0 )
-		{
-			mode = MM_AUDIO_FILTER_SRSCSHP;
-			r2vs_mode = 5;
-		}
-		else if(strncmp(tmp_mode+idx_filter, "9", 1 ) == 0 )
-		{
-			mode = MM_AUDIO_FILTER_ARKAMYS;
-			r2vs_mode = 6;
-		}
-		else if(strncmp(tmp_mode+idx_filter, "a", 1 ) == 0 )
-		{
-			mode = MM_AUDIO_FILTER_WOWHD;
-			r2vs_mode = 7;
-		}
-		else if(strncmp(tmp_mode+idx_filter, "b", 1 ) == 0 )
-		{
-			mode = MM_AUDIO_FILTER_SOUND_EX;
-			r2vs_mode = 8;
-		}
-		else
-			return -1;
+		mm_player_sound_filter_custom_clear_eq_all(g_player);
+		mm_player_sound_filter_custom_apply(g_player);
+		return 0;
 	}
-	//g_print("set_r2vs - r2vs_mode[%d]--------------------\n", r2vs_mode);
-
-	if(r2vs_mode == 0)
+	else if(strncmp(char_mode, "02", 2 ) == 0)
 	{
-		filter_info.filter_type = MM_AUDIO_FILTER_NONE;
-		//g_print("Off All R2VS Effect--------------------[%d]\n", filter_info.filter_type);
+		mm_player_sound_filter_custom_clear_ext_all(g_player);
+		mm_player_sound_filter_custom_apply(g_player);
+		return 0;
 	}
-	else if(r2vs_mode == 1)
+	else if(strncmp(char_mode, "0", 1 ) == 0)
 	{
-		filter_info.filter_type = MM_AUDIO_FILTER_3D | MM_AUDIO_FILTER_EQUALIZER |MM_AUDIO_FILTER_REVERB | MM_AUDIO_FILTER_SV;
-		filter_info.sound_3d.mode = MM_3DSOUND_WIDE;
-		filter_info.equalizer.mode = MM_EQ_ROCK;
-		filter_info.reverb.mode = MM_REVERB_JAZZ_CLUB;
-		//g_print("Set 3D Sound, Equalizer, Reverb All--------------------[%d][%d][%d][%d]\n", filter_info.filter_type, filter_info.sound_3d.mode, filter_info.equalizer.mode, filter_info.reverb.mode);
+		filter_type = MM_AUDIO_FILTER_TYPE_NONE;
 	}
-	else if(r2vs_mode == 2)
+/* Preset */
+	else if(strncmp(char_mode, "a", 1 ) == 0)
 	{
-		filter_info.filter_type = MM_AUDIO_FILTER_BE;
-		//g_print("Set Base Enhacement Only--------------------[%d]\n", filter_info.filter_type);
+		filter_type = MM_AUDIO_FILTER_TYPE_PRESET;
+		type = MM_AUDIO_FILTER_PRESET_AUTO;
 	}
-	else if(r2vs_mode == 3)
+	else if(strncmp(char_mode, "b", 1 ) == 0)
 	{
-		filter_info.filter_type = mode;
-		//g_print("r2vs_mode == 3--------------------[%d]\n", filter_info.filter_type);
-#ifndef R2VS_TEST_EACH_FILTER_MODE
-		if(mode & MM_AUDIO_FILTER_3D)
-			filter_info.sound_3d.mode = MM_3DSOUND_WIDE;
-		if(mode & MM_AUDIO_FILTER_EQUALIZER)
-			filter_info.equalizer.mode = MM_EQ_ROCK;
-		if(mode & MM_AUDIO_FILTER_REVERB)
-			filter_info.reverb.mode = MM_REVERB_JAZZ_CLUB;
-#endif
+		filter_type = MM_AUDIO_FILTER_TYPE_PRESET;
+		type = MM_AUDIO_FILTER_PRESET_NORMAL;
 	}
-	else if (r2vs_mode == 4)
+	else if(strncmp(char_mode, "c", 1 ) == 0)
 	{
-		filter_info.filter_type = MM_AUDIO_FILTER_MTMV;
+		filter_type = MM_AUDIO_FILTER_TYPE_PRESET;
+		type = MM_AUDIO_FILTER_PRESET_POP;
 	}
-	else if (r2vs_mode == 5)
+	else if(strncmp(char_mode, "d", 1 ) == 0)
 	{
-		filter_info.filter_type = MM_AUDIO_FILTER_SRSCSHP;
+		filter_type = MM_AUDIO_FILTER_TYPE_PRESET;
+		type = MM_AUDIO_FILTER_PRESET_ROCK;
 	}
-	else if (r2vs_mode == 6)
+	else if(strncmp(char_mode, "e", 1 ) == 0)
 	{
-		filter_info.filter_type = MM_AUDIO_FILTER_ARKAMYS;
+		filter_type = MM_AUDIO_FILTER_TYPE_PRESET;
+		type = MM_AUDIO_FILTER_PRESET_DANCE;
 	}
-	else if (r2vs_mode == 7)
+	else if(strncmp(char_mode, "f", 1 ) == 0)
 	{
-		filter_info.filter_type = MM_AUDIO_FILTER_WOWHD;
+		filter_type = MM_AUDIO_FILTER_TYPE_PRESET;
+		type = MM_AUDIO_FILTER_PRESET_JAZZ;
 	}
-	else if (r2vs_mode == 8)
+	else if(strncmp(char_mode, "g", 1 ) == 0)
 	{
-		filter_info.filter_type = MM_AUDIO_FILTER_SOUND_EX;
+		filter_type = MM_AUDIO_FILTER_TYPE_PRESET;
+		type = MM_AUDIO_FILTER_PRESET_CLASSIC;
+	}
+	else if(strncmp(char_mode, "h", 1 ) == 0)
+	{
+		filter_type = MM_AUDIO_FILTER_TYPE_PRESET;
+		type = MM_AUDIO_FILTER_PRESET_VOCAL;
+	}
+	else if(strncmp(char_mode, "i", 1 ) == 0)
+	{
+		filter_type = MM_AUDIO_FILTER_TYPE_PRESET;
+		type = MM_AUDIO_FILTER_PRESET_BASS_BOOST;
+	}
+	else if(strncmp(char_mode, "j", 1 ) == 0)
+	{
+		filter_type = MM_AUDIO_FILTER_TYPE_PRESET;
+		type = MM_AUDIO_FILTER_PRESET_TREBLE_BOOST;
+	}
+	else if(strncmp(char_mode, "k", 1 ) == 0)
+	{
+		filter_type = MM_AUDIO_FILTER_TYPE_PRESET;
+		type = MM_AUDIO_FILTER_PRESET_MTHEATER;
+	}
+	else if(strncmp(char_mode, "l", 1 ) == 0)
+	{
+		filter_type = MM_AUDIO_FILTER_TYPE_PRESET;
+		type = MM_AUDIO_FILTER_PRESET_EXT;
+	}
+	else if(strncmp(char_mode, "m", 1 ) == 0)
+	{
+		filter_type = MM_AUDIO_FILTER_TYPE_PRESET;
+		type = MM_AUDIO_FILTER_PRESET_CAFE;
+	}
+	else if(strncmp(char_mode, "n", 1 ) == 0)
+	{
+		filter_type = MM_AUDIO_FILTER_TYPE_PRESET;
+		type = MM_AUDIO_FILTER_PRESET_CONCERT_HALL;
+	}
+	else if(strncmp(char_mode, "o", 1 ) == 0)
+	{
+		filter_type = MM_AUDIO_FILTER_TYPE_PRESET;
+		type = MM_AUDIO_FILTER_PRESET_VOICE;
+	}
+	else if(strncmp(char_mode, "p", 1 ) == 0)
+	{
+		filter_type = MM_AUDIO_FILTER_TYPE_PRESET;
+		type = MM_AUDIO_FILTER_PRESET_MOVIE;
+	}
+	else if(strncmp(char_mode, "q", 1 ) == 0)
+	{
+		filter_type = MM_AUDIO_FILTER_TYPE_PRESET;
+		type = MM_AUDIO_FILTER_PRESET_VIRT51;
+	}
+/* Custom EQ */
+	else if(strncmp(char_mode, "1", 1 ) == 0)
+	{
+		filter_type = MM_AUDIO_FILTER_TYPE_CUSTOM;
+		type = MM_AUDIO_FILTER_CUSTOM_EQ;
+	}
+/* Custom Extension */
+	else if(strncmp(char_mode, "2", 1 ) == 0)
+	{
+		filter_type = MM_AUDIO_FILTER_TYPE_CUSTOM;
+		type = MM_AUDIO_FILTER_CUSTOM_3D;
+	}
+	else if(strncmp(char_mode, "3", 1 ) == 0)
+	{
+		filter_type = MM_AUDIO_FILTER_TYPE_CUSTOM;
+		type = MM_AUDIO_FILTER_CUSTOM_BASS;
+	}
+	else if(strncmp(char_mode, "4", 1 ) == 0)
+	{
+		filter_type = MM_AUDIO_FILTER_TYPE_CUSTOM;
+		type = MM_AUDIO_FILTER_CUSTOM_ROOM_SIZE;
+	}
+	else if(strncmp(char_mode, "5", 1 ) == 0)
+	{
+		filter_type = MM_AUDIO_FILTER_TYPE_CUSTOM;
+		type = MM_AUDIO_FILTER_CUSTOM_REVERB_LEVEL;
+	}
+	else if(strncmp(char_mode, "6", 1 ) == 0)
+	{
+		filter_type = MM_AUDIO_FILTER_TYPE_CUSTOM;
+		type = MM_AUDIO_FILTER_CUSTOM_CLARITY;
 	}
 	else
 	{
-		g_print("R2VS Input Mode Error [%d]\n", r2vs_mode);
 		return -1;
 	}
 
-	ret = mm_player_apply_sound_filter(g_player,  &filter_info);	//hjkim, MM_AUDIO_FILTER_NONE is for temporary
-
-	if(ret < 0)
+	/* Apply Sound Effect */
+	if (filter_type == MM_AUDIO_FILTER_TYPE_NONE)
 	{
-		g_print("failed update R2VS\n");
-		return -1;
+		mm_player_sound_filter_bypass (g_player);
 	}
-	else
+	else if (filter_type == MM_AUDIO_FILTER_TYPE_PRESET)
 	{
-		//g_print("Success update R2VS\n");
+		if (type >= MM_AUDIO_FILTER_PRESET_NORMAL && type <= MM_AUDIO_FILTER_PRESET_NUM)
+		{
+			mm_player_sound_filter_preset_apply (g_player, type);
+		}
+	}
+	else if (filter_type == MM_AUDIO_FILTER_TYPE_CUSTOM)
+	{
+		if (type == MM_AUDIO_FILTER_CUSTOM_EQ)
+		{
+			g_custom_filter_type = type;
+			return 1;
+		}
+		else if (type >= MM_AUDIO_FILTER_CUSTOM_3D && type < MM_AUDIO_FILTER_CUSTOM_NUM)
+		{
+			g_custom_filter_type = type;
+			return 2;
+		}
 	}
 
 	return 0;
@@ -1368,7 +1327,7 @@ void display_sub_basic()
 	g_print("rv. resize video - fimcconvert only\n");
 
 	g_print("[ sound  ] k. Toggle Fadeup\t");
-	g_print("z. Apply DNSE   \t\n");
+	g_print("z. Apply Sound Effect\t\n");
 
 #if 0	// not available now
   	g_print("        Progressive Download\n");
@@ -1389,53 +1348,62 @@ void display_sub_basic()
 	g_print("vc. video stream callback\n");	
 	
 	g_print("[  video ] ca. capture\t");
-	g_print("ro. rotate\n");		
+	g_print("ro. rotate\n");
+	g_print("[ PD ] pd. Set Progressive Download \n");
 	g_print("\n");
 	g_print("=========================================================================================\n");
 }
 
-void display_sub_dnse()
+static bool display_current_filter_callback(int filter_type, int type, void *user)
 {
-	g_print("*** input DNSE mode - Speaker Mode\n");
-	g_print("Choose Effect You Want\n");
-//		g_print("1,2,3 can be mixed together (ex 13 or 123)\n");
-	g_print("1X,2X,3X,5,6 can be mixed together (ex 1132 or 112537 or 1256)\n");
-	g_print("---------------------------------\n");
-	g_print("0. No DNSE Effect\n");
-#ifndef R2VS_TEST_EACH_FILTER_MODE
-	g_print("1. 3D Sound\n");
-	g_print("2. Equalizer\n");
-	g_print("3. Reverb\n");
-#else
-	g_print("3D Sound-------------------------\n");
-	g_print("11. 3D Sound -Wide\n");
-	g_print("12. 3D Sound - Dynamic\n");
-	g_print("13. 3D Sound - Surround\n");
-	g_print("Equalizer-------------------------\n");
-	g_print("21. Equalizer - Rock\n");
-	g_print("22. Equalizer - Jazz\n");
-	g_print("23. Equalizer - Live\n");
-	g_print("24. Equalizer - Classic \n");
-	g_print("25. Equalizer - Full Bass\n");
-	g_print("26. Equalizer - Full Bass and Treble\n");
-	g_print("27. Equalizer - Dance\n");
-	g_print("28. Equalizer - Pop\n");
-	g_print("29. Equalizer - Full Treble\n");
-	g_print("Reverb-------------------------\n");
-	g_print("31. Reverb - Jazz Club\n");
-	g_print("32. Reverb - Concert Hall\n");
-	g_print("33. Reverb - Stadium\n");
-	g_print("---------------------------------\n");
-#endif
-	g_print("4. Base Enhancement\n");
-	g_print("5. Spectrum View\n");	//hjkim:+:090203, Add Specturm view value check menu
-	g_print("6. Speaker Mode On (spk default)\n");	//hjkim:+:090203
-	g_print("7. mTheater Movie\n");
-    g_print("8. SRS CSHeadPhone\n");
-    g_print("9. Arkamys\n");
-	g_print("a. WOW HD\n");
-	g_print("b. Sound Externalization\n");
+	g_print("%d ", type);
+	return TRUE;
 }
+
+void display_sub_sound_effect()
+{
+	g_print("*********** Choose Sound Effect You Want ***********\n");
+	g_print("*** current supported Preset filter(index of array)\n");
+	g_print(">>> ");
+	mm_player_get_foreach_present_supported_filter_type(g_player, MM_AUDIO_FILTER_TYPE_PRESET, display_current_filter_callback, NULL);
+	g_print("\n*** current supported Custom filter(index of array)\n");
+	g_print(">>> ");
+	mm_player_get_foreach_present_supported_filter_type(g_player, MM_AUDIO_FILTER_TYPE_CUSTOM, display_current_filter_callback, NULL);
+	g_print("\n*** NOTE: Custom filter can be mixed together\n");
+	g_print("----------------------------------------------------\n");
+	g_print("0.  No Sound Effect\n");
+	g_print("01. Clear All EQ Bands\n");
+	g_print("02. Clear All Extension Filters\n");
+	g_print("Preset----------------------------------------------\n");
+	g_print("a. Auto\n");
+	g_print("b. Normal\n");
+	g_print("c. Pop\n");
+	g_print("d. Rock\n");
+	g_print("e. Dance\n");
+	g_print("f. Jazz\n");
+	g_print("g. Classic\n");
+	g_print("h. Vocal\n");
+	g_print("i. Bass Boost\n");
+	g_print("j. Treble Boost\n");
+	g_print("k. MThreater\n");
+	g_print("l. Externalization\n");
+	g_print("m. Cafe\n");
+	g_print("n. Concert Hall\n");
+	g_print("o. Voice\n");
+	g_print("p. Movie\n");
+	g_print("q. Virtual5.1\n");
+	g_print("Custom-Equalizer------------------------------------\n");
+	g_print("1. EQ\n");
+	g_print("Custom-Extension------------------------------------\n");
+	g_print("2. 3D\n");
+	g_print("3. Bass\n");
+	g_print("4. Room Size\n");
+	g_print("5. Reverb Level\n");
+	g_print("6. Clarity\n");
+	g_print("----------------------------------------------------\n");
+}
+
+
 static void displaymenu()
 {
 	if (g_menu_state == CURRENT_STATUS_MAINMENU)
@@ -1462,7 +1430,6 @@ static void displaymenu()
 	{
 		g_print("*** input position percent(%%)\n");
 	}
-
 	else if ( g_menu_state == CURRENT_STATUS_DISPLAYMETHOD)
 	{
 		g_print("*** input option(0,1,2)\n");
@@ -1481,13 +1448,66 @@ static void displaymenu()
 	}
 	else if (g_menu_state == CURRENT_STATUS_PLAYCOUNT)
 	{
+
+	}
 #ifdef AUDIO_FILTER_EFFECT
-	}
-	else if (g_menu_state == CURRENT_STATUS_R2VS)
+	else if (g_menu_state == CURRENT_STATUS_SOUND_EFFECT)
 	{
-		display_sub_dnse();
-#endif
+		display_sub_sound_effect();
 	}
+	else if (g_menu_state == CURRENT_STATUS_SOUND_EFFECT_EQ)
+	{
+		int min = 0;
+		int max = 0;
+		int ret = 0;
+
+		/* get number of eq bands */
+		if (g_eq_index == 0)
+		{
+			ret = mm_player_sound_filter_custom_get_eq_bands_number(g_player, &g_eq_band_num);
+			if (ret)
+			{
+				g_print("getting number of eq band failed\n");
+				reset_menu_state();
+			}
+			else
+			{
+				g_print("*** number of eq band : %d\n", g_eq_band_num);
+			}
+
+			/* get min, max value of level */
+			ret = mm_player_sound_filter_custom_get_level_range(g_player, MM_AUDIO_FILTER_CUSTOM_EQ, &min, &max);
+			if (ret)
+			{
+				g_print("getting range of level failed\n");
+				reset_menu_state();
+			}
+			else
+			{
+				g_print("*** eq level range : %d(MIN) - %d(MAX)\n", min, max);
+			}
+		}
+		g_print("*** input band(%d) level of Equalizer\n",g_eq_index);
+	}
+	else if (g_menu_state == CURRENT_STATUS_SOUND_EFFECT_EXT)
+	{
+		int min = 0;
+		int max = 0;
+		int ret = 0;
+
+		ret = mm_player_sound_filter_custom_get_level_range(g_player, g_custom_filter_type, &min, &max);
+		if (ret)
+		{
+			g_print("filter type(%d).getting range of level failed\n", g_custom_filter_type);
+			reset_menu_state();
+		}
+		else
+		{
+			g_print("*** filter type(%d). level range : %d(MIN) - %d(MAX)\n", g_custom_filter_type, min, max);
+		}
+		g_print("*** input level of custom extension filter(%d)\n",g_custom_filter_type);
+	}
+#endif
 	else if (g_menu_state == CURRENT_STATUS_SUBTITLE_FILENAME)
 	{
 		g_print(" ** input  subtitle file path.\n");
@@ -1529,7 +1549,7 @@ void toggle_audiosink_fadeup()
 
 	g_print("fadeup value to set : %d\n", flag_fadeup);
 
-	mm_player_set_attribute(g_player, &g_err_name, "sound_fadeup", flag_fadeup, NULL);
+	mm_player_set_attribute(g_player, &g_err_name, "no_sound_output", flag_fadeup, NULL);
 
 }
 
@@ -1594,6 +1614,15 @@ void enough_data(void *player)
 	g_print("__enough_data\n");
 	start_pushing_buffers = FALSE;
 
+}
+
+void set_pd_test()
+{
+	gchar* path = NULL;
+
+	//g_strdup(
+	mm_player_set_attribute(g_player, &g_err_name, "pd_mode", MM_PLAYER_PD_MODE_URI, NULL);
+	mm_player_set_attribute(g_player, &g_err_name, "pd_location", MM_PLAYER_TS_PD_PATH, strlen(MM_PLAYER_TS_PD_PATH), NULL);
 }
 
 void feed_data(guint size, void *player)
@@ -1780,7 +1809,7 @@ void _interpret_main_menu(char *cmd)
 		}
 		else if (strncmp(cmd, "j", 1) == 0)
 		{
-			 	print_info(); 
+			 	print_info();
 		}
 		else if (strncmp(cmd, "o", 1) == 0)
 		{
@@ -1814,7 +1843,7 @@ void _interpret_main_menu(char *cmd)
 		{
 				g_menu_state = CURRENT_STATUS_DISPLAYMETHOD;
 		}
-#ifdef _USE_XVIMAGESINK 
+#ifdef _USE_XVIMAGESINK
 		else if (strncmp (cmd, "x", 1) == 0)
 		{
 				change_fullscreen(overlay);
@@ -1827,7 +1856,7 @@ void _interpret_main_menu(char *cmd)
 #ifdef AUDIO_FILTER_EFFECT
 		else if (strncmp (cmd, "z", 1) == 0)
 		{
-				g_menu_state = CURRENT_STATUS_R2VS;
+				g_menu_state = CURRENT_STATUS_SOUND_EFFECT;
 		}
 #endif
 		else if (strncmp(cmd, "u", 1) == 0)
@@ -1901,6 +1930,10 @@ void _interpret_main_menu(char *cmd)
 		else if (strncmp(cmd, "vc", 2) == 0)
 		{
 			set_video_callback();
+		}
+		else if (strncmp(cmd, "pd", 2) == 0)
+		{
+			set_pd_test();
 		}		
 		else if (strncmp (cmd, "dv", 2) == 0)
 		{
@@ -2008,17 +2041,78 @@ static void interpret (char *cmd)
 		break;
 
 #ifdef AUDIO_FILTER_EFFECT
-		case CURRENT_STATUS_R2VS:
+		case CURRENT_STATUS_SOUND_EFFECT:
+		{
+			int ret = 0;
+			ret = set_sound_effect(cmd);
+
+			if (ret == -1)
 			{
-				int ret = 0;
-				ret = set_r2vs(cmd);
-
-				if (ret == -1)
-					g_print("unknown menu - R2VS\n");
-
-			reset_menu_state();
+				g_print("unknown menu - Sound Effect\n");
+				reset_menu_state();
 			}
-			break;
+			else if (ret==0)
+			{
+				reset_menu_state();
+			}
+			else if (ret==1) /* custom EQ */
+			{
+				g_menu_state = CURRENT_STATUS_SOUND_EFFECT_EQ;
+			}
+			else if (ret==2) /* custom extension filter */
+			{
+				g_menu_state = CURRENT_STATUS_SOUND_EFFECT_EXT;
+			}
+		}
+		break;
+
+		case CURRENT_STATUS_SOUND_EFFECT_EQ:
+		{
+			int ret = 0;
+			int level = 0;
+
+			level = atoi(cmd);
+			ret = mm_player_sound_filter_custom_set_level(g_player, MM_AUDIO_FILTER_CUSTOM_EQ, g_eq_index, level);
+			if (ret)
+			{
+				g_print("mm_player_sound_filter_custom_set_level() failed\n");
+				g_eq_index = 1;
+				reset_menu_state();
+			}
+			g_eq_index++;
+			if(g_eq_index == g_eq_band_num)
+			{
+#if 0
+				/* this code is for testing _set_level_eq_from_list() */
+				int array[8] = {3,3,3,3,3,3,3,3};
+				mm_player_sound_filter_custom_set_level_eq_from_list(g_player, array, 8);
+#endif
+				ret = mm_player_sound_filter_custom_apply(g_player);
+				if (ret)
+				{
+					g_print("mm_player_sound_filter_custom_apply() failed\n");
+				}
+				g_eq_index = 0;
+				reset_menu_state();
+			}
+		}
+		break;
+
+		case CURRENT_STATUS_SOUND_EFFECT_EXT:
+		{
+			int ret = 0;
+			int level = 0;
+
+			level = atoi(cmd);
+			ret = mm_player_sound_filter_custom_set_level(g_player, g_custom_filter_type, NULL, level);
+			if (ret)
+			{
+				g_print("mm_player_sound_filter_custom_set_level() failed\n");
+			}
+			mm_player_sound_filter_custom_apply(g_player);
+			reset_menu_state();
+		}
+		break;
 #endif
 		case CURRENT_STATUS_PLAYCOUNT:
 			{
@@ -2078,7 +2172,7 @@ static gboolean
 }
 #endif
 
-#ifdef _USE_XVIMAGESINK 
+#ifdef _USE_XVIMAGESINK
 GtkWidget *event_win;
 
 void change_fullscreen(GtkWidget* widget)
@@ -2220,7 +2314,7 @@ int main(int argc, char *argv[])
 		GIOChannel *stdin_channel;
 		MMTA_INIT();
 
-#ifdef TRACE
+#ifdef MTRACE
 		mtrace();
 		MMHandleType prop;
 		GError *error = NULL;

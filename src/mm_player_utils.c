@@ -71,6 +71,7 @@ bool util_write_file_backup(const char *backup_path, char *data_ptr, int data_si
 	return TRUE;
 }
 
+#if 1 //tskim:MidiModuleRequires:+: for Midi player
 bool util_remove_file_backup(const char *backup_path)
 {
 	debug_log("\n");
@@ -78,10 +79,16 @@ bool util_remove_file_backup(const char *backup_path)
 	if (!backup_path || !strlen(backup_path))
 		return FALSE;
 
-	remove(backup_path);
+/*
+     Prevent defect patch. CID:22389 Checker:TOTCU
+	int res = access(backup_path, R_OK);
+	if (!res)
+*/
+		remove(backup_path);
 
 	return TRUE;
 }
+#endif
 
 #define DETECTION_PREFIX_SIZE	20
 //bool util_is_midi_type_by_mem(void *mem, int size)
@@ -92,20 +99,20 @@ int util_is_midi_type_by_mem(void *mem, int size)
 	const char *p = (const char *)mem;
 
 	if (size < DETECTION_PREFIX_SIZE)
-		return MM_AUDIO_CODEC_INVALID;
+		return MM_AUDIO_CODEC_INVALID; //FALSE;		// sbs:+:080903
 
 	/* mmf file detection */
 	if (p[0] == 'M' && p[1] == 'M' && p[2] == 'M' && p[3] == 'D') {
 		debug_log("MM_AUDIO_CODEC_MMF\n");
-		return MM_AUDIO_CODEC_MMF;
+		return MM_AUDIO_CODEC_MMF; // TRUE;// sbs:+:080903
 	}
 
 	/* midi file detection */
 	if (p[0] == 'M' && p[1] == 'T' && p[2] == 'h' && p[3] == 'd') {
 		debug_log ("MM_AUDIO_CODEC_MIDI, %d\n", MM_AUDIO_CODEC_MIDI);
-		return MM_AUDIO_CODEC_MIDI;
+		return MM_AUDIO_CODEC_MIDI;//TRUE;// sbs:+:080903
 	}
-	/* mxmf file detection */
+	/* mxmf file detection */ // sbs:+:080903
 	if (p[0] == 'X' && p[1] == 'M' && p[2] == 'F' && p[3] == '_') {
 		debug_log ("MM_AUDIO_CODEC_MXMF\n");
 		return MM_AUDIO_CODEC_MXMF;
@@ -116,18 +123,19 @@ int util_is_midi_type_by_mem(void *mem, int size)
 		p[8] == 'W' && p[9] == 'A' && p[10] == 'V' && p[11] == 'E' &&
 		p[12] == 'f' && p[13] == 'm' && p[14] == 't') {
 		debug_log ("MM_AUDIO_CODEC_WAVE\n");
-		return MM_AUDIO_CODEC_WAVE;
+		return MM_AUDIO_CODEC_WAVE;//TRUE;// sbs:+:080903
 	}
-	/* i-melody file detection */
+	/* i-melody file detection */ // sbs:+:080903
 	if (memcmp(p, "BEGIN:IMELODY", 13) == 0)
 	{
 		debug_log ("MM_AUDIO_CODEC_IMELODY\n");
 		return MM_AUDIO_CODEC_IMELODY;
 	}
 
-	return MM_AUDIO_CODEC_INVALID;
+	return MM_AUDIO_CODEC_INVALID;//FALSE; // sbs:+:080903
 }
 
+//bool util_is_midi_type_by_file(const char *file_path)
 int util_is_midi_type_by_file(const char *file_path)
 {
 	debug_log("\n");
@@ -140,6 +148,7 @@ int util_is_midi_type_by_file(const char *file_path)
 	if (!file_path)
 		return FALSE;
 
+	/* Prevent defect patch. CID: 22388 Checker: TOCTOU */
 	fp = fopen(file_path, "r");
 
 	if (!fp)
@@ -280,9 +289,9 @@ bool util_check_valid_url ( const char *proxy )
 	bool ret = TRUE;
 	
 	return_val_if_fail ( proxy, FALSE );
-	return_val_if_fail ( strlen(proxy), FALSE ); 
+	return_val_if_fail ( strlen(proxy), FALSE );
 
-       	if ( inet_aton(proxy, &proxy_addr) != 0 )
+       if ( inet_aton(proxy, &proxy_addr) != 0 )
 	{
 		debug_warning("invalid proxy is set. \n");
 		ret = FALSE;

@@ -57,7 +57,8 @@ gint my_compare (gconstpointer a,  gconstpointer b)
 {
 	int first  = ((GstM3U8*)a)->bandwidth;
 	int second = ((GstM3U8*)b)->bandwidth;
-	return second - first;
+	//return second - first;
+	return first - second; // ascending sort
 }
 
 void hls_dump_mediafile (GstM3U8MediaFile* mediafile)
@@ -103,6 +104,8 @@ void hls_dump_playlist (void *hls_handle)
 	debug_log ("================================    E N D    =================================\n");
 }
 
+#define MMPLAYER_DEFAULT_AUDIO_BANDWIDTH        70000 /* FIXIT */
+
 gboolean hls_parse_playlist_update_client (void *hls_handle, char* playlist)
 {
 	mm_player_hls_t *hls_player = (mm_player_hls_t *) hls_handle;
@@ -128,12 +131,37 @@ gboolean hls_parse_playlist_update_client (void *hls_handle, char* playlist)
 	/* update with replaced text */
 	if (gst_m3u8_client_update (hls_player->client, replaced_text))	
 	{
+		GList *my_list = NULL;
+		guint list_count = g_list_length(hls_player->client->main->lists);
+
+		debug_log("sublist count = %d\n", list_count);
+
+		if (list_count > 1)
+		{
+			for (my_list = hls_player->client->main->lists; my_list != NULL; my_list = g_list_next (my_list))
+			{
+				GstM3U8 *my_m3u8 = NULL;
+
+				my_m3u8 = (GstM3U8 *)my_list->data;
+
+				/* check if it can be audio or not */
+				if (my_m3u8->bandwidth < MMPLAYER_DEFAULT_AUDIO_BANDWIDTH)
+				{
+					/* doesn't consider it */
+					hls_player->client->main->lists = g_list_remove(hls_player->client->main->lists, my_m3u8);
+					break;
+				}
+
+			}
+		}
+
+		//hls_dump_m3u8 (hls_player->client->main);
 		/* DUMP */
 		hls_dump_playlist (hls_player);
 	}
 	else 
 	{
-		debug_log("\n\n!!!!!!!!!!!!!!!! RELOADED but NO changes!!!!!!\n\n");
+		g_print ("\n\n!!!!!!!!!!!!!!!! RELOADED but NO changes!!!!!!\n\n");
 	}
 
 	/* clean up */
@@ -170,7 +198,7 @@ gboolean hls_set_current_playlist (mm_player_hls_t *hls_player)
 		{
 			debug_log ("Set Initial bandwidth\n");
 			gst_m3u8_client_set_current (hls_player->client, data);
-			g_print ("Setting to initial BW = %d\n", data->bandwidth);
+			debug_log ("Setting to initial BW = %d\n", data->bandwidth);
 			tmp = g_list_next(tmp);
 		}
 		else 

@@ -1,9 +1,11 @@
+#sbs-git:slp/pkgs/l/libmm-player libmm-player 0.2.17 f4968cadcd17a393d529a446e91d8f34904097ac
+
 Name:       libmm-player
 Summary:    Multimedia Framework Player Library
-Version:    0.2.12
-Release:    1
+Version:    0.2.63
+Release:    3
 Group:      System/Libraries
-License:    Apache-2.0
+License:    TBD
 Source0:    %{name}-%{version}.tar.gz
 Requires(post):  /sbin/ldconfig
 Requires(postun):  /sbin/ldconfig
@@ -48,7 +50,7 @@ CFLAGS+=" -DMMFW_DEBUG_MODE -DGST_EXT_TIME_ANALYSIS -DAUDIO_FILTER_EFFECT -DEXPO
 LDFLAGS+="-Wl,--rpath=%{_prefix}/lib -Wl,--hash-style=both -Wl,--as-needed"; export LDFLAGS
 
 # always enable sdk build. This option should go away
-CFLAGS=$CLFAGS LDFLAGS=$LDFLAGS ./configure --enable-sdk --prefix=%{_prefix} --disable-static
+CFLAGS=$CFLAGS LDFLAGS=$LDFLAGS ./configure --enable-sdk --prefix=%{_prefix} --disable-static
 
 # Call make instruction with smp support
 make -j1 
@@ -79,10 +81,5 @@ rm -rf %{buildroot}
 %defattr(-,root,root,-)
 %{_libdir}/*.so
 %{_includedir}/mmf/*.h
-%{_libdir}/pkgconfig/*.pc
-
-
-
-
-
+%{_libdir}/pkgconfig/*
 

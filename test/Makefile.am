@@ -19,7 +19,7 @@ mm_player_testsuite_CFLAGS = -I$(srcdir)/../src/include \
 mm_player_testsuite_CFLAGS += -D_USE_EFL
 #mm_player_testsuite_CFLAGS += -D_USE_GTK -D_USE_XVIMAGESINK
 #mm_player_testsuite_CFLAGS += $(GTK_CFLAGS)
-mm_player_testsuite_CFLAGS += -D_AUDIO_FILTER_EFFECT
+mm_player_testsuite_CFLAGS += -DAUDIO_FILTER_EFFECT
 
 ############################################
 

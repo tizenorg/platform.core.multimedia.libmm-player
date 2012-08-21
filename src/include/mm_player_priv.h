@@ -56,7 +56,21 @@
 ---------------------------------------------------------------------------*/
 
 #define MM_PLAYER_IMGB_MPLANE_MAX	4
-#define MM_PLAYER_STREAM_COUNT_MAX 3
+#define MM_PLAYER_STREAM_COUNT_MAX	3
+
+#define MM_PLAYER_CAST(x_player) 		((mm_player_t *)(x_player))
+/**
+ * @x_player: MMHandleType of player
+ *
+ * Get the PD downloader of this player.
+ */
+#define MM_PLAYER_GET_PD(x_player)	(MM_PLAYER_CAST(x_player)->pd_downloader)
+/**
+ * @x_player: MMHandleType of player
+ *
+ * Get the attributes handle of this player.
+ */
+#define MM_PLAYER_GET_ATTRS(x_player)	(MM_PLAYER_CAST(x_player)->attrs)
 
 /*---------------------------------------------------------------------------
 |    GLOBAL CONSTANT DEFINITIONS:											|
@@ -159,6 +173,7 @@ enum MainElementID
 enum AudioElementID
 {
 	MMPLAYER_A_BIN = 0, /* NOTE : MMPLAYER_A_BIN should be zero */
+	MMPLAYER_A_TP,
 	MMPLAYER_A_CONV,
 	MMPLAYER_A_VOL,
 	MMPLAYER_A_FILTER,
@@ -175,7 +190,10 @@ enum VideoElementID
 	MMPLAYER_V_FLIP,
 	MMPLAYER_V_CONV,
 	MMPLAYER_V_SCALE,
+	MMPLAYER_V_CAPS,
+	MMPLAYER_V_TEE,
 	MMPLAYER_V_SINK,
+	MMPLAYER_V_SINK_EXT,
 	MMPLAYER_V_NUM
 };
 
@@ -215,13 +233,6 @@ enum PlayerCommandState
 	MMPLAYER_COMMAND_PAUSE,
 	MMPLAYER_COMMAND_RESUME,
 	MMPLAYER_COMMAND_NUM
-};
-
-enum FilterActionType
-{
-	MM_PLAYER_FILTER_NONE,
-	MM_PLAYER_FILTER_MIX,
-	MM_PLAYER_FILTER_ALONE
 };
 
 /* Note : StreamingSrcError is error enum for streaming source which post error message
@@ -424,6 +435,7 @@ typedef struct {
 	/* message callback */
 	MMMessageCallback msg_cb;
 	void* msg_cb_param;
+	GMutex* msg_cb_lock;
 
 	/* progressive download */
 	mm_player_pd_t *pd_downloader;
@@ -459,17 +471,23 @@ typedef struct {
 
 	/* video capture callback*/
 	gulong video_capture_cb_probe_id;
-	
+
+	/* video display */
+	GstPad* tee_src_pad[2];
+	gboolean use_multi_surface;
+
 	/* sound info */
 	MMPlayerSoundInfo	sound;
 
-	/* application client id for dnse */
-	MMAudioFilterClient app_id_set_up_dnse;
+	/* type string */
+	gchar *type;
+
+	/* video stream caps parsed by demuxer */
+	GstCaps* v_stream_caps;
 
 	/* audio filter infomation */
 	MMAudioFilterInfo audio_filter_info;
-	gboolean DNSeBypass; /* FIXIT : please use '_' rather than big character */
-	gboolean isAMR;
+	gboolean bypass_sound_effect;
 
 	gulong audio_cb_probe_id;
 
@@ -484,9 +502,8 @@ typedef struct {
 
 	/* autoplugging */
 	GList* factories;
-	GList* decoder_factories;
 	gboolean have_dynamic_pad;
-	GList* childs;
+	GList* parsers; // list of linked parser name
 	gboolean no_more_pad;
 	gint num_dynamic_pad;
 	gboolean has_many_types;
@@ -553,6 +570,7 @@ typedef struct {
 	gboolean state_lost;
 
 	gboolean need_update_content_attrs;
+	gboolean need_update_content_dur;
 
 	gboolean is_sound_extraction;
 
@@ -583,6 +601,10 @@ typedef struct {
 	gboolean keep_detecting_vcodec;
 
 	gboolean play_subtitle;
+
+	/* PD downloader message callback and param */
+	MMMessageCallback pd_msg_cb;
+	void* pd_msg_cb_param;
 } mm_player_t;
 
 /*===========================================================================================
@@ -603,8 +625,6 @@ int _mmplayer_set_volume(MMHandleType hplayer, MMPlayerVolumeType volume);
 int _mmplayer_get_volume(MMHandleType hplayer, MMPlayerVolumeType *volume);
 int _mmplayer_set_mute(MMHandleType hplayer, int mute);
 int _mmplayer_get_mute(MMHandleType hplayer, int* pmute);
-int _mmplayer_apply_sound_filter(MMHandleType hplayer, MMAudioFilterInfo* info);
-int _mmplayer_get_sv_info(MMHandleType hplayer, short *graph_out);
 int _mmplayer_start(MMHandleType hplayer);
 int _mmplayer_stop(MMHandleType hplayer);
 int _mmplayer_pause(MMHandleType hplayer);

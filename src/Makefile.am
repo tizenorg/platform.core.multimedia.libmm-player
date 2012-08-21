@@ -31,7 +31,8 @@ libmmfplayer_la_SOURCES = mm_player.c \
 			  mm_player_ahs.c \
 			  mm_player_capture.c \
 			  mm_player_pd.c \
-			  mm_player_streaming.c
+			  mm_player_streaming.c \
+			  mm_player_sndeffect.c
 
 libmmfplayer_la_CFLAGS =  -I$(srcdir)/include \
 			  $(MMCOMMON_CFLAGS) \
@@ -41,6 +42,7 @@ libmmfplayer_la_CFLAGS =  -I$(srcdir)/include \
 			  $(GST_INTERFACE_CFLAGS) \
 			  $(GST_APP_CFLAGS) \
 			  $(MMSESSION_CFLAGS) \
+			  $(MMSOUND_CFLAGS) \
 			  $(AUDIOSESSIONMGR_CFLAGS) \
 			  $(VCONF_CFLAGS) \
 			  $(CRYPTO_CFLAGS)
@@ -67,6 +69,7 @@ libmmfplayer_la_LIBADD = $(GST_LIBS) \
 			 $(INIPARSER_LIBS) \
 			 $(CRYPTO_LIBS) \
 			 $(MMSESSION_LIBS) \
+			 $(MMSOUND_LIBS) \
 			 $(AUDIOSESSIONMGR_LIBS) \
 			 $(VCONF_LIBS) \
 			 $(top_builddir)/src/libmmfplayer_m3u8.la

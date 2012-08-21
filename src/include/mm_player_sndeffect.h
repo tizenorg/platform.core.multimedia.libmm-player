@@ -29,7 +29,8 @@
 	extern "C" {
 #endif
 
-#define MMDNSE_EQ_CUSTOMBAND_MAX	8
+#define MM_AUDIO_FILTER_EQ_BAND_MAX		8
+#define MM_AUDIO_FILTER_CUSTOM_LEVEL_INIT	0
 
 /**
 	@addtogroup PLAYER_INTERNAL
@@ -37,129 +38,271 @@
 */
 
 /**
- * Enumerations of 3D Sound Mode
+ * Enumerations of Preset Filter Type
  */
-enum MM3DSoundMode {
-	MM_3DSOUND_WIDE = 1,		/**< Wide */
-	MM_3DSOUND_DYNAMIC,		/**< Dynamic */
-	MM_3DSOUND_SURROUND,	/**< Surround */
-};
+typedef enum {
+	MM_AUDIO_FILTER_PRESET_AUTO = 0,	/**<  Filter Preset type Auto */
+	MM_AUDIO_FILTER_PRESET_NORMAL,		/**<  Filter Preset type Normal */
+	MM_AUDIO_FILTER_PRESET_POP,		/**<  Filter Preset type Pop */
+	MM_AUDIO_FILTER_PRESET_ROCK,		/**<  Filter Preset type Rock */
+	MM_AUDIO_FILTER_PRESET_DANCE,		/**<  Filter Preset type Dance */
+	MM_AUDIO_FILTER_PRESET_JAZZ,		/**<  Filter Preset type Jazz */
+	MM_AUDIO_FILTER_PRESET_CLASSIC,		/**<  Filter Preset type Classic */
+	MM_AUDIO_FILTER_PRESET_VOCAL,		/**<  Filter Preset type Vocal */
+	MM_AUDIO_FILTER_PRESET_BASS_BOOST,	/**<  Filter Preset type Bass Boost */
+	MM_AUDIO_FILTER_PRESET_TREBLE_BOOST,	/**<  Filter Preset type Treble Boost */
+	MM_AUDIO_FILTER_PRESET_MTHEATER,	/**<  Filter Preset type MTheater */
+	MM_AUDIO_FILTER_PRESET_EXT,		/**<  Filter Preset type Externalization */
+	MM_AUDIO_FILTER_PRESET_CAFE,		/**<  Filter Preset type Cafe */
+	MM_AUDIO_FILTER_PRESET_CONCERT_HALL,	/**<  Filter Preset type Concert Hall */
+	MM_AUDIO_FILTER_PRESET_VOICE,		/**<  Filter Preset type Voice */
+	MM_AUDIO_FILTER_PRESET_MOVIE,		/**<  Filter Preset type Movie */
+	MM_AUDIO_FILTER_PRESET_VIRT51,		/**<  Filter Preset type Virtual 5.1 */
+	MM_AUDIO_FILTER_PRESET_NUM,		/**<  Number of Filter Preset type */
+} MMAudioFilterPresetType;
 
 /**
- * Enumerations of EQ Mode
+ * Enumerations of Custom Filter Type
  */
-enum MMEqMode {
-	MM_EQ_ROCK = 1,				/**<  Rock mode*/
-	MM_EQ_JAZZ,					/**<  Jazz mode*/
-	MM_EQ_LIVE,					/**<  Live mode*/
-	MM_EQ_CLASSIC,				/**<  Classic mode*/
-	MM_EQ_FULL_BASS,				/**<  Bass mode*/
-	MM_EQ_FULL_BASS_AND_TREBLE,	/**<  Bass and Treble mode*/
-	MM_EQ_DANCE,					/**<  Dance mode*/
-	MM_EQ_POP,					/**<  Pop mode*/
-	MM_EQ_FULL_TREBLE,			/**<  Treble mode*/
-	MM_EQ_CLUB,					/**<  Club mode*/
-	MM_EQ_PARTY,					/**<  Party mode*/
-	MM_EQ_LARGE_HALL,				/**<  Large Hall mode*/
-	MM_EQ_SOFT,					/**<  Soft mode*/
-	MM_EQ_SOFT_ROCK,				/**<  Soft Rock mode*/
-	MM_EQ_USER,					/**<  User mode*/
-};
-
-/**
- * Enumerations of Reverb Mode
- */
-enum MMReverbMode {
-	MM_REVERB_JAZZ_CLUB = 1,/**<  Jazz club mode*/
-	MM_REVERB_CONCERT_HALL,	/**<  Concert Hall mode*/
-	MM_REVERB_STADIUM,	/**<  Stadium mode*/
-};
+typedef enum {
+	MM_AUDIO_FILTER_CUSTOM_EQ = 0,		/**<  Filter Custom type Equalizer */
+	MM_AUDIO_FILTER_CUSTOM_3D,		/**<  Filter Custom type 3D */
+	MM_AUDIO_FILTER_CUSTOM_BASS,		/**<  Filter Custom type Bass */
+	MM_AUDIO_FILTER_CUSTOM_ROOM_SIZE,	/**<  Filter Custom type Room Size */
+	MM_AUDIO_FILTER_CUSTOM_REVERB_LEVEL,	/**<  Filter Custom type Reverb Level */
+	MM_AUDIO_FILTER_CUSTOM_CLARITY,		/**<  Filter Custom type Clarity */
+	MM_AUDIO_FILTER_CUSTOM_NUM,		/**<  Number of Filter Custom type */
+} MMAudioFilterCustomType;
 
 /**
  * Enumerations of Filter Type
  */
 typedef enum {
-	MM_AUDIO_FILTER_NONE			= 0x00000000,	/**<  Filter type None*/
-	MM_AUDIO_FILTER_3D		 	= 0x00000001,	/**<  Filter type 3D*/
-	MM_AUDIO_FILTER_EQUALIZER	= 0x00000002,	/**<  Filter type Equalizer*/
-	MM_AUDIO_FILTER_REVERB	 	= 0x00000004,	/**<  Filter type Reverb*/
-	MM_AUDIO_FILTER_SV 			= 0x00000008,	/**<  Filter type Specturm View*/
-	MM_AUDIO_FILTER_BE 			= 0x00000010,	/**<  Filter type Bass Enhancement*/
-	MM_AUDIO_FILTER_AEQ 			= 0x00000020,	/**<  Filter type AEQ*/
-	MM_AUDIO_FILTER_MC			= 0x00000030, 	/**<  Filter type Music Clarity*/
-	MM_AUDIO_FILTER_MTMV 		= 0x00000040,	/**<  Filter type M-Theater Movie*/
-	MM_AUDIO_FILTER_VOICE    		= 0x00000080,  	/**<  Filter type Voice Booster */
-	MM_AUDIO_FILTER_SRSCSHP		= 0x00000100, 	/**<  Filter type 5.1 SRS Circle Surround */
-	MM_AUDIO_FILTER_ARKAMYS		= 0x00000200,	/**<  Filter type 5.1 Arkamys */
-	MM_AUDIO_FILTER_WOWHD		= 0x00000400,	/**<  Filter type Wow HD */
-	MM_AUDIO_FILTER_SOUND_EX	= 0x00000800		/**<  Filter type Sound Externalization */
+	MM_AUDIO_FILTER_TYPE_NONE,
+	MM_AUDIO_FILTER_TYPE_PRESET,
+	MM_AUDIO_FILTER_TYPE_CUSTOM,
 } MMAudioFilterType;
 
-/**
- * Structure of 3D
- */
-typedef struct {
-	int mode;	/**<  3D mode*/
-} MMAudioFilter3D;
-
-/**
- * Structure of EQ
- */
-typedef struct {
-	int mode;									/**<  EQ mode*/
-	short user_eq[MMDNSE_EQ_CUSTOMBAND_MAX];	/**<  Value of User EQ*/
-} MMAudioFilterEq;
-
-/**
- * Structure of Reverb
- */
-typedef struct {
-	int mode;		/**<  Reverb mode*/
-} MMAudioFilterReverb;
 
 /**
  * Enumerations of Output Mode
  */
 typedef enum {
 	MM_AUDIO_FILTER_OUTPUT_SPK,		/**< Speaker out */
-	MM_AUDIO_FILTER_OUTPUT_EAR		/**< Earjack out */
+	MM_AUDIO_FILTER_OUTPUT_EAR			/**< Earjack out */
 } MMAudioFilterOutputMode;
 
-/**
- * Enumerations of Filter Client
- */
-typedef enum {
-	MM_AUDIO_FILTER_CLIENT_NONE,
-	MM_AUDIO_FILTER_CLIENT_MUSIC_PLAYER,
-	MM_AUDIO_FILTER_CLIENT_MAX
-}MMAudioFilterClient;
 
 /**
  * Structure of FilterInfo
  */
 typedef struct {
-	MMAudioFilterClient		app_id;			/**< Filter client*/
-	MMAudioFilterType			filter_type;		/**< Filter type*/
-	MMAudioFilterOutputMode	output_mode;	/**< Output mode*/
-	MMAudioFilter3D 			sound_3d;		/**< 3D sound info*/
-	MMAudioFilterEq 			equalizer;		/**< Equalizer info*/
-	MMAudioFilterReverb 		reverb;			/**< Reverb info*/
+	MMAudioFilterType filter_type;		/**< Filter type, (NONE,PRESET,CUSTOM)*/
+	MMAudioFilterPresetType preset;		/**< for preset type*/
+	int *custom_ext_level_for_plugin;	/**< for custom type, level value list of extension filters*/
+	int custom_eq_level[MM_AUDIO_FILTER_EQ_BAND_MAX];	/**< for custom type, EQ info*/
+	int custom_ext_level[MM_AUDIO_FILTER_CUSTOM_NUM-1];	/**< for custom type, extension filter info*/
 } MMAudioFilterInfo;
 
+
 /**
- * This function is to apply sound effect.
+ * @brief Called to get each supported sound filter.
  *
- * @param	player		[in]	Handle of player.
- * @param   info	    [in] 	Filter info want to apply.
+ * @param	filter_type	[in]	Type of filter (preset filter or custom filter).
+ * @param	filter		[in]	Supported sound filter.
+ * @param	user_data	[in]	Pointer of user data.
  *
- * @return	This function returns zero on success, or negative value with error
- *			code.
+ * @return	True to continue with the next iteration of the loop, False to break outsp of the loop.
+ * @see		mm_player_get_foreach_present_supported_filter_type()
+ */
+typedef bool (*mmplayer_supported_sound_filter_cb) (int filter_type, int type, void *user_data);
+
+/**
+ * This function is to get supported filter type.
+ *
+ * @param	hplayer		[in]	Handle of player.
+ * @param	filter_type	[in]	Type of filter.
+ * @param	foreach_cb	[in]	Callback function to be passed the result.
+ * @param	user_data	[in]	Pointer of user data.
+ *
+ * @return	This function returns zero on success, or negative value with error code.
  *
  * @remark
- * @see		MMAudioFilterInfo
+ * @see
  * @since
  */
-int mm_player_apply_sound_filter(MMHandleType player, MMAudioFilterInfo *info);
+int mm_player_get_foreach_present_supported_filter_type(MMHandleType player, MMAudioFilterType filter_type, mmplayer_supported_sound_filter_cb foreach_cb, void *user_data);
+
+/**
+ * This function is to bypass sound effect.
+ *
+ * @param	hplayer		[in]	Handle of player.
+ *
+ * @return	This function returns zero on success, or negative value with error code.
+ *
+ * @remark
+ * @see
+ * @since
+ */
+int mm_player_sound_filter_bypass (MMHandleType hplayer);
+
+/**
+ * This function is to apply preset filter.
+ *
+ * @param	hplayer		[in]	Handle of player.
+ * @param	type		[in]	Preset type filter.
+ *
+ * @return	This function returns zero on success, or negative value with error code.
+ *
+ * @remark
+ * @see		MMAudioFilterPresetType
+ * @since
+ */
+int mm_player_sound_filter_preset_apply(MMHandleType hplayer, MMAudioFilterPresetType type);
+
+/**
+ * This function is to apply custom filter(Equalizer and Extension filters).
+ *
+ * @param	hplayer		[in]	Handle of player.
+ *
+ * @return	This function returns zero on success, or negative value with error code.
+ *
+ * @remark
+ * @see
+ * @since
+ */
+int mm_player_sound_filter_custom_apply(MMHandleType hplayer);
+
+/**
+ * This function is to clear Equalizer custom filter.
+ *
+ * @param	hplayer		[in]	Handle of player.
+ *
+ * @return	This function returns zero on success, or negative value with error code.
+ *
+ * @remark
+ * @see
+ * @since
+ */
+int mm_player_sound_filter_custom_clear_eq_all(MMHandleType hplayer);
+
+/**
+ * This function is to clear Extension custom filters.
+ *
+ * @param	hplayer		[in]	Handle of player.
+ *
+ * @return	This function returns zero on success, or negative value with error code.
+ *
+ * @remark
+ * @see
+ * @since
+ */
+int mm_player_sound_filter_custom_clear_ext_all(MMHandleType hplayer);
+
+/**
+ * This function is to get the number of equalizer bands.
+ *
+ * @param	hplayer		[in]	Handle of player.
+ * @param	bands		[out]	The number of bands.
+ *
+ * @return	This function returns zero on success, or negative value with error code.
+ *
+ * @remark
+ * @see
+ * @since
+ */
+int mm_player_sound_filter_custom_get_eq_bands_number(MMHandleType hplayer, int *bands);
+
+/**
+ * This function is to get the level of the custom filter.
+ *
+ * @param	hplayer		[in]	Handle of player.
+ * @param	type		[in]	Custom type filter.
+ * @param	eq_index	[in]	Equalizer band index. This parameter is available only when the type is MM_AUDIO_FILTER_CUSTOM_EQ.
+ * @param	level		[out]	The level of the custom filter.
+ *
+ * @return	This function returns zero on success, or negative value with error code.
+ *
+ * @remark
+ * @see		MMAudioFilterCustomType
+ * @since
+ */
+int mm_player_sound_filter_custom_get_level(MMHandleType hplayer, MMAudioFilterCustomType type, int eq_index, int *level);
+
+/**
+ * This function is to get range of the level of the custom filter.
+ *
+ * @param	hplayer		[in]	Handle of player.
+ * @param	type		[in]	Custom type filter.
+ * @param	min		[out]	Minimal value of level.
+ * @param	max		[out]	Maximum value of level.
+ *
+ * @return	This function returns zero on success, or negative value with error code.
+ *
+ * @remark
+ * @see		MMAudioFilterCustomType
+ * @since
+ */
+int mm_player_sound_filter_custom_get_level_range(MMHandleType hplayer, MMAudioFilterCustomType type, int *min, int *max);
+
+/**
+ * This function is to set the level of the custom filter.
+ *
+ * @param	hplayer		[in]	Handle of player.
+ * @param	type		[in]	Custom type filter.
+ * @param	eq_index	[in]	Equalizer band index. This parameter is available only when the type is MM_AUDIO_FILTER_CUSTOM_EQ.
+ * @param	level		[in]	The level of the custom filter.
+ *
+ * @return	This function returns zero on success, or negative value with error code.
+ *
+ * @remark
+ * @see		MMAudioFilterCustomType
+ * @since
+ */
+int mm_player_sound_filter_custom_set_level(MMHandleType hplayer, MMAudioFilterCustomType filter_custom_type, int eq_index, int level);
+
+/**
+ * This function is to set the bands level of equalizer custom filter using input list.
+ *
+ * @param	hplayer		[in]	Handle of player.
+ * @param	level_list	[in]	list of bands level of equalizer custom filter want to set.
+ * @param	size		[in]	size of level_list.
+ *
+ * @return	This function returns zero on success, or negative value with error code.
+ *
+ * @remark
+ * @see
+ * @since
+ */
+int mm_player_sound_filter_custom_set_level_eq_from_list(MMHandleType hplayer, int *level_list, int size);
+
+/**
+ * This function is to decide if the preset type filter is supported or not
+ *
+ * @param	hplayer		[in]	Handle of player.
+ * @param	filter		[in]	Preset type filter.
+ *
+ * @return	This function returns zero on success, or negative value with error code.
+ *
+ * @remark
+ * @see
+ * @since
+ */
+int mm_player_is_supported_preset_filter_type(MMHandleType hplayer, MMAudioFilterPresetType filter);
+
+/**
+ * This function is to decide if the custom type filter is supported or not
+ *
+ * @param	hplayer		[in]	Handle of player.
+ * @param	filter		[in]	Custom type filter.
+ *
+ * @return	This function returns zero on success, or negative value with error code.
+ *
+ * @remark
+ * @see
+ * @since
+ */
+int mm_player_is_supported_custom_filter_type(MMHandleType hplayer, MMAudioFilterCustomType filter);
 
 /**
 	@}

@@ -96,6 +96,8 @@ gst_m3u8_media_file_new (gchar * uri, gchar * title, gint duration,  gchar *key_
   file->sequence = sequence;
   memset (file->key, 0x00, sizeof (file->key));
 
+  //g_print (" uri = %s  / ", uri);
+
   if (key_url != NULL)
   {
     file->key_url = g_strdup (key_url);
@@ -161,6 +163,7 @@ int_from_string (gchar * ptr, gchar ** endptr, gint * val, gint base)
   *val = strtol (ptr, &end, base);
   if ((errno == ERANGE && (*val == LONG_MAX || *val == LONG_MIN))
       || (errno != 0 && *val == 0)) {
+//    debug_warning (g_strerror (errno));
     return FALSE;
   }
 
@@ -240,6 +243,7 @@ gst_m3u8_update (GstM3U8 * self, gchar * data, gboolean * updated)
 
   /* check if the data changed since last update */
   if (self->last_data && g_str_equal (self->last_data, data)) {
+    g_print ("\n\n\n\t\t ############ Playlist is the same as previous one ############\n\n\n\n");
     *updated = FALSE;
     g_free (data);
     return TRUE;
@@ -268,9 +272,14 @@ gst_m3u8_update (GstM3U8 * self, gchar * data, gboolean * updated)
   data += 7;
   //data += 8;
   while (TRUE) {
+	//g_print ("====================================\n");
+	//g_print ("data = [%s]\n", data);
     end = g_utf8_strchr (data, -1, '\n');       /* FIXME: support \r\n */
     if (end)
       *end = '\0';
+
+    //g_print ("end = [%s]\n", end);
+
 
     if (data[0] != '#') {
       if (duration < 0 && list == NULL) {
@@ -374,6 +383,10 @@ gst_m3u8_update (GstM3U8 * self, gchar * data, gboolean * updated)
     } else if (g_str_has_prefix (data, "#EXT-X-TARGETDURATION:")) {
       if (int_from_string (data + 22, &data, &val, 10))
         self->targetduration = val;
+	// g_print ("\n\n\t\t#########################\n");
+	 //g_print ("\t\tTarget duration = %d\n", val);
+	// g_print ("\n\n\t\t#########################\n");
+
     } else if (g_str_has_prefix (data, "#EXT-X-MEDIA-SEQUENCE:")) {
       if (int_from_string (data + 22, &data, &val, 10))
         self->mediasequence = val;
@@ -448,7 +461,7 @@ gst_m3u8_update (GstM3U8 * self, gchar * data, gboolean * updated)
               debug_error ("end_dq is NULL");
               break;
           }
-		  
+
           *end_dq = '\0';
 
 	   g_print ("Key URI = %s\n", val);
@@ -520,6 +533,90 @@ gst_m3u8_update (GstM3U8 * self, gchar * data, gboolean * updated)
 	   }
 	 }
       }
+
+#if 0	  
+      if (g_str_has_prefix (data, "METHOD="))
+      {
+        data = data + 7;
+        if (g_str_has_prefix (data, "AES-128"))
+        {
+          g_print ("AES-128 encrypted media...\n\n");
+          data = data + 8;
+          if (g_str_has_prefix (data, "URI="))
+          {
+            gchar *dob_qu = NULL;
+            gchar  *tmp_key_url = NULL;
+
+            data = data+5;
+			
+            dob_qu = g_utf8_strrchr (data, -1, '"');
+            *dob_qu = '\0';
+			
+            tmp_key_url = g_strdup (data);
+            *dob_qu = '"';	
+            
+            g_print ("URI attribute = %s\n\n", tmp_key_url);
+			
+            if (!gst_uri_is_valid (tmp_key_url)) 
+            {
+              gchar *slash;
+              if (!self->uri) {
+                debug_warning ("uri not set, can't build a valid uri");
+                goto next_line;
+              }
+              slash = g_utf8_strrchr (self->uri, -1, '/');
+              if (!slash) 
+              {
+                debug_warning ("Can't build a valid uri");
+                goto next_line;
+              }
+
+              *slash = '\0';
+              key_url = g_strdup_printf ("%s/%s", self->uri, tmp_key_url);
+              *slash = '/';
+            } 
+            else
+              key_url = g_strdup (tmp_key_url);
+
+            g_print ("\n\n======= Final key url = %s\n\n\n\n", key_url); 
+
+            data = dob_qu;
+	     data = data + 2;
+		 
+            if ((g_str_has_prefix (data, "IV=0x")) && (g_str_has_prefix (data, "IV=0X")))
+            {
+              data = data + 5;
+              g_print ("\n\nSize of IV = %d\n\n", sizeof (data));
+              memcpy (IV, data, sizeof (IV));
+            }
+            else
+            {
+              g_print ("\n\n\n Need to generate IV from media sequence...\n\n");
+            }
+          }
+          else
+          {
+            g_print ("No URI specified...\n\n");
+            return FALSE;
+          }
+        }
+        else if (g_str_has_prefix (data, "NONE"))
+        {
+          g_print ("\n\nNot encrypted.....\n\n\n");
+        }
+        else
+        {
+          g_print ("\n\nUnknown EXT-X-KEY METHOD attri = %s\n\n", data);
+          return FALSE;
+        }
+      }
+
+      else
+      {
+        g_print ("\n\nEXT-X-KEY without METHOD attribute...\n\n");
+        return FALSE;
+      }
+#endif
     }
     else {
       debug_warning ("Ignored line: %s", data);
@@ -587,8 +684,12 @@ gst_m3u8_client_update (GstM3U8Client * self, gchar * data)
 
   m3u8 = self->current ? self->current : self->main;
 
+ // g_print ("\n\n");
+
   if (!gst_m3u8_update (m3u8, data, &updated))
     return FALSE;
+
+ // g_print ("\n\n");
 
   if (!updated) {
     self->update_failed_count++;

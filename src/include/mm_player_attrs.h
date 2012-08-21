@@ -4,7 +4,7 @@
  * Copyright (c) 2000 - 2011 Samsung Electronics Co., Ltd. All rights reserved.
  *
  * Contact: JongHyuk Choi <jhchoi.choi@samsung.com>, YeJin Cho <cho.yejin@samsung.com>,
- * Seungbae Shin <seungbae.shin@samsung.com>, YoungHwan An <younghwan_.an@samsung.com>
+ * YoungHwan An <younghwan_.an@samsung.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,15 +27,64 @@
 	extern "C" {
 #endif
 
-int _mmplayer_set_attribute(MMHandleType player,  char **err_atr_name, const char *attribute_name, va_list args_list);
-
-int _mmplayer_get_attribute(MMHandleType player,  char **err_atr_name, const char *attribute_name, va_list args_list);
-
-int _mmplayer_get_attribute_info(MMHandleType player,  const char *attribute_name, MMPlayerAttrsInfo *info);
-
-bool _mmplayer_construct_attribute(mm_player_t* player);
-
-void _mmplayer_release_attrs(mm_player_t* player);
+/**
+ * This function set values of attributes.
+ *
+ * @param[in]	handle			Handle of player.
+ * @param[in]	err_atr_name		Name of attribute that is failed (NULL can be set if it's not require to check. )
+ * @param[in]	attribute_name	Name of the first attribute to set
+ * @param[in]	args_list			List of attributes and values
+ * @return	This function returns zero on success, or negative value with error code.
+ * @remarks
+ * @see		_mmplayer_get_attribute()
+ *
+ */
+int _mmplayer_set_attribute(MMHandleType handle,  char **err_atr_name, const char *attribute_name, va_list args_list);
+/**
+ * This function get values of attributes.
+ *
+ * @param[in]	handle			Handle of player.
+ * @param[in]	err_atr_name		Name of attribute that is failed (NULL can be set if it's not require to check. )
+ * @param[in]	attribute_name	Name of the first attribute to set
+ * @param[in]	args_list			List of attributes and values
+ * @return	This function returns zero on success, or negative value with error code.
+ * @remarks
+ * @see		_mmplayer_set_attribute()
+ *
+ */
+int _mmplayer_get_attribute(MMHandleType handle,  char **err_atr_name, const char *attribute_name, va_list args_list);
+/**
+ * This function get configuration values of attribute.
+ *
+ * @param[in]	handle			Handle of player.
+ * @param[in]	attribute_name	Name of the first attribute to set
+ * @param[in]	info				Configuration values
+ * @return	This function returns zero on success, or negative value with error code.
+ * @remarks
+ * @see
+ *
+ */
+int _mmplayer_get_attribute_info(MMHandleType handle,  const char *attribute_name, MMPlayerAttrsInfo *info);
+/**
+ * This function allocates structure of attributes and sets initial values.
+ *
+ * @param[in]	handle		Handle of player.
+ * @return	This function returns allocated structure of attributes.
+ * @remarks
+ * @see		_mmplayer_deconstruct_attribute()
+ *
+ */
+MMHandleType _mmplayer_construct_attribute(MMHandleType handle);
+/**
+ * This function release allocated attributes.
+ *
+ * @param[in]	handle		Handle of player.
+ * @return	This function returns true on success or false on failure.
+ * @remarks
+ * @see		_mmplayer_construct_attribute()
+ *
+ */
+bool _mmplayer_deconstruct_attribute(MMHandleType handle);
 
 #ifdef __cplusplus
 	}

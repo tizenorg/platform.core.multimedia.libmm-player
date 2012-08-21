@@ -19,7 +19,6 @@
  * limitations under the License.
  *
  */
- 
 #include "utc_mm_player_set_volume_func.h"
 
 

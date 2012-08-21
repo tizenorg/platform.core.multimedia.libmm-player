@@ -213,7 +213,17 @@
 	<td>"content_video_height"</td>
 	<td>int</td>
 	<td>range</td>
-	</tr>	
+	</tr>
+	<tr>
+	<td>"display_evas_do_scaling"</td>
+	<td>int</td>
+	<td>range</td>
+	</tr>
+	<tr>
+	<td>"display_evas_surface_sink"</td>
+	<td>string</td>
+	<td>N/A</td>
+	</tr>
 	<tr>
 	<td>"profile_user_param"</td>
 	<td>data</td>
@@ -266,6 +276,11 @@
 	</tr>
 	<tr>
 	<td>"display_overlay"</td>
+	<td>data</td>
+	<td>N/A</td>
+	</tr>
+	<tr>
+	<td>"display_overlay_ext"</td>
 	<td>data</td>
 	<td>N/A</td>
 	</tr>
@@ -431,6 +446,22 @@
  *
  */
 #define MM_PLAYER_VIDEO_HEIGHT				"content_video_height"
+/**
+ * MM_PLAYER_VIDEO_EVAS_SURFACE_DO_SCALING:
+ *
+ * set whether or not to scale frames size for evas surface.
+ * if TRUE, it scales down width, height size of frames with given size.
+ * if FALSE, it does not scale down any frames.
+ *
+ */
+#define MM_PLAYER_VIDEO_EVAS_SURFACE_DO_SCALING		"display_evas_do_scaling"
+/**
+ * MM_PLAYER_VIDEO_EVAS_SURFACE_SINK:
+ *
+ * get the video evas surface sink plugin name (string), It's guaranteed after calling mm_player_create()
+ *
+ */
+#define MM_PLAYER_VIDEO_EVAS_SURFACE_SINK		"display_evas_surface_sink"
 /**
  * MM_PLAYER_MEM_SRC:
  *
@@ -668,56 +699,56 @@ typedef enum {
  */
 typedef enum {
         MM_PLAYER_PD_MODE_NONE,
-        MM_PLAYER_PD_MODE_HTTP,
-        MM_PLAYER_PD_MODE_FILE,
+        MM_PLAYER_PD_MODE_URI,
+        MM_PLAYER_PD_MODE_FILE	// not tested yet, because of no fixed scenario
 }MMPlayerPDMode;
 
 /**
  * Attribute validity structure
  */
 typedef struct {
- MMPlayerAttrsType type;
- MMPlayerAttrsValidType validity_type;
- MMPlayerAttrsFlag flag;
-
-/**
-  * a union that describes validity of the attribute.
-  * Only when type is 'MM_ATTRS_TYPE_INT' or 'MM_ATTRS_TYPE_DOUBLE',
-  * the attribute can have validity.
- */
- union {
-/**
-   * Validity structure for integer array.
- */
-   struct {
-   int    * array;  /**< a pointer of array */
-   int    count;   /**< size of array */
-  } int_array;
-
-/**
-   * Validity structure for integer range.
- */
-  struct {
-   int    min;   /**< minimum range */
-   int    max;   /**< maximum range */
-  } int_range;
-
-/**
-   * Validity structure for double array.
- */
-   struct {
-   double   * array;  /**< a pointer of array */
-   int    count;   /**< size of array */
-  } double_array;
-
-/**
-   * Validity structure for double range.
- */
-  struct {
-   double   min;   /**< minimum range */
-   double   max;   /**< maximum range */
-  } double_range;
-};
+	 MMPlayerAttrsType type;
+	 MMPlayerAttrsValidType validity_type;
+	 MMPlayerAttrsFlag flag;
+	/**
+	  * a union that describes validity of the attribute.
+	  * Only when type is 'MM_ATTRS_TYPE_INT' or 'MM_ATTRS_TYPE_DOUBLE',
+	  * the attribute can have validity.
+	 */
+	 union {
+		/**
+		   * Validity structure for integer array.
+		 */
+		struct {
+			int *array;  /**< a pointer of array */
+			int count;   /**< size of array */
+			int d_val;
+		} int_array;
+		/**
+		   * Validity structure for integer range.
+		 */
+		struct {
+			int min;   /**< minimum range */
+			int max;   /**< maximum range */
+			int d_val;
+		} int_range;
+		/**
+		* Validity structure for double array.
+		*/
+		struct {
+			double   * array;  /**< a pointer of array */
+			int    count;   /**< size of array */
+			double d_val;
+		} double_array;
+		/**
+		* Validity structure for double range.
+		*/
+		struct {
+			double   min;   /**< minimum range */
+			double   max;   /**< maximum range */
+			double d_val;
+		} double_range;
+	};
 } MMPlayerAttrsInfo;
 
 /**
@@ -1415,6 +1446,62 @@ if (method_info. validity_type == MM_PLAYER_ATTRS_VALID_TYPE_INT_RANGE)
  * @endcode 
  */
 int mm_player_get_attribute_info(MMHandleType player,  const char *attribute_name, MMPlayerAttrsInfo *info);
+/**
+ * This function is to get download position and total size of progressive download
+ *
+ * @param	player		[in]	Handle of player.
+ * @param	current_pos	[in]	Download position currently (bytes)
+ * @param   	total_size 	[in] 	Total size of file (bytes)
+ *
+ * @return	This function returns zero on success, or negative value with error code.
+ *
+ * @see
+ * @remark
+ * @par Example
+ * @code
+guint64 current_pos = 0LLU;
+guint64 total_size = 0LLU;
+
+if (mm_player_get_pd_status(g_player, &current_pos, &total_size, NULL) != MM_ERROR_NONE)
+{
+	printf("current download pos = %llu, total size = %llu\n", current_pos, total_size);
+}
+ * @endcode
+ */
+int mm_player_get_pd_status(MMHandleType player, guint64 *current_pos, guint64 *total_size);
+
+/**
+ * This function sets callback function for receiving messages of PD downloader.
+ *
+ * @param	player		[in]	Handle of player.
+ * @param	callback		[in]	Message callback function.
+ * @param	user_param	[in]	User parameter which is passed to callback function.
+ *
+ * @return	This function returns zero on success, or negative value with error code.
+ * @see
+ * @remark	None
+ * @par Example
+ * @code
+int msg_callback(int message, MMMessageParamType *param, void *user_param)
+{
+	switch (message)
+	{
+		case MM_MESSAGE_PD_DOWNLOADER_START:
+			printf("Progressive download is started...\n");
+			break;
+	 	case MM_MESSAGE_PD_DOWNLOADER_END:
+	 		printf("Progressive download is ended...\n");
+	    	  	break;
+		default:
+			break;
+	}
+	return TRUE;
+}
+
+mm_player_set_pd_message_callback(g_player, msg_callback, NULL);
+ * @endcode
+ */
+int mm_player_set_pd_message_callback(MMHandleType player, MMMessageCallback callback, void *user_param);
 
 /**
 	@}

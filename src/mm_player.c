@@ -73,7 +73,14 @@ int mm_player_create(MMHandleType *player)
 		goto ERROR;
 	}
 
+	/* create msg callback lock */
+	new_player->msg_cb_lock = g_mutex_new();
 
+	if ( ! new_player->msg_cb_lock )
+	{
+		debug_critical("failed to create msg cb lock\n");
+		goto ERROR;
+	}
 	__ta__("[KPI] create media player service",
 	result = _mmplayer_create_player((MMHandleType)new_player);
 	)
@@ -89,6 +96,12 @@ ERROR:
 
 	if ( new_player )
 	{
+		if (new_player->cmd_lock)
+		{
+			g_mutex_free(new_player->cmd_lock);
+			new_player->cmd_lock = NULL;
+		}
+
 		_mmplayer_destroy( (MMHandleType)new_player );
 		MMPLAYER_FREEIF( new_player );
 	}
@@ -112,6 +125,12 @@ int  mm_player_destroy(MMHandleType player)
 	)
 
 	MMPLAYER_CMD_UNLOCK( player );
+
+	if (((mm_player_t*)player)->cmd_lock)
+	{
+		g_mutex_free(((mm_player_t*)player)->cmd_lock);
+		((mm_player_t*)player)->cmd_lock = NULL;
+	}
 
 	/* free player */
 	g_free( (void*)player );
@@ -181,6 +200,18 @@ int mm_player_set_message_callback(MMHandleType player, MMMessageCallback callba
 	return result;
 }
 
+int mm_player_set_pd_message_callback(MMHandleType player, MMMessageCallback callback, void *user_param)
+{
+	int result = MM_ERROR_NONE;
+
+	debug_log("\n");
+
+	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+
+	result = _mm_player_set_pd_message_callback(player, callback, user_param);
+
+	return result;
+}
 
 int mm_player_set_audio_stream_callback(MMHandleType player, mm_player_audio_stream_callback callback, void *user_param)
 {
@@ -298,25 +329,6 @@ int mm_player_set_buffer_seek_data_callback(MMHandleType player, mm_player_buffe
 	MMPLAYER_CMD_LOCK( player );
 
     result = _mmplayer_set_buffer_seek_data_cb(player, callback, user_param);
-
-	MMPLAYER_CMD_UNLOCK( player );
-
-	return result;
-}
-
-
-int mm_player_apply_sound_filter(MMHandleType player, MMAudioFilterInfo *info)
-{
-	int result = MM_ERROR_NONE;
-
-	debug_log("\n");
-
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
-	return_val_if_fail(info, MM_ERROR_INVALID_ARGUMENT);
-
-	MMPLAYER_CMD_LOCK( player );
-
-	result = _mmplayer_apply_sound_filter(player, info);
 
 	MMPLAYER_CMD_UNLOCK( player );
 
@@ -702,13 +714,9 @@ int mm_player_set_attribute(MMHandleType player,  char **err_attr_name, const ch
 	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 	return_val_if_fail(first_attribute_name, MM_ERROR_COMMON_INVALID_ARGUMENT);
 
-	MMPLAYER_CMD_LOCK( player );
-
 	va_start (var_args, first_attribute_name);
 	result = _mmplayer_set_attribute(player, err_attr_name, first_attribute_name, var_args);
 	va_end (var_args);
-
-	MMPLAYER_CMD_UNLOCK( player );
 
 	return result;
 }
@@ -724,13 +732,9 @@ int mm_player_get_attribute(MMHandleType player,  char **err_attr_name, const ch
 	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 	return_val_if_fail(first_attribute_name, MM_ERROR_COMMON_INVALID_ARGUMENT);
 
-	MMPLAYER_CMD_LOCK( player );
-
 	va_start (var_args, first_attribute_name);
 	result = _mmplayer_get_attribute(player, err_attr_name, first_attribute_name, var_args);
 	va_end (var_args);
-
-	MMPLAYER_CMD_UNLOCK( player );
 
 	return result;
 }
@@ -745,11 +749,22 @@ int mm_player_get_attribute_info(MMHandleType player,  const char *attribute_nam
 	return_val_if_fail(attribute_name, MM_ERROR_COMMON_INVALID_ARGUMENT);
 	return_val_if_fail(info, MM_ERROR_COMMON_INVALID_ARGUMENT);
 
-	MMPLAYER_CMD_LOCK( player );
-
 	result = _mmplayer_get_attributes_info((MMHandleType)player, attribute_name, info);
 
-	MMPLAYER_CMD_UNLOCK( player );
+	return result;
+}
+
+int mm_player_get_pd_status(MMHandleType player, guint64 *current_pos, guint64 *total_size)
+{
+	int result = MM_ERROR_NONE;
+
+	debug_log("\n");
+
+	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	return_val_if_fail(current_pos, MM_ERROR_COMMON_INVALID_ARGUMENT);
+	return_val_if_fail(total_size, MM_ERROR_COMMON_INVALID_ARGUMENT);
+
+	result = _mmplayer_pd_get_status(player, current_pos, total_size);
 
 	return result;
 }
