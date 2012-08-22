@@ -1,5 +1,5 @@
 ACLOCAL_AMFLAGS='-I m4' 
-SUBDIRS = src test
+SUBDIRS = src
 
 pcfiles = mm-player.pc
 pkgconfigdir = $(libdir)/pkgconfig
