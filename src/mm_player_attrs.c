@@ -839,7 +839,25 @@ _mmplayer_construct_attribute(MMHandleType handle)
 			"pcm_extraction_samplerate",	// set samplerate for pcm extraction
 			MM_ATTRS_TYPE_INT,
 			MM_ATTRS_FLAG_RW,
-			(void *) 0,
+			(void *) 8000,				// hz
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			0,
+			MMPLAYER_MAX_INT
+		},
+		{
+			"pcm_extraction_depth",	// set depth for pcm extraction
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) 16,			// bits
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			0,
+			MMPLAYER_MAX_INT
+		},
+		{
+			"pcm_extraction_channels",	// set channels for pcm extraction
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) 1,
 			MM_ATTRS_VALID_TYPE_INT_RANGE,
 			0,
 			MMPLAYER_MAX_INT

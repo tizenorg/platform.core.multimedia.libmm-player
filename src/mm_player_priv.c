@@ -204,7 +204,6 @@ static gboolean __gst_send_event_to_sink( mm_player_t* player, GstEvent* event )
 
 static int  __mmplayer_get_video_frame_from_buffer(mm_player_t* player, GstBuffer *buffer);
 static int __mmplayer_set_pcm_extraction(mm_player_t* player);
-static gboolean __mmplayer_set_up_segment_extraction(mm_player_t* player, int dst_start, int dst_end);
 static gboolean __mmplayer_can_extract_pcm( mm_player_t* player );
 
 /*fadeout */
@@ -225,6 +224,7 @@ static gboolean __is_http_live_streaming( mm_player_t* player );
 static gboolean __is_http_progressive_down(mm_player_t* player);
 
 static gboolean __mmplayer_warm_up_video_codec( mm_player_t* player,  GstElementFactory *factory);
+static GstBusSyncReply __mmplayer_bus_sync_callback (GstBus * bus, GstMessage * message, gpointer data);
 
 /*===========================================================================================
 |																							|
@@ -480,7 +480,7 @@ __mmplayer_gst_set_state (mm_player_t* player, GstElement * element,  GstState s
 
 	if ( ret == GST_STATE_CHANGE_FAILURE || ( state != element_state ) )
 	{
-		debug_error("failed to change [%s] state to [%d] within %d sec\n",
+		debug_error("failed to change [%s] state to [%s] within %d sec\n",
 			GST_ELEMENT_NAME(element), 
 			gst_element_state_get_name(state), timeout );
 		
@@ -727,25 +727,34 @@ _mmplayer_update_content_attrs(mm_player_t* player) // @
 		}
 	}
 
-	if ( ! MMPLAYER_IS_STREAMING(player) && (player->can_support_codec & FOUND_PLUGIN_VIDEO) )
+	if (player->duration)
 	{
-		if (player->duration)
+		guint64 data_size = 0;
+
+		if (!MMPLAYER_IS_STREAMING(player) && (player->can_support_codec & FOUND_PLUGIN_VIDEO))
 		{
 			mm_attrs_get_string_by_name(attrs, "profile_uri", &path);
+
 			if (stat(path, &sb) == 0)
 			{
-				guint32 bitrate;
-				guint64 mdur = GST_TIME_AS_MSECONDS(player->duration);
-
-				bitrate = ((guint64)sb.st_size * 8 * 1000) / mdur;
-				debug_log("file size : %llu, video bitrate = %u\n", (guint64)sb.st_size, bitrate);
-				mm_attrs_set_int_by_name(attrs, "content_video_bitrate", bitrate);
+				data_size = (guint64)sb.st_size;
 			}
 		}
-	}
-	else
-	{
-		//TODO:HTTP CASE
+		else if (MMPLAYER_IS_HTTP_STREAMING(player))
+		{
+			data_size = player->http_content_size;
+		}
+
+		if (data_size)
+		{
+			guint64 bitrate = 0;
+			guint64 msec_dur = 0;
+
+			msec_dur = GST_TIME_AS_MSECONDS(player->duration);
+			bitrate = data_size * 8 * 1000 / msec_dur;
+			debug_log("file size : %u, video bitrate = %llu", data_size, bitrate);
+			mm_attrs_set_int_by_name(attrs, "content_video_bitrate", bitrate);
+		}
 	}
 
 	/* validate all */
@@ -1693,11 +1702,6 @@ __mmplayer_gst_callback(GstBus *bus, GstMessage *msg, gpointer data) // @
 		case GST_MESSAGE_DURATION:
 		{
 			debug_log("GST_MESSAGE_DURATION\n");
-			if (!MMPLAYER_IS_STREAMING(player))
-			{
-				player->need_update_content_attrs = TRUE;
-				_mmplayer_update_content_attrs(player);
-			}
 		}
 		break;
 		
@@ -1759,15 +1763,18 @@ if (gst_tag_list_get_string(tag_list, gsttag, &string)) \
 	}\
 }
 
-#define MMPLAYER_UPDATE_TAG_VALUE_INDEX(gsttag, attribute, playertag) \
+#define MMPLAYER_UPDATE_TAG_IMAGE(gsttag, attribute, playertag) \
 value = gst_tag_list_get_value_index(tag_list, gsttag, index); \
 if (value) \
 {\
 	buffer = gst_value_get_buffer (value); \
 	debug_log ( "update album cover data : %p, size : %d\n", GST_BUFFER_DATA(buffer), GST_BUFFER_SIZE(buffer)); \
-	mm_attrs_set_data_by_name(attribute, playertag, GST_BUFFER_DATA(buffer), GST_BUFFER_SIZE(buffer)); \
-	gst_buffer_unref (buffer); \
-	buffer = NULL; \
+	player->album_art = (gchar *)g_malloc(GST_BUFFER_SIZE(buffer)); \
+	if (player->album_art); \
+	{ \
+		memcpy(player->album_art, GST_BUFFER_DATA(buffer), GST_BUFFER_SIZE(buffer)); \
+		mm_attrs_set_data_by_name(attribute, playertag, (void *)player->album_art, GST_BUFFER_SIZE(buffer)); \
+	} \
 }
 
 #define MMPLAYER_UPDATE_TAG_UINT(gsttag, attribute, playertag) \
@@ -1859,8 +1866,6 @@ if(gst_tag_list_get_double(tag_list, gsttag, &v_double))\
 	//guint64 v_uint64 = 0;
 	//gdouble v_double = 0;
 
-	debug_log("\n");
-
 	return_val_if_fail( player && msg, FALSE );
 
 	attrs = MMPLAYER_GET_ATTRS(player);
@@ -1903,7 +1908,7 @@ if(gst_tag_list_get_double(tag_list, gsttag, &v_double))\
 	MMPLAYER_UPDATE_TAG_STRING(GST_TAG_AUDIO_CODEC, attrs, "content_audio_codec");
 	MMPLAYER_UPDATE_TAG_UINT(GST_TAG_BITRATE, attrs, "content_bitrate");
 	MMPLAYER_UPDATE_TAG_UINT(GST_TAG_MAXIMUM_BITRATE, attrs, "content_max_bitrate");
-	MMPLAYER_UPDATE_TAG_VALUE_INDEX(GST_TAG_IMAGE, attrs, "tag_album_cover");
+	MMPLAYER_UPDATE_TAG_IMAGE(GST_TAG_IMAGE, attrs, "tag_album_cover");
 	/* MMPLAYER_UPDATE_TAG_UINT(GST_TAG_NOMINAL_BITRATE, ?, ?); */
 	/* MMPLAYER_UPDATE_TAG_UINT(GST_TAG_MINIMUM_BITRATE, ?, ?); */
 	/* MMPLAYER_UPDATE_TAG_UINT(GST_TAG_SERIAL, ?, ?); */
@@ -3098,40 +3103,41 @@ __mmplayer_gst_create_audio_pipeline(mm_player_t* player)
 		 */
 		__mmplayer_set_antishock( player , FALSE );
 	}
-	else 
+	else // pcm extraction only and no sound output 
 	{
-		int samplerate = 0;
+		int dst_samplerate = 0;
+		int dst_channels = 0;
+		int dst_depth = 0;
 		char *caps_type = NULL;
 		GstCaps* caps = NULL;
 
 		/* resampler */
 		MMPLAYER_CREATE_ELEMENT(audiobin, MMPLAYER_A_RESAMPLER, "audioresample", "resampler", TRUE);
 
-		/* get samplerate required by user */
-		mm_attrs_get_int_by_name(player->attrs, "pcm_extraction_samplerate", &samplerate);
-
+		/* get conf. values */
+		mm_attrs_multiple_get(player->attrs, 
+						NULL,
+						"pcm_extraction_samplerate", &dst_samplerate,
+						"pcm_extraction_channels", &dst_channels,
+						"pcm_extraction_depth", &dst_depth,
+						NULL);
 		/* capsfilter */
 		MMPLAYER_CREATE_ELEMENT(audiobin, MMPLAYER_A_CAPS_DEFAULT, "capsfilter", "audiocapsfilter", TRUE);
 
-		//if (samplerate)
-		{
-			// FIXME : after MWC
-			// 8000 Hz 16-bit mono linear PCM data for shazam
-			caps = gst_caps_new_simple ("audio/x-raw-int",					    					     
-					       "rate", G_TYPE_INT, 8000,
-					       "channels", G_TYPE_INT, 1,
-					       "depth", G_TYPE_INT, 16,
-					       NULL);
+		caps = gst_caps_new_simple ("audio/x-raw-int",
+					       "rate", G_TYPE_INT, dst_samplerate,
+					       "channels", G_TYPE_INT, dst_channels,
+					       "depth", G_TYPE_INT, dst_depth,
+						NULL);
 
-			caps_type = gst_caps_to_string(caps);
-			debug_log("resampler new caps : %s\n", caps_type);		
+		caps_type = gst_caps_to_string(caps);
+		debug_log("resampler new caps : %s\n", caps_type);
 
 			g_object_set (GST_ELEMENT(audiobin[MMPLAYER_A_CAPS_DEFAULT].gst), "caps", caps, NULL );
 
 			/* clean */
 			gst_caps_unref( caps );
 			MMPLAYER_FREEIF( caps_type );
-		}
 
 		/* fake sink */
 		MMPLAYER_CREATE_ELEMENT(audiobin, MMPLAYER_A_SINK, "fakesink", "fakesink", TRUE);
@@ -3914,8 +3920,8 @@ __mmplayer_update_subtitle( GstElement* object, GstBuffer *buffer, GstPad *pad, 
 static int 	__gst_adjust_subtitle_position(mm_player_t* player, int format, int position)
 {
 	GstEvent* event = NULL;
-	gint64 current_pos = 0L;
-	gint64 adusted_pos = 0L;
+	gint64 current_pos = 0;
+	gint64 adusted_pos = 0;
 	gboolean ret = TRUE;
 
 	debug_fenter();
@@ -3945,7 +3951,7 @@ static int 	__gst_adjust_subtitle_position(mm_player_t* player, int format, int 
 			{
 				adusted_pos = current_pos + ((gint64)position * G_GINT64_CONSTANT(1000000));
 				if (adusted_pos < 0)
-					adusted_pos = 0L;
+					adusted_pos = G_GINT64_CONSTANT(0);
 				debug_log("adjust subtitle postion : %lu -> %lu [msec]\n", GST_TIME_AS_MSECONDS(current_pos), GST_TIME_AS_MSECONDS(adusted_pos));
 			}
 
@@ -4135,6 +4141,47 @@ _mmplayer_push_buffer(MMHandleType hplayer, unsigned char *buf, int size) // @
 	debug_fleave();
 
 	return ret;
+}
+
+static GstBusSyncReply
+__mmplayer_bus_sync_callback (GstBus * bus, GstMessage * message, gpointer data)
+{
+	mm_player_t *player = (mm_player_t *)data;
+	GstElement *sender = (GstElement *) GST_MESSAGE_SRC (message);
+	const gchar *name = gst_element_get_name (sender);
+
+	switch (GST_MESSAGE_TYPE (message))
+	{
+		case GST_MESSAGE_TAG:
+			__mmplayer_gst_extract_tag_from_msg(player, message);
+			break;
+
+		case GST_MESSAGE_DURATION:
+				if (MMPLAYER_IS_STREAMING(player))
+				{
+					GstFormat format;
+					gint64 bytes = 0;
+
+					gst_message_parse_duration (message, &format, &bytes);
+					if (format == GST_FORMAT_BYTES)
+					{
+						debug_log("data total size of http content: %lld", bytes);
+						player->http_content_size = bytes;
+					}
+				}
+				else
+				{
+					player->need_update_content_attrs = TRUE;
+					_mmplayer_update_content_attrs(player);
+				}
+		default:
+			return GST_BUS_PASS;
+	}
+
+	debug_log("GST_MESSAGE_TAG... from [%s]", GST_MESSAGE_TYPE_NAME (message), name);
+	gst_message_unref (message);
+
+	return GST_BUS_DROP;
 }
 
 /**
@@ -4621,14 +4668,8 @@ __mmplayer_gst_create_pipeline(mm_player_t* player) // @
 			debug_log("subtitle pipeline is created successfully\n");
 	}
 
-	/* FIXIT : does this makes player really faster?
-	 * proof it! remove it if unnecessary
-	 */
-	if ( PLAYER_INI()->use_sink_handler )
-	{
-		debug_warning("sink handler enabled. application should able to handle messages from different thread\n");
-		gst_bus_set_sync_handler(bus, gst_bus_sync_signal_handler, player);
-	}
+	/* set sync handler to get tag synchronously */
+	gst_bus_set_sync_handler(bus, __mmplayer_bus_sync_callback, player);
 
 
 	/* finished */
@@ -4695,6 +4736,7 @@ __mmplayer_gst_destroy_pipeline(mm_player_t* player) // @
 	player->num_dynamic_pad = 0;
 	player->last_position = 0;
 	player->duration = 0;
+	player->http_content_size = 0;
 	player->not_supported_codec = MISSING_PLUGIN_NONE;
 	player->can_support_codec = FOUND_PLUGIN_NONE;
 	player->not_found_demuxer = 0;
@@ -4753,6 +4795,7 @@ __mmplayer_gst_destroy_pipeline(mm_player_t* player) // @
 	{
 		MMPlayerGstElement* mainbin = player->pipeline->mainbin;
 		GstTagList* tag_list = player->pipeline->tag_list;
+		GstBus *bus = gst_pipeline_get_bus (GST_PIPELINE (mainbin[MMPLAYER_M_PIPE].gst));
 
 		/* first we need to disconnect all signal hander */
 		__mmplayer_release_signal_connection( player );
@@ -4762,6 +4805,7 @@ __mmplayer_gst_destroy_pipeline(mm_player_t* player) // @
 			g_source_remove( player->bus_watcher );
 		player->bus_watcher = 0;
 
+		gst_bus_set_sync_handler (bus, NULL, NULL);
 
 		if ( mainbin )
 		{
@@ -4901,6 +4945,8 @@ static int __gst_unrealize(mm_player_t* player) // @
 		g_list_free(player->parsers);
 		player->parsers = NULL;
 	}
+
+	MMPLAYER_FREEIF(player->album_art);
 
 	/* destroy pipeline */
 	ret = __mmplayer_gst_destroy_pipeline( player );
@@ -5338,8 +5384,8 @@ __gst_set_position(mm_player_t* player, int format, unsigned long position) // @
 	MMPlayerStateType pending_state = MM_PLAYER_STATE_NONE;
 	GstFormat fmt  = GST_FORMAT_TIME;
 	unsigned long dur = 0;
-	gint64 dur_msec = 0L;
-	gint64 pos_msec = 0L;
+	gint64 dur_msec = 0;
+	gint64 pos_msec = 0;
 	gboolean ret = TRUE;
 
 	debug_fenter();
@@ -7326,8 +7372,8 @@ int
 _mmplayer_activate_section_repeat(MMHandleType hplayer, unsigned long start, unsigned long end)
 {
 	mm_player_t* player = (mm_player_t*)hplayer;
-	gint64 start_pos = 0L;
-	gint64 end_pos = 0L;
+	gint64 start_pos = 0;
+	gint64 end_pos = 0;
 	gint infinity = -1;
 
 	debug_fenter();
@@ -7364,68 +7410,54 @@ _mmplayer_activate_section_repeat(MMHandleType hplayer, unsigned long start, uns
 	return	MM_ERROR_NONE;
 }
 
-
-static gboolean
-__mmplayer_set_up_segment_extraction(mm_player_t* player, int dst_start, int dst_end)
-{
-	GstFormat fmt  = GST_FORMAT_TIME;
-	gint64 dur_nsec = 0L;
-	int dur_msec = 0;
-	int ret = 0;
-	
-	debug_fenter();
-
-	return_val_if_fail ( player, FALSE );
-
-	/* get duration */
-	ret = gst_element_query_duration(player->pipeline->mainbin[MMPLAYER_M_PIPE].gst, &fmt, &dur_nsec);
-	if ( !ret )
-	{
-		debug_error("trying to get duration failed\n");
-		return FALSE;
-	}
-
-	dur_msec = GST_TIME_AS_MSECONDS(dur_nsec);
-
-	debug_log("check duration = [%d] for segment extraction\n", dur_msec);
-
-	if ( (0 < dst_start) && (dst_start < dur_msec)
-		&& (0 < dst_end) && (dst_end <= dur_msec) 
-		&& (dst_start < dst_end) )
-	{
-		return TRUE;
-	}
-
-	debug_fleave();
-
-	return FALSE;
-}
-
-
 static int 
 __mmplayer_set_pcm_extraction(mm_player_t* player)
 {
-	gint64 start_nsec = 0L;
-	gint64 end_nsec = 0L;
+	guint64 start_nsec = 0;
+	guint64 end_nsec = 0;
+	guint64 dur_nsec = 0;
+	guint64 dur_msec = 0;
+	GstFormat fmt = GST_FORMAT_TIME;
 	int required_start = 0;
 	int required_end = 0;
+	int ret = 0;
 
 	debug_fenter();
 
 	return_val_if_fail( player, FALSE );
 
 	mm_attrs_multiple_get(player->attrs,
-		NULL, 
+		NULL,
 		"pcm_extraction_start_msec", &required_start,
-		"pcm_extraction_end_msec", &required_end, 
+		"pcm_extraction_end_msec", &required_end,
 		NULL);
 
 	debug_log("pcm extraction required position is from [%d] to [%d] (msec)\n", required_start, required_end);
 
-	if ( ! __mmplayer_set_up_segment_extraction(player, required_start, required_end))
+	if (required_start == 0 && required_end == 0)
 	{
-		debug_log("extracting entire segment\n");
+		debug_log("extracting entire stream");
 		return MM_ERROR_NONE;
+	}
+	else if (required_start < 0 || required_start > required_end || required_end < 0 )
+	{
+		debug_log("invalid range for pcm extraction");
+		return MM_ERROR_INVALID_ARGUMENT;
+	}
+
+	/* get duration */
+	ret = gst_element_query_duration(player->pipeline->mainbin[MMPLAYER_M_PIPE].gst, &fmt, &dur_nsec);
+	if ( !ret )
+	{
+		debug_error("failed to get duration");
+		return MM_ERROR_PLAYER_INTERNAL;
+	}
+	dur_msec = GST_TIME_AS_MSECONDS(dur_nsec);
+
+	if (dur_msec < required_end) // FIXME
+	{
+		debug_log("invalid end pos for pcm extraction");
+		return MM_ERROR_INVALID_ARGUMENT;
 	}
 
 	start_nsec = required_start * G_GINT64_CONSTANT(1000000);
@@ -9337,7 +9369,7 @@ __mmplayer_can_extract_pcm( mm_player_t* player )
 	attrs = MMPLAYER_GET_ATTRS(player);
 	if ( !attrs )
 	{
-		debug_error("fail to get attributes.\n");
+		debug_error("fail to get attributes.");
 		return FALSE;
 	}
 	
@@ -9349,7 +9381,7 @@ __mmplayer_can_extract_pcm( mm_player_t* player )
 
 	if ( ! sound_extraction || is_drm )
 	{
-		debug_log("pcm extraction param.. isDRM= %d, attribute status = %d\n", sound_extraction, is_drm);
+		debug_log("pcm extraction param.. is drm = %d, extraction mode = %d", is_drm, sound_extraction);
 		return FALSE;
 	}
 

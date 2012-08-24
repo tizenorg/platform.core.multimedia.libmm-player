@@ -403,6 +403,8 @@ typedef struct {
 	gint section_repeat_start;
 	gint section_repeat_end;
 
+	gchar *album_art;
+
 	int cmd;
 
 	/* command lock */
@@ -523,6 +525,9 @@ typedef struct {
 
 	/* duration */
 	gint64 duration;
+
+	/* data size of http streaming  */
+	guint64 http_content_size;
 
 	/* last error */
 	gchar last_error_msg[1024]; /* FIXIT : should it be dynamic ? */

@@ -52,7 +52,6 @@ typedef struct __mm_player_ini
 {
 	/* general */
 	gboolean use_decodebin;	// @
-	gboolean use_sink_handler; // @
 	gint video_surface;
 	gchar videosink_element_x[PLAYER_INI_MAX_STRLEN];
 	gchar videosink_element_evas[PLAYER_INI_MAX_STRLEN];

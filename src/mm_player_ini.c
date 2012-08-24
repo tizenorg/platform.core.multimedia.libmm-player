@@ -167,7 +167,6 @@ mm_player_ini_load(void)
 	{
 		/* general */
 		g_player_ini.use_decodebin = iniparser_getboolean(dict, "general:use decodebin", DEFAULT_USE_DECODEBIN);
-		g_player_ini.use_sink_handler = iniparser_getboolean(dict, "general:use sink handler", DEFAULT_USE_SINK_HANDLER);
 		g_player_ini.disable_segtrap = iniparser_getboolean(dict, "general:disable segtrap", DEFAULT_DISABLE_SEGTRAP);
 		g_player_ini.skip_rescan = iniparser_getboolean(dict, "general:skip rescan", DEFAULT_SKIP_RESCAN);
 		g_player_ini.video_surface = DEFAULT_VIDEO_SURFACE;
