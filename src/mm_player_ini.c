@@ -284,7 +284,6 @@ mm_player_ini_load(void)
 
 		/* general */
 		g_player_ini.use_decodebin = DEFAULT_USE_DECODEBIN;
-		g_player_ini.use_sink_handler = DEFAULT_USE_SINK_HANDLER;
 		g_player_ini.disable_segtrap = DEFAULT_DISABLE_SEGTRAP;
 		g_player_ini.use_audio_filter_preset = DEFAULT_USE_AUDIO_FILTER_PRESET;
 		g_player_ini.use_audio_filter_custom = DEFAULT_USE_AUDIO_FILTER_CUSTOM;
@@ -360,7 +359,6 @@ mm_player_ini_load(void)
 	debug_log("use_decodebin : %d\n", g_player_ini.use_decodebin);
 	debug_log("use_audio_filter_preset : %d\n", g_player_ini.use_audio_filter_preset);
 	debug_log("use_audio_filter_custom : %d\n", g_player_ini.use_audio_filter_custom);
-	debug_log("use_sink_handler : %d\n", g_player_ini.use_sink_handler);
 	debug_log("disable_segtrap : %d\n", g_player_ini.disable_segtrap);
 	debug_log("skip rescan : %d\n", g_player_ini.skip_rescan);
 	debug_log("video surface(0:X, 1:EVAS, 2:GL, 3:NULL) : %d\n", g_player_ini.video_surface);
