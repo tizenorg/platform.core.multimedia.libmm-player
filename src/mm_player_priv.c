@@ -901,7 +901,7 @@ __mmplayer_set_state(mm_player_t* player, int state) // @
 		{
 			if (player->cmd == MMPLAYER_COMMAND_STOP)
 			{
-				asm_result = mmplayer_asm_set_state((MMHandleType)player, ASM_STATE_STOP);
+				asm_result = _mmplayer_asm_set_state((MMHandleType)player, ASM_STATE_STOP);
 				if ( asm_result != MM_ERROR_NONE )
 				{
 					debug_error("failed to set asm state to stop\n");
@@ -925,7 +925,7 @@ __mmplayer_set_state(mm_player_t* player, int state) // @
 			if ( ! player->audio_cb_probe_id && player->is_sound_extraction )
 				__mmplayer_configure_audio_callback(player);
 
-			asm_result = mmplayer_asm_set_state((MMHandleType)player, ASM_STATE_PAUSE);
+			asm_result = _mmplayer_asm_set_state((MMHandleType)player, ASM_STATE_PAUSE);
 			if ( asm_result )
 			{
 				debug_error("failed to set asm state to PAUSE\n");
@@ -947,7 +947,7 @@ __mmplayer_set_state(mm_player_t* player, int state) // @
 				/* update video resource status */
 				if ( ( player->can_support_codec & 0x02) == FOUND_PLUGIN_VIDEO )
 				{
-					asm_result = mmplayer_asm_set_state((MMHandleType)player, ASM_STATE_PLAYING);
+					asm_result = _mmplayer_asm_set_state((MMHandleType)player, ASM_STATE_PLAYING);
 					if ( asm_result )
 					{
 						MMMessageParamType msg = {0, };
@@ -5955,17 +5955,17 @@ gboolean _asm_lazy_pause(gpointer *data)
 	return FALSE;
 }
 ASM_cb_result_t
-player_asm_callback(int handle, ASM_event_sources_t event_src, ASM_sound_commands_t command, unsigned int sound_status, void* cb_data)
+__mmplayer_asm_callback(int handle, ASM_event_sources_t event_src, ASM_sound_commands_t command, unsigned int sound_status, void* cb_data)
 {
 	mm_player_t* player = (mm_player_t*) cb_data;
-	ASM_cb_result_t	cb_res = ASM_CB_RES_IGNORE;
+	ASM_cb_result_t cb_res = ASM_CB_RES_IGNORE;
 	MMHandleType attrs = 0;
 	int result = MM_ERROR_NONE;
-	int flag = 0;
 
 	debug_fenter();
 
-	return_val_if_fail ( player, ASM_CB_RES_IGNORE );
+	return_val_if_fail ( player && player->pipeline, ASM_CB_RES_IGNORE );
+	return_val_if_fail ( player->attrs, MM_ERROR_PLAYER_INTERNAL );
 
 	if (player->is_sound_extraction)
 	{
@@ -5973,105 +5973,89 @@ player_asm_callback(int handle, ASM_event_sources_t event_src, ASM_sound_command
 		return result;
 	}
 	
-	attrs = MMPLAYER_GET_ATTRS(player);
-	if ( !attrs )
-	{
-		debug_error("cannot get content attribute\n");
-		return MM_ERROR_PLAYER_INTERNAL;
-	}
+	player->sm.by_asm_cb = 1; // it should be enabled for player state transition with called application command
+	player->sm.event_src = event_src;
 
-	mm_attrs_get_int_by_name(attrs, "sound_stop_when_unplugged", &flag);
-
-	player->sm.by_asm_cb = 1;
 	if(event_src == ASM_EVENT_SOURCE_OTHER_PLAYER_APP)
-		player->sm.event_src = ASM_EVENT_SOURCE_OTHER_APP;
-	else
-		player->sm.event_src = event_src;
-
-	if(event_src == ASM_EVENT_SOURCE_EARJACK_UNPLUG)
 	{
-		if ( !flag )
+		player->sm.event_src = ASM_EVENT_SOURCE_OTHER_APP;
+	}
+	else if(event_src == ASM_EVENT_SOURCE_EARJACK_UNPLUG )
+	{
+		int stop_by_asm = 0;
+
+		mm_attrs_get_int_by_name(player->attrs, "sound_stop_when_unplugged", &stop_by_asm);
+		if (!stop_by_asm)
 			return cb_res;
 	}
 	else if (event_src == ASM_EVENT_SOURCE_RESOURCE_CONFLICT)
 	{
-		if(player->pipeline)
+		/* can use video overlay simultaneously */
+		/* video resource conflict */
+		if(player->pipeline->videobin) 
 		{
-			/* can use video overlay simultaneously */
-			/* video resource conflict */
-			if(player->pipeline->videobin) {
-				if (PLAYER_INI()->multiple_codec_supported)
-				{
-					debug_log("video conflict but, can support to use video overlay simultaneously\n");
-					result = _mmplayer_pause((MMHandleType)player);
-					cb_res = ASM_CB_RES_PAUSE;
-				}
-				else
-				{
-					debug_log("video conflict, can't support for multiple codec instance\n");
-					result = _mmplayer_unrealize((MMHandleType)player);
-					cb_res = ASM_CB_RES_STOP;
-				}
+			if (PLAYER_INI()->multiple_codec_supported)
+			{
+				debug_log("video conflict but, can support to use video overlay simultaneously");
+				result = _mmplayer_pause((MMHandleType)player);
+				cb_res = ASM_CB_RES_PAUSE;
+			}
+			else
+			{
+				debug_log("video conflict, can't support for multiple codec instance");
+				result = _mmplayer_unrealize((MMHandleType)player);
+				cb_res = ASM_CB_RES_STOP;
 			}
 		}
-		else
-			debug_log("No pipeline!!!!\n");
-
 		return cb_res;
 	}
 
 	switch(command)
 	{
+		case ASM_COMMAND_PLAY:
 		case ASM_COMMAND_STOP:
-			debug_log("Got msg from asm to Stop\n");
-			result = _mmplayer_stop((MMHandleType) player);
-			
-			player->sm.by_asm_cb = 1;
-			result = _mmplayer_unrealize((MMHandleType)player);
-			
-			cb_res = ASM_CB_RES_STOP;
-			break;
-			
+			debug_warning ("Got unexpected asm command (%d)", command);
+		break;
+
 		case ASM_COMMAND_PAUSE:
 		{
-			debug_log("Got msg from asm to Pause\n");
-			if(event_src == ASM_EVENT_SOURCE_CALL_START || event_src == ASM_EVENT_SOURCE_ALARM_START 
-					|| event_src == ASM_EVENT_SOURCE_OTHER_APP) 
+			debug_log("Got msg from asm to Pause");
+			
+			if(event_src == ASM_EVENT_SOURCE_CALL_START
+				|| event_src == ASM_EVENT_SOURCE_ALARM_START
+				|| event_src == ASM_EVENT_SOURCE_OTHER_APP)
 			{
 				//hold 0.7 second to excute "fadedown mute" effect
-				debug_log ("do fade down->pause->undo fade down\n");
+				debug_log ("do fade down->pause->undo fade down");
 					
 				__mmplayer_do_sound_fadedown(player, MM_PLAYER_FADEOUT_TIME_DEFAULT);
 					
 				result = _mmplayer_pause((MMHandleType)player);
-				if (result != MM_ERROR_NONE) {
-					debug_warning("fail to set Pause state.\n");
+				if (result != MM_ERROR_NONE)
+				{
+					debug_warning("fail to set Pause state by asm");
 					cb_res = ASM_CB_RES_IGNORE;
 					break;
-				}				
-				
+				}
 				__mmplayer_undo_sound_fadedown(player);
 			}
-			else if(event_src == ASM_EVENT_SOURCE_OTHER_PLAYER_APP) {
+			else if(event_src == ASM_EVENT_SOURCE_OTHER_PLAYER_APP)
+			{
 				if ( player->pipeline->audiobin && player->pipeline->audiobin[MMPLAYER_A_SINK].gst )
 					g_object_set( player->pipeline->audiobin[MMPLAYER_A_SINK].gst, "mute", 2, NULL);
+
 				player->lazy_pause_event_id = g_timeout_add(LAZY_PAUSE_TIMEOUT_MSEC, (GSourceFunc)_asm_lazy_pause, (gpointer)player);
-				debug_log ("set lazy pause timer (id=[%d], timeout=[%d ms])\n", player->lazy_pause_event_id, LAZY_PAUSE_TIMEOUT_MSEC);
-			}	
-			else {
+				debug_log ("set lazy pause timer (id=[%d], timeout=[%d ms])", player->lazy_pause_event_id, LAZY_PAUSE_TIMEOUT_MSEC);
+			}
+			else
+			{
 				//immediate pause
-				debug_log ("immediate pause\n");
+				debug_log ("immediate pause");
 				result = _mmplayer_pause((MMHandleType)player);
 			}
 			cb_res = ASM_CB_RES_PAUSE;
-			break;
 		}
-		
-		case ASM_COMMAND_PLAY:
-			debug_log("Got msg from asm to Play\n");
-			result = _mmplayer_start((MMHandleType)player);
-			cb_res = ASM_CB_RES_PLAYING;
-			break;
+		break;
 			
 		case ASM_COMMAND_RESUME:
 		{
@@ -6080,13 +6064,14 @@ player_asm_callback(int handle, ASM_event_sources_t event_src, ASM_sound_command
 			//ASM server is single thread daemon. So use g_idle_add() to post resume msg
 			g_idle_add((GSourceFunc)_asm_postmsg, (gpointer)player);
 			cb_res = ASM_CB_RES_IGNORE;
-			break;
-		}	
-		
+		}
+		break;
+
 		default:
-			break;
+		break;
 	}
 
+	player->sm.by_asm_cb = 0;
 	debug_fleave();
 
 	return cb_res;
@@ -6176,7 +6161,7 @@ _mmplayer_create_player(MMHandleType handle) // @
 	}
 
 	/* register to asm */
-	if ( MM_ERROR_NONE != mmplayer_asm_register(&player->sm, (ASM_sound_cb_t)player_asm_callback, (void*)player) )
+	if ( MM_ERROR_NONE != _mmplayer_asm_register(&player->sm, (ASM_sound_cb_t)__mmplayer_asm_callback, (void*)player) )
 	{
 		/* NOTE : we are dealing it as an error since we cannot expect it's behavior */
 		debug_error("failed to register asm server\n");
@@ -6489,7 +6474,7 @@ _mmplayer_destroy(MMHandleType handle) // @
 	}
 
 	/* withdraw asm */
-	if ( MM_ERROR_NONE != mmplayer_asm_deregister(&player->sm) )
+	if ( MM_ERROR_NONE != _mmplayer_asm_deregister(&player->sm) )
 	{
 		debug_error("failed to deregister asm server\n");
 		return MM_ERROR_PLAYER_INTERNAL;
@@ -6731,7 +6716,7 @@ _mmplayer_unrealize(MMHandleType hplayer) // @
 	/* set player state if success */
 	if ( MM_ERROR_NONE == ret )
 	{
-		ret = mmplayer_asm_set_state(hplayer, ASM_STATE_STOP);
+		ret = _mmplayer_asm_set_state(hplayer, ASM_STATE_STOP);
 		if ( ret )
 		{
 			debug_error("failed to set asm state to STOP\n");
@@ -7093,7 +7078,7 @@ _mmplayer_start(MMHandleType hplayer) // @
 	/* check current state */
 	MMPLAYER_CHECK_STATE_RETURN_IF_FAIL( player, MMPLAYER_COMMAND_START );
 
-	ret = mmplayer_asm_set_state(hplayer, ASM_STATE_PLAYING);
+	ret = _mmplayer_asm_set_state(hplayer, ASM_STATE_PLAYING);
 	if ( ret != MM_ERROR_NONE )
 	{
 		debug_error("failed to set asm state to PLAYING\n");
@@ -7319,7 +7304,7 @@ _mmplayer_resume(MMHandleType hplayer)
 
 	return_val_if_fail ( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
 
-	ret = mmplayer_asm_set_state(hplayer, ASM_STATE_PLAYING);
+	ret = _mmplayer_asm_set_state(hplayer, ASM_STATE_PLAYING);
 	if ( ret )
 	{
 		debug_error("failed to set asm state to PLAYING\n");
@@ -7509,7 +7494,7 @@ int
 _mmplayer_deactivate_section_repeat(MMHandleType hplayer)
 {
 	mm_player_t* player = (mm_player_t*)hplayer;
-	gint64 cur_pos = 0L;
+	gint64 cur_pos = 0;
 	GstFormat fmt  = GST_FORMAT_TIME;
 	gint onetime = 1;
 

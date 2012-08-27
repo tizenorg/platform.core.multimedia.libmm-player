@@ -20,8 +20,8 @@
  *
  */
  
-#ifndef MM_PLAYER_ASM_H_
-#define MM_PLAYER_ASM_H_
+#ifndef __MM_PLAYER_ASM_H__
+#define __MM_PLAYER_ASM_H__
 
 #include <glib.h>
 #include <mm_types.h>
@@ -30,6 +30,10 @@
 #include <mm_session.h>
 #include <mm_session_private.h>
 #include <audio-session-manager.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef struct {
 	int handle;
@@ -41,8 +45,12 @@ typedef struct {
 } MMPlayerASM;
 
 /* returns allocated handle */
-gint mmplayer_asm_register(MMPlayerASM* sm, ASM_sound_cb_t callback, void* param);
-gint mmplayer_asm_deregister(MMPlayerASM* sm);
-gint mmplayer_asm_set_state(MMHandleType player, ASM_sound_states_t state);
+gint _mmplayer_asm_register(MMPlayerASM* sm, ASM_sound_cb_t callback, void* param);
+gint _mmplayer_asm_deregister(MMPlayerASM* sm);
+gint _mmplayer_asm_set_state(MMHandleType player, ASM_sound_states_t state);
 
-#endif /* MM_PLAYER_ASM_H_ */
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* __MM_PLAYER_ASM_H__ */

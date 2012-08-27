@@ -27,7 +27,8 @@
 
 static ASM_sound_events_t __mmplayer_asm_get_event_type(gint type);
 
-gint mmplayer_asm_register(MMPlayerASM* sm, ASM_sound_cb_t callback, void* param)
+gint
+_mmplayer_asm_register(MMPlayerASM* sm, ASM_sound_cb_t callback, void* param)
 {
 	/* read mm-session type */
 	gint sessionType = MM_SESSION_TYPE_SHARE;
@@ -105,7 +106,8 @@ gint mmplayer_asm_register(MMPlayerASM* sm, ASM_sound_cb_t callback, void* param
 	return MM_ERROR_NONE;
 }
 
-gint mmplayer_asm_deregister(MMPlayerASM* sm)
+gint
+_mmplayer_asm_deregister(MMPlayerASM* sm)
 {
 	gint event_type = ASM_EVENT_NONE;
 	gint errorcode = 0;
@@ -127,25 +129,7 @@ gint mmplayer_asm_deregister(MMPlayerASM* sm)
 	{
 		debug_log("no pid has assigned. using default(current) context\n");
 	}
-#if 0
-	/* read session type */
-	errorcode = _mm_session_util_read_type(pid, &sessionType);
-	if ( errorcode )
-	{
-		debug_error("MMSessionReadType Fail %s\n",__func__);
-		return MM_ERROR_POLICY_INTERNAL;
-	}
 
-	/* check if it's CALL */
-	if ( sessionType == MM_SESSION_TYPE_CALL || sessionType == MM_SESSION_TYPE_VIDEOCALL  )
-	{
-		debug_log("session type is VOICE or VIDEO CALL (%d)\n", sessionType); 
-		return MM_ERROR_NONE;
-	}
-
-	/* interpret session type */
-	event_type = __mmplayer_asm_get_event_type(sessionType);
-#else
 	/* check if it's CALL */
 	if(sm->event == ASM_EVENT_CALL || sm->event == ASM_EVENT_VIDEOCALL)
 	{
@@ -153,7 +137,7 @@ gint mmplayer_asm_deregister(MMPlayerASM* sm)
 		return MM_ERROR_NONE;
 	}
 	event_type = sm->event;
-#endif
+
 	if( ! ASM_unregister_sound( sm->handle, event_type, &errorcode) )
 	{
 		debug_error("Unregister sound failed 0x%X\n", errorcode);
@@ -163,7 +147,7 @@ gint mmplayer_asm_deregister(MMPlayerASM* sm)
 	return MM_ERROR_NONE;
 }
 
-gint mmplayer_asm_set_state(MMHandleType hplayer, ASM_sound_states_t state)
+gint _mmplayer_asm_set_state(MMHandleType hplayer, ASM_sound_states_t state)
 {
 	gint event_type = ASM_EVENT_NONE;
 	gint pid = -1;
@@ -187,46 +171,25 @@ gint mmplayer_asm_set_state(MMHandleType hplayer, ASM_sound_states_t state)
 	{
 		debug_log("no pid has assigned. using default(current) context\n");
 	}
-#if 0
-	/* read session type */
-	errorcode = _mm_session_util_read_type(pid, &sessionType);
-	if ( errorcode )
-	{
-		debug_error("MMSessionReadType Fail\n");
-		return MM_ERROR_POLICY_INTERNAL;
-	}
 
-	/* check if it's CALL */
-	if ( sessionType == MM_SESSION_TYPE_CALL || sessionType == MM_SESSION_TYPE_VIDEOCALL)
-	{
-		debug_log("session type is VOICE or VIDEO CALL (%d)\n", sessionType); 
-		return MM_ERROR_NONE;
-	}
-#else
 	/* check if it's CALL */
 	if(sm->event == ASM_EVENT_CALL || sm->event == ASM_EVENT_VIDEOCALL)
 	{
 		debug_log("session type is VOICE or VIDEO CALL (%d)\n", sm->event); 
 		return MM_ERROR_NONE;
 	}
-#endif
 
 	if ( ! sm->by_asm_cb )//|| sm->state == ASM_STATE_PLAYING )
 	{
 		int ret = 0;
-
-#if 0
-		event_type = __mmplayer_asm_get_event_type(sessionType);
-#else
 		event_type = sm->event;
-#endif
+
 		/* check if there is video */
 		/* NOTE: resource can be set as NONE when it's not occupied or unknown resource is used. */
 		if(ASM_STATE_PLAYING == state || ASM_STATE_PAUSE == state)
 		{
 			if(player->pipeline && player->pipeline->videobin)
-				//resource = ASM_RESOURCE_VIDEO_OVERLAY | ASM_RESOURCE_HW_DECODER;
-			resource = ASM_RESOURCE_VIDEO_OVERLAY | ASM_RESOURCE_HW_DECODER;
+				resource = ASM_RESOURCE_VIDEO_OVERLAY | ASM_RESOURCE_HW_DECODER;
 		}
 
 		if( ! ASM_set_sound_state( sm->handle, event_type, state, resource, &ret) )
@@ -246,8 +209,8 @@ gint mmplayer_asm_set_state(MMHandleType hplayer, ASM_sound_states_t state)
 	return MM_ERROR_NONE;
 }
 
-
-ASM_sound_events_t __mmplayer_asm_get_event_type(gint type)
+static ASM_sound_events_t
+__mmplayer_asm_get_event_type(gint type)
 {
 	gint event_type = ASM_EVENT_NONE;
 
