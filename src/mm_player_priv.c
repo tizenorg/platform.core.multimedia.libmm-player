@@ -1640,15 +1640,24 @@ __mmplayer_gst_callback(GstBus *bus, GstMessage *msg, gpointer data) // @
 				break;
 
 				case GST_STATE_PLAYING:
+				{
+
+					gboolean is_async = FALSE;
 
 		                        if (player->is_seeking && async_done)
 					{
-						MMPLAYER_POST_MSG ( player, MM_MESSAGE_SEEK_COMPLETED, NULL );
 						player->is_seeking = FALSE;
 						async_done = FALSE;
+						MMPLAYER_POST_MSG ( player, MM_MESSAGE_SEEK_COMPLETED, NULL );
 					}
 
-					MMPLAYER_SET_STATE ( player, MM_PLAYER_STATE_PLAYING );
+					/* It should be called in case of async start only.
+					  * don't need to call in the case of resume and sync start (currently, resume is sync.)
+					  */
+					mm_attrs_get_int_by_name(player->attrs,"profile_async_start", &is_async);
+					if (is_async && player->cmd == MMPLAYER_COMMAND_START)
+						MMPLAYER_SET_STATE ( player, MM_PLAYER_STATE_PLAYING );
+				}
 				break;
 
 				default:
@@ -5950,6 +5959,8 @@ gboolean _asm_lazy_pause(gpointer *data)
 	if (player->pipeline && player->pipeline->audiobin)
 		g_object_set(G_OBJECT(player->pipeline->audiobin[MMPLAYER_A_SINK].gst), "mute", 0, NULL);
 
+	player->sm.by_asm_cb = 0; //should be reset here
+
 	debug_fleave();
 
 	return FALSE;
@@ -5961,6 +5972,7 @@ __mmplayer_asm_callback(int handle, ASM_event_sources_t event_src, ASM_sound_com
 	ASM_cb_result_t cb_res = ASM_CB_RES_IGNORE;
 	MMHandleType attrs = 0;
 	int result = MM_ERROR_NONE;
+	gboolean lazy_pause = FALSE;
 
 	debug_fenter();
 
@@ -6041,6 +6053,8 @@ __mmplayer_asm_callback(int handle, ASM_event_sources_t event_src, ASM_sound_com
 			}
 			else if(event_src == ASM_EVENT_SOURCE_OTHER_PLAYER_APP)
 			{
+				lazy_pause = TRUE; // return as soon as possible, for fast start of other app
+
 				if ( player->pipeline->audiobin && player->pipeline->audiobin[MMPLAYER_A_SINK].gst )
 					g_object_set( player->pipeline->audiobin[MMPLAYER_A_SINK].gst, "mute", 2, NULL);
 
@@ -6071,7 +6085,9 @@ __mmplayer_asm_callback(int handle, ASM_event_sources_t event_src, ASM_sound_com
 		break;
 	}
 
-	player->sm.by_asm_cb = 0;
+	if (!lazy_pause)
+		player->sm.by_asm_cb = 0;
+
 	debug_fleave();
 
 	return cb_res;
@@ -8278,29 +8294,23 @@ static void __mmplayer_pipeline_complete(GstElement *decodebin,  gpointer data) 
 
 static gboolean __mmplayer_configure_audio_callback(mm_player_t* player)
 {
-	gboolean drm_file = TRUE;
-
 	debug_fenter();
 
 	return_val_if_fail ( player, FALSE );
 
 
 	if ( MMPLAYER_IS_STREAMING(player) )
-		return TRUE;
+		return FALSE;
 
-	g_object_get(GST_OBJECT(player->pipeline->mainbin[MMPLAYER_M_SRC].gst), "is-drm", &drm_file, NULL);
-
-	/* permit to set audio callback for non-drm file */		
-	if (drm_file)
+	/* This callback can be set to music player only. */
+	if((player->can_support_codec & 0x02) == FOUND_PLUGIN_VIDEO)
 	{
-		debug_warning("Selected file is drm. So, audio callback is ignored. \n");
-		return TRUE;
+		debug_warning("audio callback is not supported for video");
+		return FALSE;
 	}
 
 	if (player->audio_stream_cb)
 	{
-		/* This callback can be set to music player only. */
-		if((player->can_support_codec & 0x03) == FOUND_PLUGIN_AUDIO)
 		{
 			GstPad *pad = NULL;
 
