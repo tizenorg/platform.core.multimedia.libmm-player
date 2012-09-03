@@ -198,19 +198,29 @@ enum VideoElementID
 };
 
 /* text pipeline's element id */
-enum SubtitleElementID
+enum TextElementID
 {
-	MMPLAYER_T_PIPE = 0, /* NOTE : MMPLAYER_T_PIPE should be zero */
-	MMPLAYER_T_SRC,
+	MMPLAYER_T_BIN = 0, /* NOTE : MMPLAYER_V_BIN should be zero */
 	MMPLAYER_T_QUEUE,
-	MMPLAYER_T_SUBPARSE,
-	MMPLAYER_T_TEXTRENDER,
-	MMPLAYER_T_FLIP,
-	MMPLAYER_T_CONV1,
-	MMPLAYER_T_CONV2,
-	MMPLAYER_T_SCALE,
+	MMPLAYER_T_OVERLAY,
 	MMPLAYER_T_SINK,
 	MMPLAYER_T_NUM
+};
+
+/* subtitle pipeline's element id */
+enum SubtitleElementID
+{
+	MMPLAYER_SUB_PIPE = 0, /* NOTE : MMPLAYER_SUB_PIPE should be zero */
+	MMPLAYER_SUB_SRC,
+	MMPLAYER_SUB_QUEUE,
+	MMPLAYER_SUB_SUBPARSE,
+	MMPLAYER_SUB_TEXTRENDER,
+	MMPLAYER_SUB_FLIP,
+	MMPLAYER_SUB_CONV1,
+	MMPLAYER_SUB_CONV2,
+	MMPLAYER_SUB_SCALE,
+	MMPLAYER_SUB_SINK,
+	MMPLAYER_SUB_NUM
 };
 
 /* midi main pipeline's element id */
@@ -304,6 +314,7 @@ typedef struct
 {
 	GstTagList			*tag_list;
 	MMPlayerGstElement 	*mainbin;
+	MMPlayerGstElement 	*subtitlebin;
 	MMPlayerGstElement 	*audiobin;
 	MMPlayerGstElement 	*videobin;
 	MMPlayerGstElement 	*textbin;
@@ -536,6 +547,7 @@ typedef struct {
 	gint audiodec_linked;
 	gint videosink_linked;
 	gint audiosink_linked;
+	gint textsink_linked;
 
 	/* missing plugin during autoplugging */
 	MissingCodec not_supported_codec;
@@ -553,7 +565,7 @@ typedef struct {
 	/* support seek even though player is not start */
 	MMPlayerPendingSeek pending_seek;
 
-	gboolean is_seeking;
+	gboolean doing_seek;
 
 	/* prevent to post msg over and over */
 	gboolean posted_msg;

@@ -45,7 +45,7 @@
  * @see
  *
  */
-int __mmplayer_initialize_video_capture(mm_player_t* player);
+int _mmplayer_initialize_video_capture(mm_player_t* player);
 /**
  * This function is to release video capture
  *
@@ -55,7 +55,7 @@ int __mmplayer_initialize_video_capture(mm_player_t* player);
  * @see
  *
  */
-int __mmplayer_release_video_capture(mm_player_t* player);
+int _mmplayer_release_video_capture(mm_player_t* player);
 /**
  * This function is to get video snapshot during playback.
  *

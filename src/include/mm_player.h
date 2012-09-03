@@ -353,6 +353,11 @@
 	<td>range</td>
 	</tr>
 	<tr>
+	<td>"content_text_track_num"</td>
+	<td>int</td>
+	<td>range</td>
+	</tr>
+	<tr>
 	<td>"tag_artist"</td>
 	<td>string</td>
 	<td>N/A</td>
@@ -574,6 +579,12 @@
  */
 #define MM_PLAYER_AUDIO_TRACK_NUM			"content_audio_track_num"
 /**
+ * MM_PLAYER_TEXT_TRACK_NUM
+ *
+ * track number inside a collection (int)
+ */
+#define MM_PLAYER_TEXT_TRACK_NUM			"content_text_track_num"
+/**
  * MM_PLAYER_TAG_ARTIST
  *
  * person(s) responsible for the recording (string)
@@ -702,6 +713,15 @@ typedef enum {
         MM_PLAYER_PD_MODE_URI,
         MM_PLAYER_PD_MODE_FILE	// not tested yet, because of no fixed scenario
 }MMPlayerPDMode;
+
+/**
+ * Enumeration of track types
+ */
+typedef enum {
+	MM_PLAYER_TRACK_TYPE_AUDIO,
+	MM_PLAYER_TRACK_TYPE_VIDEO,
+       MM_PLAYER_TRACK_TYPE_TEXT
+}MMPlayerTrackType;
 
 /**
  * Attribute validity structure
@@ -1446,6 +1466,7 @@ if (method_info. validity_type == MM_PLAYER_ATTRS_VALID_TYPE_INT_RANGE)
  * @endcode 
  */
 int mm_player_get_attribute_info(MMHandleType player,  const char *attribute_name, MMPlayerAttrsInfo *info);
+
 /**
  * This function is to get download position and total size of progressive download
  *
@@ -1502,6 +1523,33 @@ mm_player_set_pd_message_callback(g_player, msg_callback, NULL);
  * @endcode
  */
 int mm_player_set_pd_message_callback(MMHandleType player, MMMessageCallback callback, void *user_param);
+
+/**
+ * This function is to get the track count
+ *
+ * @param	player		[in]	handle of player.
+ * @param   	track_type	[in] 	type of the track type
+ * @param   	info			[out]	the count of the track
+ *
+ * @return	This function returns zero on success, or negative value with error
+ *			code.
+ *
+ * @see
+ * @remark	None
+ * @par Example
+ * @code
+gint audio_count = 0;
+
+if (mm_player_get_track_count (g_player, MM_PLAYER_TRACK_TYPE_AUDIO, &audio_count) != MM_ERROR_NONE)
+{
+	printf("failed to get audio track count\n");
+}
+
+printf("audio track count : %d \n", audio_count);
+ * @endcode
+ */
+int mm_player_get_track_count(MMHandleType player,  MMPlayerTrackType track_type, int *count);
+
 
 /**
 	@}

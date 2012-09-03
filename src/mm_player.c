@@ -768,3 +768,18 @@ int mm_player_get_pd_status(MMHandleType player, guint64 *current_pos, guint64 *
 
 	return result;
 }
+
+int mm_player_get_track_count(MMHandleType player,  MMPlayerTrackType track_type, int *count)
+{
+	int result = MM_ERROR_NONE;
+
+	debug_log("\n");
+
+	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	return_val_if_fail(count, MM_ERROR_COMMON_INVALID_ARGUMENT);
+
+	result = _mmplayer_get_track_count(player, track_type, count);
+
+	return result;
+
+}

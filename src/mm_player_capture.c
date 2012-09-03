@@ -40,8 +40,8 @@
 static gboolean __mmplayer_video_capture_probe (GstPad *pad, GstBuffer *buffer, gpointer u_data);
 static int  __mmplayer_get_video_frame_from_buffer(mm_player_t* player, GstBuffer *buffer);
 static void __mmplayer_capture_thread(gpointer data);
-static void csc_tiled_to_linear_crop(unsigned char *yuv420_dest, unsigned char *nv12t_src, int yuv420_width, int yuv420_height, int left, int top, int right, int buttom);
-static int tile_4x2_read(int x_size, int y_size, int x_pos, int y_pos);
+static void __csc_tiled_to_linear_crop(unsigned char *yuv420_dest, unsigned char *nv12t_src, int yuv420_width, int yuv420_height, int left, int top, int right, int buttom);
+static int __tile_4x2_read(int x_size, int y_size, int x_pos, int y_pos);
 static int __mm_player_convert_colorspace(mm_player_t* player, unsigned char* src_data, mm_util_img_format src_fmt, unsigned int src_w, unsigned int src_h, mm_util_img_format dst_fmt);
 
 /*===========================================================================================
@@ -49,14 +49,15 @@ static int __mm_player_convert_colorspace(mm_player_t* player, unsigned char* sr
 |  FUNCTION DEFINITIONS																		|
 |  																							|
 ========================================================================================== */
-int __mmplayer_initialize_video_capture(mm_player_t* player)
+int 
+_mmplayer_initialize_video_capture(mm_player_t* player)
 {
 	return_val_if_fail ( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
 	/* create capture mutex */
 	player->capture_thread_mutex = g_mutex_new();
 	if ( ! player->capture_thread_mutex )
 	{
-		debug_critical("Cannot create capture mutex\n");
+		debug_critical("Cannot create capture mutex");
 		goto ERROR;
 	}
 
@@ -64,7 +65,7 @@ int __mmplayer_initialize_video_capture(mm_player_t* player)
 	player->capture_thread_cond = g_cond_new();
 	if ( ! player->capture_thread_cond )
 	{
-		debug_critical("Cannot create capture cond\n");
+		debug_critical("Cannot create capture cond");
 		goto ERROR;
 	}
 
@@ -81,24 +82,6 @@ int __mmplayer_initialize_video_capture(mm_player_t* player)
 	return MM_ERROR_NONE;
 
 ERROR:
-	/* free capture thread */
-	if ( player->capture_thread_cond &&
-		 player->capture_thread_mutex &&
-		 player->capture_thread )
-	{
-		player->capture_thread_exit = TRUE;
-		g_cond_signal( player->capture_thread_cond );
-
-		g_mutex_free ( player->capture_thread_mutex );
-		player->capture_thread_mutex = NULL;
-
-		g_cond_free ( player->capture_thread_cond );
-		player->capture_thread_cond = NULL;
-
-		g_thread_join( player->capture_thread );
-		player->capture_thread = NULL;
-	}
-
 	/* capture thread */
 	if ( player->capture_thread_mutex )
 		g_mutex_free ( player->capture_thread_mutex );
@@ -110,7 +93,7 @@ ERROR:
 }
 
 int
-__mmplayer_release_video_capture(mm_player_t* player)
+_mmplayer_release_video_capture(mm_player_t* player)
 {
 	return_val_if_fail ( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
 	/* release capture thread */
@@ -123,14 +106,74 @@ __mmplayer_release_video_capture(mm_player_t* player)
 		g_cond_signal( player->capture_thread_cond );
 		g_mutex_unlock(player->capture_thread_mutex);
 
-		debug_log("waitting forcapture thread exit\n");
+		debug_log("waitting for capture thread exit");
 		g_thread_join ( player->capture_thread );
 		g_mutex_free ( player->capture_thread_mutex );
 		g_cond_free ( player->capture_thread_cond );
-		debug_log("capture thread released\n");
+		debug_log("capture thread released");
 	}
 
 	return MM_ERROR_NONE;
+}
+
+int
+_mmplayer_do_video_capture(MMHandleType hplayer)
+{
+	mm_player_t* player = (mm_player_t*) hplayer;
+	int ret = MM_ERROR_NONE;
+	GstPad *pad = NULL;
+
+	debug_fenter();
+
+	return_val_if_fail(player && player->pipeline, MM_ERROR_PLAYER_NOT_INITIALIZED);
+
+	/* capturing or not */
+	if (player->video_capture_cb_probe_id || player->capture.data || player->captured.a[0] || player->captured.a[1])
+	{
+		debug_warning("capturing... we can't do any more");
+		return MM_ERROR_PLAYER_INVALID_STATE;
+	}
+
+	/* check if video pipeline is linked or not */
+	if (!player->pipeline->videobin || !player->sent_bos)
+	{
+		debug_warning("not ready to capture");
+		return MM_ERROR_PLAYER_INVALID_STATE;
+	}
+
+	if (player->state != MM_PLAYER_STATE_PLAYING)
+	{
+		if (player->state == MM_PLAYER_STATE_PAUSED) // get last buffer from video sink
+		{
+			GstBuffer *buf = NULL;
+			g_object_get(player->pipeline->videobin[MMPLAYER_V_SINK].gst, "last-buffer", &buf, NULL);
+
+			if (buf)
+			{
+				ret = __mmplayer_get_video_frame_from_buffer(player, buf);
+				gst_buffer_unref(buf);
+			}
+			return ret;
+		}
+		else
+		{
+			debug_warning("invalid state(%d) to capture", player->state);
+			return MM_ERROR_PLAYER_INVALID_STATE;
+		}
+	}
+
+	pad = gst_element_get_static_pad(player->pipeline->videobin[MMPLAYER_V_SINK].gst, "sink" );
+
+	/* register probe */
+	player->video_capture_cb_probe_id = gst_pad_add_buffer_probe (pad,
+		G_CALLBACK (__mmplayer_video_capture_probe), player);
+
+	gst_object_unref(GST_OBJECT(pad));
+	pad = NULL;
+
+	debug_fleave();
+
+	return ret;
 }
 
 static void
@@ -143,24 +186,19 @@ __mmplayer_capture_thread(gpointer data)
 
 	return_if_fail (player);
 
-	while (1)
+	while (!player->capture_thread_exit)
 	{
-		g_mutex_lock(player->capture_thread_mutex);
-		if ( player->capture_thread_exit )
-		{
-			debug_log("exiting capture thread\n");
-			goto EXIT;
-		}
+		debug_log("capture thread started. waiting for signal");
 
-		debug_log("capture thread started. waiting for signal.\n");
+		g_mutex_lock(player->capture_thread_mutex);
 		g_cond_wait( player->capture_thread_cond, player->capture_thread_mutex );
 
 		if ( player->capture_thread_exit )
 		{
-			debug_log("exiting capture thread\n");
+			debug_log("exiting capture thread");
 			goto EXIT;
 		}
-		debug_log("capture thread is recieved signal.\n");
+		debug_log("capture thread is recieved signal");
 
 		/* NOTE: Don't use MMPLAYER_CMD_LOCK() here.
 		 * Because deadlock can be happened if other player api is used in message callback. 
@@ -173,21 +211,21 @@ __mmplayer_capture_thread(gpointer data)
 			int linear_uv_plane_size;
 			unsigned char * src_buffer = NULL;
 
-			debug_log("w[0]=%d, w[1]=%d\n", player->captured.w[0], player->captured.w[1]);
-			debug_log("h[0]=%d, h[1]=%d\n", player->captured.h[0], player->captured.h[1]);
-			debug_log("s[0]=%d, s[1]=%d\n", player->captured.s[0], player->captured.s[1]);
-			debug_log("e[0]=%d, e[1]=%d\n", player->captured.e[0], player->captured.e[1]);
-			debug_log("a[0]=%p, a[1]=%p\n", player->captured.a[0], player->captured.a[1]);
+			debug_log("w[0]=%d, w[1]=%d", player->captured.w[0], player->captured.w[1]);
+			debug_log("h[0]=%d, h[1]=%d", player->captured.h[0], player->captured.h[1]);
+			debug_log("s[0]=%d, s[1]=%d", player->captured.s[0], player->captured.s[1]);
+			debug_log("e[0]=%d, e[1]=%d", player->captured.e[0], player->captured.e[1]);
+			debug_log("a[0]=%p, a[1]=%p", player->captured.a[0], player->captured.a[1]);
 
 			if (mm_attrs_get_int_by_name(player->attrs, "content_video_width", &(player->captured.w[0])) != MM_ERROR_NONE)
 			{
-				debug_error("failed to get content width attribute\n");
+				debug_error("failed to get content width attribute");
 				goto ERROR;
 			}
 
 			if (mm_attrs_get_int_by_name(player->attrs, "content_video_height", &(player->captured.h[0])) != MM_ERROR_NONE)
 			{
-				debug_error("failed to get content height attribute\n");
+				debug_error("failed to get content height attribute");
 				goto ERROR;
 			}
 
@@ -208,8 +246,8 @@ __mmplayer_capture_thread(gpointer data)
 				goto ERROR;
 			}
 			/* NV12 tiled to linear */
-			csc_tiled_to_linear_crop(linear_y_plane, player->captured.a[0], player->captured.w[0], player->captured.h[0], 0,0,0,0);
-			csc_tiled_to_linear_crop(linear_uv_plane, player->captured.a[1], player->captured.w[0], player->captured.h[0]/2, 0,0,0,0);
+			__csc_tiled_to_linear_crop(linear_y_plane, player->captured.a[0], player->captured.w[0], player->captured.h[0], 0,0,0,0);
+			__csc_tiled_to_linear_crop(linear_uv_plane, player->captured.a[1], player->captured.w[0], player->captured.h[0]/2, 0,0,0,0);
 
 			MMPLAYER_FREEIF(player->captured.a[0]);
 			MMPLAYER_FREEIF(player->captured.a[1]);
@@ -231,7 +269,7 @@ __mmplayer_capture_thread(gpointer data)
 
 			if (ret != MM_ERROR_NONE)
 			{
-				debug_error("failed to convert nv12 linear\n");
+				debug_error("failed to convert nv12 linear");
 				goto ERROR;
 			}
 			/* clean */
@@ -244,7 +282,12 @@ __mmplayer_capture_thread(gpointer data)
 		msg.data = &player->capture;
 		msg.size = player->capture.size;
 
-		MMPLAYER_POST_MSG( player, MM_MESSAGE_VIDEO_CAPTURED, &msg );
+		if (player->cmd >= MMPLAYER_COMMAND_START)
+		{
+			MMPLAYER_POST_MSG( player, MM_MESSAGE_VIDEO_CAPTURED, &msg );
+			debug_log("returned from capture message callback");
+		}
+
 		g_mutex_unlock(player->capture_thread_mutex);
 
 		//MMPLAYER_FREEIF(player->capture.data);
@@ -261,74 +304,13 @@ ERROR:
 
 		msg.union_type = MM_MSG_UNION_CODE;
 
-		MMPLAYER_POST_MSG( player, MM_MESSAGE_VIDEO_NOT_CAPTURED, &msg );
 		g_mutex_unlock(player->capture_thread_mutex);
+		MMPLAYER_POST_MSG( player, MM_MESSAGE_VIDEO_NOT_CAPTURED, &msg );
 	}
 	return;
 EXIT:
 	g_mutex_unlock(player->capture_thread_mutex);
 	return;
-}
-
-
-int
-_mmplayer_do_video_capture(MMHandleType hplayer)
-{
-	mm_player_t* player = (mm_player_t*) hplayer;
-	int ret = MM_ERROR_NONE;
-	GstPad *pad = NULL;
-
-	debug_fenter();
-
-	return_val_if_fail(player && player->pipeline, MM_ERROR_PLAYER_NOT_INITIALIZED);
-
-	/* capturing or not */
-	if (player->video_capture_cb_probe_id || player->capture.data || player->captured.a[0] || player->captured.a[1])
-	{
-		debug_warning("capturing... we can't do any more\n");
-		return MM_ERROR_PLAYER_INVALID_STATE;
-	}
-
-	/* check if video pipeline is linked or not */
-	if (!player->pipeline->videobin || !player->sent_bos)
-	{
-		debug_warning("not ready to capture\n");
-		return MM_ERROR_PLAYER_INVALID_STATE;
-	}
-
-	if (player->state != MM_PLAYER_STATE_PLAYING)
-	{
-		if (player->state == MM_PLAYER_STATE_PAUSED) // get last buffer from video sink
-		{
-			GstBuffer *buf = NULL;
-			g_object_get(player->pipeline->videobin[MMPLAYER_V_SINK].gst, "last-buffer", &buf, NULL);
-
-			if (buf)
-			{
-				ret = __mmplayer_get_video_frame_from_buffer(player, buf);
-				gst_buffer_unref(buf);
-			}
-			return ret;
-		}
-		else
-		{
-			debug_warning("invalid state(%d) to capture.\n", player->state);
-			return MM_ERROR_PLAYER_INVALID_STATE;
-		}
-	}
-
-	pad = gst_element_get_static_pad(player->pipeline->videobin[MMPLAYER_V_SINK].gst, "sink" );
-
-	/* register probe */
-	player->video_capture_cb_probe_id = gst_pad_add_buffer_probe (pad,
-		G_CALLBACK (__mmplayer_video_capture_probe), player);
-
-	gst_object_unref(GST_OBJECT(pad));
-	pad = NULL;
-
-	debug_fleave();
-
-	return ret;
 }
 
 /**
@@ -581,7 +563,7 @@ __mm_player_convert_colorspace(mm_player_t* player, unsigned char* src_data, mm_
  *   address of tiled data
  */
 static int
-tile_4x2_read(int x_size, int y_size, int x_pos, int y_pos)
+__tile_4x2_read(int x_size, int y_size, int x_pos, int y_pos)
 {
     int pixel_x_m1, pixel_y_m1;
     int roundup_x, roundup_y;
@@ -654,7 +636,7 @@ tile_4x2_read(int x_size, int y_size, int x_pos, int y_pos)
  *   Crop size of buttom
  */
 static void
-csc_tiled_to_linear_crop(unsigned char *yuv420_dest, unsigned char *nv12t_src, int yuv420_width, int yuv420_height,
+__csc_tiled_to_linear_crop(unsigned char *yuv420_dest, unsigned char *nv12t_src, int yuv420_width, int yuv420_height,
                                 int left, int top, int right, int buttom)
 {
     int i, j;
@@ -774,7 +756,7 @@ csc_tiled_to_linear_crop(unsigned char *yuv420_dest, unsigned char *nv12t_src, i
     } else if (temp1 >= 64) {
         for (i=top; i<(yuv420_height-buttom); i=i+1) {
             j = left;
-            tiled_offset = tile_4x2_read(yuv420_width, yuv420_height, j, i);
+            tiled_offset = __tile_4x2_read(yuv420_width, yuv420_height, j, i);
             temp2 = ((j+64)>>6)<<6;
             temp2 = temp2-j;
             linear_offset = temp1*(i-top);
@@ -784,19 +766,19 @@ csc_tiled_to_linear_crop(unsigned char *yuv420_dest, unsigned char *nv12t_src, i
             linear_offset = linear_offset+temp2;
             j = j+temp2;
             if ((j+64) <= temp3) {
-                tiled_offset = tile_4x2_read(yuv420_width, yuv420_height, j, i);
+                tiled_offset = __tile_4x2_read(yuv420_width, yuv420_height, j, i);
                 memcpy(yuv420_dest+linear_offset, nv12t_src+tiled_offset, 64);
                 linear_offset = linear_offset+64;
                 j = j+64;
             }
             if ((j+64) <= temp3) {
-                tiled_offset = tile_4x2_read(yuv420_width, yuv420_height, j, i);
+                tiled_offset = __tile_4x2_read(yuv420_width, yuv420_height, j, i);
                 memcpy(yuv420_dest+linear_offset, nv12t_src+tiled_offset, 64);
                 linear_offset = linear_offset+64;
                 j = j+64;
             }
             if (j < temp3) {
-                tiled_offset = tile_4x2_read(yuv420_width, yuv420_height, j, i);
+                tiled_offset = __tile_4x2_read(yuv420_width, yuv420_height, j, i);
                 temp2 = temp3-j;
                 memcpy(yuv420_dest+linear_offset, nv12t_src+tiled_offset, temp2);
             }
@@ -805,7 +787,7 @@ csc_tiled_to_linear_crop(unsigned char *yuv420_dest, unsigned char *nv12t_src, i
         for (i=top; i<(yuv420_height-buttom); i=i+1) {
             linear_offset = temp1*(i-top);
             for (j=left; j<(yuv420_width-right); j=j+2) {
-                tiled_offset = tile_4x2_read(yuv420_width, yuv420_height, j, i);
+                tiled_offset = __tile_4x2_read(yuv420_width, yuv420_height, j, i);
                 temp4 = j&0x3;
                 tiled_offset = tiled_offset+temp4;
                 memcpy(yuv420_dest+linear_offset, nv12t_src+tiled_offset, 2);

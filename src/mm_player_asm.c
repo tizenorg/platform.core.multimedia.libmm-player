@@ -179,6 +179,7 @@ gint _mmplayer_asm_set_state(MMHandleType hplayer, ASM_sound_states_t state)
 		return MM_ERROR_NONE;
 	}
 
+
 	if ( ! sm->by_asm_cb )//|| sm->state == ASM_STATE_PLAYING )
 	{
 		int ret = 0;
