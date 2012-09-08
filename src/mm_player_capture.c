@@ -437,6 +437,9 @@ __mmplayer_get_video_frame_from_buffer(mm_player_t* player, GstBuffer *buffer)
 			{
 				switch(depth)
 				{
+					case 32:
+						if (bigendian && isbluefirst)
+							src_fmt = MM_UTIL_IMG_FMT_BGRA8888;
 					case 24:
 						if (bigendian && isbluefirst)
 							src_fmt = MM_UTIL_IMG_FMT_BGRX8888;

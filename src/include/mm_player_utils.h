@@ -46,7 +46,19 @@ if ( x ) \
 	g_free( x ); \
 x = NULL;
 
-#define MMPLAYER_CMD_LOCK(x_player)		g_mutex_lock( ((mm_player_t*)x_player)->cmd_lock )
+#define MMPLAYER_CMD_LOCK(x_player) \
+do \
+{ \
+	GMutex* cmd_lock = ((mm_player_t *)x_player)->cmd_lock; \
+	if (cmd_lock) \
+		g_mutex_lock(cmd_lock); \
+	else \
+	{ \
+		debug_log("don't get command lock"); \
+		return MM_ERROR_PLAYER_NOT_INITIALIZED;	\
+	} \
+} while (0);
+
 #define MMPLAYER_CMD_UNLOCK(x_player)	g_mutex_unlock( ((mm_player_t*)x_player)->cmd_lock )
 
 #define MMPLAYER_MSG_POST_LOCK(x_player)	g_mutex_lock( ((mm_player_t*)x_player)->msg_cb_lock )
