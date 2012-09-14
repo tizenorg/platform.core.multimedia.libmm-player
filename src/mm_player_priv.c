@@ -3101,6 +3101,13 @@ __mmplayer_gst_create_audio_pipeline(mm_player_t* player)
 			mm_attrs_get_int_by_name(attrs, "sound_priority", &sound_priority);
 			mm_attrs_get_int_by_name(attrs, "sound_spk_out_only", &is_spk_out_only);
 
+			/* hook sound_type if emergency case */
+			if ( player->sm.event == ASM_EVENT_EMERGENCY)
+			{
+				debug_log ("This is emergency session, hook sound_type from [%d] to [%d]\n", volume_type, MM_SOUND_VOLUME_TYPE_EMERGENCY);
+				volume_type = MM_SOUND_VOLUME_TYPE_EMERGENCY;
+			}
+
 			g_object_set(audiobin[MMPLAYER_A_SINK].gst,
 								"volumetype", volume_type,
 								"audio-route", audio_route,
