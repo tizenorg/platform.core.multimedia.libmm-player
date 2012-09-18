@@ -642,12 +642,12 @@ _mmplayer_update_content_attrs(mm_player_t* player) // @
 		gint tmpNu, tmpDe;
 		gint width, height;
 
-		if (player->use_multi_surface)
+		pad = gst_element_get_static_pad( player->pipeline->videobin[MMPLAYER_V_SINK].gst, "sink" );
+		if ( pad )
 		{
-			/* NOTE : if v_stream_caps were deprecated, it might be implemented by using "pad-added" signal callback */
-			if (player->v_stream_caps)
+			caps_v = gst_pad_get_negotiated_caps( pad );
+			if (caps_v)
 			{
-				caps_v = player->v_stream_caps;
 				p = gst_caps_get_structure (caps_v, 0);
 				gst_structure_get_int (p, "width", &width);
 				mm_attrs_set_int_by_name(attrs, "content_video_width", width);
@@ -659,6 +659,9 @@ _mmplayer_update_content_attrs(mm_player_t* player) // @
 
 				debug_log("width : %d     height : %d", width, height );
 
+				gst_caps_unref( caps_v );
+				caps_v = NULL;
+
 				if (tmpDe > 0)
 				{
 					mm_attrs_set_int_by_name(attrs, "content_video_fps", tmpNu / tmpDe);
@@ -667,51 +670,15 @@ _mmplayer_update_content_attrs(mm_player_t* player) // @
 			}
 			else
 			{
-				debug_warning("failed to get caps from v_stream_caps when using multi-surface");
+				debug_warning("failed to get negitiated caps from videosink");
 			}
+
+			gst_object_unref( pad );
+			pad = NULL;
 		}
 		else
 		{
-			pad = gst_element_get_static_pad( player->pipeline->videobin[MMPLAYER_V_SINK].gst, "sink" );
-			if ( pad )
-			{
-				caps_v = gst_pad_get_negotiated_caps( pad );
-				if (caps_v)
-				{
-					p = gst_caps_get_structure (caps_v, 0);
-					gst_structure_get_int (p, "width", &width);
-					mm_attrs_set_int_by_name(attrs, "content_video_width", width);
-
-					gst_structure_get_int (p, "height", &height);
-					mm_attrs_set_int_by_name(attrs, "content_video_height", height);
-
-					gst_structure_get_fraction (p, "framerate", &tmpNu, &tmpDe);
-
-					debug_log("width : %d     height : %d", width, height );
-
-					gst_caps_unref( caps_v );
-					caps_v = NULL;
-
-					if (tmpDe > 0)
-					{
-						mm_attrs_set_int_by_name(attrs, "content_video_fps", tmpNu / tmpDe);
-						debug_log("fps : %d", tmpNu / tmpDe);
-					}
-				}
-				else
-				{
-					debug_warning("failed to get negitiated caps from videosink");
-				}
-				if (!player->use_multi_surface)
-				{
-					gst_object_unref( pad );
-					pad = NULL;
-				}
-			}
-			else
-			{
-				debug_warning("failed to get pad from videosink");
-			}
+			debug_warning("failed to get pad from videosink");
 		}
 	}
 
@@ -2455,7 +2422,6 @@ _mmplayer_update_video_param(mm_player_t* player) // @
 	MMHandleType attrs = 0;
 	gint videosink_idx_x = 0;
 	gint videosink_idx_evas = 0;
-	gboolean is_first_v_sink_x = FALSE;
 
 	debug_fenter();
 
@@ -2567,25 +2533,7 @@ _mmplayer_update_video_param(mm_player_t* player) // @
 		return MM_ERROR_NONE;
 	}
 
-	if (player->use_multi_surface)
-	{
-		is_first_v_sink_x = !strncmp(GST_ELEMENT_NAME(player->pipeline->videobin[MMPLAYER_V_SINK_EXT].gst),  "videosink_ext_evas", 18);
-		if (is_first_v_sink_x)
-		{
-			videosink_idx_x = MMPLAYER_V_SINK;
-			videosink_idx_evas = MMPLAYER_V_SINK_EXT;
-		}
-		else
-		{
-			videosink_idx_x = MMPLAYER_V_SINK_EXT;
-			videosink_idx_evas = MMPLAYER_V_SINK;
-		}
-		debug_log("use multi-surface : videosink_idx_x(%d), videosink_idx_evas(%d)", videosink_idx_x,videosink_idx_evas);
-	}
-	else
-	{
-		videosink_idx_x = videosink_idx_evas = MMPLAYER_V_SINK;
-	}
+	videosink_idx_x = videosink_idx_evas = MMPLAYER_V_SINK;
 
 	/* configuring display */
 	switch ( PLAYER_INI()->video_surface )
@@ -2605,59 +2553,17 @@ _mmplayer_update_video_param(mm_player_t* player) // @
 
 			gboolean visible = TRUE;
 
-			/* common case if using multi-surface */
-			if (player->use_multi_surface)
-			{
-				void *evas_image_object = NULL;
-				if (is_first_v_sink_x)
-				{
-					mm_attrs_get_data_by_name(attrs, "display_overlay", &xid);
-					mm_attrs_get_data_by_name(attrs, "display_overlay_ext", &evas_image_object);
-				}
-				else
-				{
-					mm_attrs_get_data_by_name(attrs, "display_overlay", &evas_image_object);
-					mm_attrs_get_data_by_name(attrs, "display_overlay_ext", &xid);
-				}
-				if ( xid )
-				{
-					debug_log("use multi-surface : xid %d", *(int*)xid);
-					gst_x_overlay_set_xwindow_id( GST_X_OVERLAY( player->pipeline->videobin[videosink_idx_x].gst ), *(int*)xid );
-				}
-				else
-				{
-					debug_error("no xwindow");
-					return MM_ERROR_PLAYER_INTERNAL;
-				}
-				if (evas_image_object)
-				{
-					g_object_set(player->pipeline->videobin[videosink_idx_evas].gst,
-							"evas-object", evas_image_object,
-							"visible", FALSE,
-							NULL);
-				}
-				else
-				{
-					debug_error("no evas object");
-					return MM_ERROR_PLAYER_INTERNAL;
-				}
-				debug_log("use multi-surface : evas_image_object (%x)", evas_image_object);
-				debug_log("use multi-surface : evas visible %d", FALSE);
-			}
 			/* common case if using x surface */
+			mm_attrs_get_data_by_name(attrs, "display_overlay", &xid);
+			if ( xid )
+			{
+				debug_log("set video param : xid %d", *(int*)xid);
+				gst_x_overlay_set_xwindow_id( GST_X_OVERLAY( player->pipeline->videobin[MMPLAYER_V_SINK].gst ), *(int*)xid );
+			}
 			else
 			{
-				mm_attrs_get_data_by_name(attrs, "display_overlay", &xid);
-				if ( xid )
-				{
-					debug_log("set video param : xid %d", *(int*)xid);
-					gst_x_overlay_set_xwindow_id( GST_X_OVERLAY( player->pipeline->videobin[MMPLAYER_V_SINK].gst ), *(int*)xid );
-				}
-				else
-				{
-					/* FIXIT : is it error case? */
-					debug_warning("still we don't have xid on player attribute. create it's own surface.");
-				}
+				/* FIXIT : is it error case? */
+				debug_warning("still we don't have xid on player attribute. create it's own surface.");
 			}
 
 			/* if xvimagesink */
@@ -2703,74 +2609,23 @@ _mmplayer_update_video_param(mm_player_t* player) // @
 			int scaling = 0;
 			gboolean visible = TRUE;
 
-			/* common case if using multi-surface */
-			if (player->use_multi_surface)
-			{
-				void *xid = NULL;
-				mm_attrs_get_int_by_name(attrs, "display_visible", &visible);
-				if (is_first_v_sink_x)
-				{
-					mm_attrs_get_data_by_name(attrs, "display_overlay", &xid);
-					mm_attrs_get_data_by_name(attrs, "display_overlay_ext", &object);
-				}
-				else
-				{
-					mm_attrs_get_data_by_name(attrs, "display_overlay", &object);
-					mm_attrs_get_data_by_name(attrs, "display_overlay_ext", &xid);
-				}
-				if (object)
-				{
-					g_object_set(player->pipeline->videobin[videosink_idx_evas].gst,
-							"evas-object", object,
-							"visible", visible,
-							NULL);
-					debug_log("use multi-surface : evas-object %x", object);
-					debug_log("use multi-surface : evas visible %d", object);
-				}
-				else
-				{
-					debug_error("no evas object");
-					return MM_ERROR_PLAYER_INTERNAL;
-				}
-				if (xid)
-				{
-					gst_x_overlay_set_xwindow_id( GST_X_OVERLAY( player->pipeline->videobin[videosink_idx_x].gst ), *(int*)xid );
-				}
-				else
-				{
-					debug_error("no xwindow");
-					return MM_ERROR_PLAYER_INTERNAL;
-				}
-				/* if xvimagesink */
-				if (!strcmp(PLAYER_INI()->videosink_element_x,"xvimagesink"))
-				{
-					g_object_set(player->pipeline->videobin[videosink_idx_x].gst,
-							"visible", FALSE,
-							NULL );
-				}
-				debug_log("use multi-surface : xid %d", *(int*)xid);
-				debug_log("use multi-surface : x visible %d", FALSE);
-			}
 			/* common case if using evas surface */
+			mm_attrs_get_data_by_name(attrs, "display_overlay", &object);
+			mm_attrs_get_int_by_name(attrs, "display_visible", &visible);
+			mm_attrs_get_int_by_name(attrs, "display_evas_do_scaling", &scaling);
+			if (object)
+			{
+				g_object_set(player->pipeline->videobin[videosink_idx_evas].gst,
+						"evas-object", object,
+						"visible", visible,
+						NULL);
+				debug_log("set video param : evas-object %x", object);
+				debug_log("set video param : visible %d", visible);
+			}
 			else
 			{
-				mm_attrs_get_data_by_name(attrs, "display_overlay", &object);
-				mm_attrs_get_int_by_name(attrs, "display_visible", &visible);
-				mm_attrs_get_int_by_name(attrs, "display_evas_do_scaling", &scaling);
-				if (object)
-				{
-					g_object_set(player->pipeline->videobin[videosink_idx_evas].gst,
-							"evas-object", object,
-							"visible", visible,
-							NULL);
-					debug_log("set video param : evas-object %x", object);
-					debug_log("set video param : visible %d", visible);
-				}
-				else
-				{
-					debug_error("no evas object");
-					return MM_ERROR_PLAYER_INTERNAL;
-				}
+				debug_error("no evas object");
+				return MM_ERROR_PLAYER_INTERNAL;
 			}
 
 			/* if evasimagesink */
@@ -3336,7 +3191,6 @@ __mmplayer_ahs_appsrc_probe (GstPad *pad, GstBuffer *buffer, gpointer u_data)
   * - evas surface  (arm) : evaspixmapsink
   *                         fimcconvert ! evasimagesink
   * - evas surface  (x86) : videoconvertor ! evasimagesink
-  * - multi-surface (arm) : tee name=tee ! xvimagesink tee. ! evaspixmapsink
   */
 static int
 __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps)
@@ -3347,10 +3201,7 @@ __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps)
 	MMPlayerGstElement* first_element = NULL;
 	MMPlayerGstElement* videobin = NULL;
 	gchar* vconv_factory = NULL;
-	char *err_name = NULL;
-	gboolean use_multi_surface = FALSE;
 	char *videosink_element = NULL;
-	char *videosink_element_ext = NULL;
 
 	debug_fenter();
 
@@ -3373,9 +3224,6 @@ __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps)
 		debug_critical("failed to create audiobin\n");
 		goto ERROR;
 	}
-
-	mm_player_get_attribute(player, &err_name, "display_surface_use_multi", &use_multi_surface, NULL);
-	player->use_multi_surface = use_multi_surface;
 
     	if( player->use_video_stream ) // video stream callack, so send raw video data to application
     	{
@@ -3504,7 +3352,7 @@ __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps)
 			if (player->is_nv12_tiled && PLAYER_INI()->use_video_hw_accel)
 				nv12t_hw_enabled = TRUE;
 		
-			if ( (nv12t_hw_enabled && (PLAYER_INI()->video_surface == MM_DISPLAY_SURFACE_EVAS) && !strcmp(PLAYER_INI()->videosink_element_evas, "evasimagesink")) || (nv12t_hw_enabled && use_multi_surface && !strcmp(PLAYER_INI()->videosink_element_evas, "evasimagesink") ) )
+			if ( (nv12t_hw_enabled && (PLAYER_INI()->video_surface == MM_DISPLAY_SURFACE_EVAS) && !strcmp(PLAYER_INI()->videosink_element_evas, "evasimagesink")) )
 			{
 				vconv_factory = "fimcconvert";
 			}
@@ -3513,7 +3361,7 @@ __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps)
 				vconv_factory = NULL;
 			}
 
-			if (vconv_factory && !use_multi_surface)
+			if (vconv_factory)
 			{
 				MMPLAYER_CREATE_ELEMENT(videobin, MMPLAYER_V_CONV, vconv_factory, "video converter", TRUE);
 				debug_log("using video converter: %s", vconv_factory);
@@ -3522,10 +3370,7 @@ __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps)
 
 		/* videoscaler */ /* NOTE : ini parsing method seems to be more suitable rather than define method */
 		#if !defined(__arm__)
-		if (!use_multi_surface) /* NOTE : at now, we did not consider using multi-surface in x86 case */
-		{
-			MMPLAYER_CREATE_ELEMENT(videobin, MMPLAYER_V_SCALE, "videoscale", "videoscaler", TRUE);
-		}
+		MMPLAYER_CREATE_ELEMENT(videobin, MMPLAYER_V_SCALE, "videoscale", "videoscaler", TRUE);
 		#endif
 
 		/* set video sink */
@@ -3554,38 +3399,6 @@ __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps)
 				goto ERROR;
 		}
 
-		if (use_multi_surface)
-		{
-			if ( (strlen(PLAYER_INI()->videosink_element_x) > 0 ) && (strlen(PLAYER_INI()->videosink_element_evas) > 0 ) )
-			{
-				/* create elements for multi sink usage */
-				MMPLAYER_CREATE_ELEMENT(videobin, MMPLAYER_V_TEE, "tee", "tee", TRUE);
-				debug_log("using tee");
-
-				if (vconv_factory)
-				{
-					MMPLAYER_CREATE_ELEMENT(videobin, MMPLAYER_V_CONV, vconv_factory, "video converter", TRUE);
-					debug_log("using video converter: %s", vconv_factory);
-				}
-
-				if (PLAYER_INI()->video_surface == MM_DISPLAY_SURFACE_X)
-				{
-					videosink_element_ext = PLAYER_INI()->videosink_element_evas;
-					MMPLAYER_CREATE_ELEMENT(videobin, MMPLAYER_V_SINK_EXT, videosink_element_ext, "videosink_ext_evas", TRUE);
-				}
-				else if (PLAYER_INI()->video_surface == MM_DISPLAY_SURFACE_EVAS)
-				{
-					videosink_element_ext = PLAYER_INI()->videosink_element_x;
-					MMPLAYER_CREATE_ELEMENT(videobin, MMPLAYER_V_SINK_EXT, videosink_element_ext, "videosink_ext_x", TRUE);
-				}
-				else
-				{
-					debug_error("not normal case..multi-surface mode is only available with X and EVAS surface");
-					goto ERROR;
-				}
-				debug_log("selected videosink_ext name: %s", videosink_element_ext);
-			}
-		}
 		MMPLAYER_CREATE_ELEMENT(videobin, MMPLAYER_V_SINK, videosink_element, "videosink", TRUE);
 		debug_log("selected videosink name: %s", videosink_element);
 	}
@@ -3596,19 +3409,8 @@ __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps)
 	/* qos on */
 	g_object_set (G_OBJECT (videobin[MMPLAYER_V_SINK].gst), "qos", TRUE, NULL);
 
-	if (use_multi_surface)
-	{
-		g_object_set (G_OBJECT (videobin[MMPLAYER_V_SINK_EXT].gst), "qos", TRUE, NULL);
-		g_object_set (G_OBJECT (videobin[MMPLAYER_V_SINK].gst), "async", FALSE, NULL);
-		g_object_set (G_OBJECT (videobin[MMPLAYER_V_SINK_EXT].gst), "async", FALSE, NULL);
-	}
-
 	/* store it as it's sink element */
 	__mmplayer_add_sink( player, videobin[MMPLAYER_V_SINK].gst );
-	if (use_multi_surface)
-	{
-		__mmplayer_add_sink( player, videobin[MMPLAYER_V_SINK_EXT].gst );
-	}
 
 	/* adding created elements to bin */
 	if( ! __mmplayer_gst_element_add_bucket_to_bin(GST_BIN(videobin[MMPLAYER_V_BIN].gst), element_bucket) )
@@ -3617,60 +3419,11 @@ __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps)
 		goto ERROR;
 	}
 
-	if (!use_multi_surface)
+	/* Linking elements in the bucket by added order */
+	if ( __mmplayer_gst_element_link_bucket(element_bucket) == -1 )
 	{
-		/* Linking elements in the bucket by added order */
-		if ( __mmplayer_gst_element_link_bucket(element_bucket) == -1 )
-		{
-			debug_error("failed to link elements\n");
-			goto ERROR;
-		}
-	}
-	else
-	{
-		GstPad *sinkpad;
-		int i = 0;
-		for (i = 0 ; i < 2 ; i++)
-		{
-			if (!vconv_factory)
-			{
-				sinkpad = gst_element_get_static_pad (videobin[MMPLAYER_V_SINK+i].gst, "sink");
-				debug_log("do not need vconv");
-			}
-			else
-			{
-				if (PLAYER_INI()->video_surface == MM_DISPLAY_SURFACE_X)
-				{
-					if (i == 0)
-					{
-						sinkpad = gst_element_get_static_pad (videobin[MMPLAYER_V_SINK].gst, "sink");
-					}
-					else
-					{
-						sinkpad = gst_element_get_static_pad (videobin[MMPLAYER_V_CONV].gst, "sink");
-						GST_ELEMENT_LINK(GST_ELEMENT(videobin[MMPLAYER_V_CONV].gst), GST_ELEMENT(videobin[MMPLAYER_V_SINK_EXT].gst));
-					}
-				}
-				else
-				{
-					if (i == 0)
-					{
-						sinkpad = gst_element_get_static_pad (videobin[MMPLAYER_V_CONV].gst, "sink");
-						GST_ELEMENT_LINK(GST_ELEMENT(videobin[MMPLAYER_V_CONV].gst), GST_ELEMENT(videobin[MMPLAYER_V_SINK].gst));
-					}
-					else
-					{
-						sinkpad = gst_element_get_static_pad (videobin[MMPLAYER_V_SINK_EXT].gst, "sink");
-					}
-				}
-			}
-			player->tee_src_pad[i] = gst_element_get_request_pad (videobin[MMPLAYER_V_TEE].gst, "src%d");
-			if (gst_pad_link (player->tee_src_pad[i], sinkpad) != GST_PAD_LINK_OK) {
-				debug_error("failed to link tee element with sink element(%d)",i);
-				goto ERROR;
-			}
-			gst_object_unref (sinkpad);
-		}
+		debug_error("failed to link elements\n");
+		goto ERROR;
 	}
 
 	/* get first element's sinkpad for creating ghostpad */
@@ -4919,21 +4672,6 @@ __mmplayer_gst_destroy_pipeline(mm_player_t* player) // @
 		gst_object_unref(pad);
 		pad = NULL;
 		ahs_appsrc_cb_probe_id = 0;
-	}
-
-	/* free request pads for multi-surface */
-	if (player->use_multi_surface && player->pipeline && player->pipeline->videobin[MMPLAYER_V_TEE].gst)
-	{
-		for (i = 0 ; i < 2 ; i++)
-		{
-			if (player->tee_src_pad[i])
-			{
-				gst_element_release_request_pad (player->pipeline->videobin[MMPLAYER_V_TEE].gst, player->tee_src_pad[i]);
-				gst_object_unref(player->tee_src_pad[i]);
-			}
-		}
-		player->use_multi_surface = FALSE;
-		debug_log("release request pads from TEE, and unref TEE's src pads");
 	}
 
 	if ( player->sink_elements )

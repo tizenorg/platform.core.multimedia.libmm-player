@@ -193,7 +193,6 @@ enum VideoElementID
 	MMPLAYER_V_CAPS,
 	MMPLAYER_V_TEE,
 	MMPLAYER_V_SINK,
-	MMPLAYER_V_SINK_EXT,
 	MMPLAYER_V_NUM
 };
 
@@ -484,10 +483,6 @@ typedef struct {
 
 	/* video capture callback*/
 	gulong video_capture_cb_probe_id;
-
-	/* video display */
-	GstPad* tee_src_pad[2];
-	gboolean use_multi_surface;
 
 	/* sound info */
 	MMPlayerSoundInfo	sound;
