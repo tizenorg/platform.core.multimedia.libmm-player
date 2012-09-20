@@ -3,8 +3,7 @@
  *
  * Copyright (c) 2000 - 2011 Samsung Electronics Co., Ltd. All rights reserved.
  *
- * Contact: JongHyuk Choi <jhchoi.choi@samsung.com>, YeJin Cho <cho.yejin@samsung.com>,
- * Seungbae Shin <seungbae.shin@samsung.com>, YoungHwan An <younghwan_.an@samsung.com>
+ * Contact: JongHyuk Choi <jhchoi.choi@samsung.com>, YeJin Cho <cho.yejin@samsung.com>, YoungHwan An <younghwan_.an@samsung.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -3347,18 +3346,17 @@ __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps)
 		if (strlen(PLAYER_INI()->name_of_video_converter) > 0)
 		{
 			vconv_factory = PLAYER_INI()->name_of_video_converter;
-			gboolean nv12t_hw_enabled = FALSE;
-
-			if (player->is_nv12_tiled && PLAYER_INI()->use_video_hw_accel)
-				nv12t_hw_enabled = TRUE;
-		
-			if ( (nv12t_hw_enabled && (PLAYER_INI()->video_surface == MM_DISPLAY_SURFACE_EVAS) && !strcmp(PLAYER_INI()->videosink_element_evas, "evasimagesink")) )
+			
+			if (player->is_nv12_tiled)
 			{
-				vconv_factory = "fimcconvert";
-			}
-			else if (nv12t_hw_enabled)
-			{
-				vconv_factory = NULL;
+				if ( ((PLAYER_INI()->video_surface == MM_DISPLAY_SURFACE_EVAS) && !strcmp(PLAYER_INI()->videosink_element_evas, "evasimagesink")) )
+				{
+					vconv_factory = "fimcconvert";
+				}
+				else
+				{
+					vconv_factory = NULL;
+				}
 			}
 
 			if (vconv_factory)
@@ -8031,9 +8029,6 @@ __mmplayer_try_to_plug(mm_player_t* player, GstPad *pad, const GstCaps *caps) //
 						/* clean */
 						MMPLAYER_FREEIF( caps_type );
 						gst_object_unref (src_pad);
-
-						g_object_set( G_OBJECT (new_element), "hw-accel", PLAYER_INI()->use_video_hw_accel, NULL);
-						g_object_set( G_OBJECT (new_element), "err-conceal", TRUE, NULL);
 					}
 					else if (g_str_has_prefix(mime, "audio"))
 					{
