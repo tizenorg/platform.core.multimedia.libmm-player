@@ -3,8 +3,7 @@
  *
  * Copyright (c) 2000 - 2011 Samsung Electronics Co., Ltd. All rights reserved.
  *
- * Contact: JongHyuk Choi <jhchoi.choi@samsung.com>, YeJin Cho <cho.yejin@samsung.com>,
- * Seungbae Shin <seungbae.shin@samsung.com>, YoungHwan An <younghwan_.an@samsung.com>
+ * Contact: JongHyuk Choi <jhchoi.choi@samsung.com>, YeJin Cho <cho.yejin@samsung.com>, YoungHwan An <younghwan_.an@samsung.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -100,72 +99,54 @@ typedef struct __mm_player_ini
 	guint rtsp_rebuffering_time;
 	gboolean rtsp_do_typefinding;
 	gboolean rtsp_error_concealment; /* testing purpose */
-
-	/* hw accelation */
-	gboolean use_video_hw_accel; // @
-	
-	/* priority */
-	gboolean use_priority_setting;
-	gint demux_priority;
-	gint audiosink_priority;
-	gint videosink_priority;
-	gint ringbuffer_priority;
 } mm_player_ini_t;
 
 /* default values if each values are not specified in inifile */
 /* general */
-#define DEFAULT_USE_DECODEBIN				FALSE
-#define DEFAULT_USE_AUDIO_FILTER_PRESET			FALSE
-#define DEFAULT_AUDIO_FILTER_PRESET_LIST		""
-#define DEFAULT_AUDIO_FILTER_PRESET_LIST_EARPHONE_ONLY	""
-#define DEFAULT_USE_AUDIO_FILTER_CUSTOM			FALSE
-#define DEFAULT_AUDIO_FILTER_CUSTOM_LIST		""
+#define DEFAULT_USE_DECODEBIN									FALSE
+#define DEFAULT_USE_AUDIO_FILTER_PRESET						FALSE
+#define DEFAULT_AUDIO_FILTER_PRESET_LIST						""
+#define DEFAULT_AUDIO_FILTER_PRESET_LIST_EARPHONE_ONLY		""
+#define DEFAULT_USE_AUDIO_FILTER_CUSTOM						FALSE
+#define DEFAULT_AUDIO_FILTER_CUSTOM_LIST						""
 #define DEFAULT_AUDIO_FILTER_CUSTOM_LIST_EARPHONE_ONLY	""
-#define DEFAULT_AUDIO_FILTER_CUSTOM_EQ_NUM		0
-#define DEFAULT_AUDIO_FILTER_CUSTOM_EQ_MIN		0
-#define DEFAULT_AUDIO_FILTER_CUSTOM_EQ_MAX		0
-#define DEFAULT_AUDIO_FILTER_CUSTOM_EXT_NUM		0
-#define DEFAULT_USE_SINK_HANDLER			TRUE
-#define DEFAULT_SKIP_RESCAN				TRUE
-#define DEFAULT_GENERATE_DOT				FALSE
-#define DEFAULT_PROVIDE_CLOCK				TRUE
-#define DEFAULT_DELAY_BEFORE_REPEAT	 		50 /* msec */
-#define DEFAULT_EOS_DELAY 				150 /* msec */
-#define DEFAULT_DRMSRC					"drmsrc"
-#define DEFAULT_VIDEO_SURFACE				MM_DISPLAY_SURFACE_X
-#define DEFAULT_VIDEOSINK_X				"xvimagesink"
-#define DEFAULT_VIDEOSINK_EVAS				"evasimagesink"
-#define DEFAULT_VIDEOSINK_FAKE				"fakesink"
-#define DEFAULT_AUDIOSINK				"avsysaudiosink"
-#define DEFAULT_GST_PARAM				""
-#define DEFAULT_EXCLUDE_KEYWORD				""
-#define DEFAULT_ASYNC_START				TRUE
-#define DEFAULT_DISABLE_SEGTRAP				TRUE
-#define DEFAULT_VIDEO_CONVERTER				""
-#define DEFAULT_MULTIPLE_CODEC_SUPPORTED 		TRUE
-#define DEFAULT_LIVE_STATE_CHANGE_TIMEOUT 		30 /* sec */
-#define DEFAULT_LOCALPLAYBACK_STATE_CHANGE_TIMEOUT 	10 /* sec */
+#define DEFAULT_AUDIO_FILTER_CUSTOM_EQ_NUM					0
+#define DEFAULT_AUDIO_FILTER_CUSTOM_EQ_MIN					0
+#define DEFAULT_AUDIO_FILTER_CUSTOM_EQ_MAX					0
+#define DEFAULT_AUDIO_FILTER_CUSTOM_EXT_NUM				0
+#define DEFAULT_USE_SINK_HANDLER								TRUE
+#define DEFAULT_SKIP_RESCAN									TRUE
+#define DEFAULT_GENERATE_DOT									FALSE
+#define DEFAULT_PROVIDE_CLOCK									TRUE
+#define DEFAULT_DELAY_BEFORE_REPEAT	 						50 /* msec */
+#define DEFAULT_EOS_DELAY 										150 /* msec */
+#define DEFAULT_DRMSRC											"drmsrc"
+#define DEFAULT_VIDEO_SURFACE									MM_DISPLAY_SURFACE_X
+#define DEFAULT_VIDEOSINK_X									"xvimagesink"
+#define DEFAULT_VIDEOSINK_EVAS								"evasimagesink"
+#define DEFAULT_VIDEOSINK_FAKE								"fakesink"
+#define DEFAULT_AUDIOSINK										"avsysaudiosink"
+#define DEFAULT_GST_PARAM										""
+#define DEFAULT_EXCLUDE_KEYWORD								""
+#define DEFAULT_ASYNC_START									TRUE
+#define DEFAULT_DISABLE_SEGTRAP								TRUE
+#define DEFAULT_VIDEO_CONVERTER								""
+#define DEFAULT_MULTIPLE_CODEC_SUPPORTED 					TRUE
+#define DEFAULT_LIVE_STATE_CHANGE_TIMEOUT 					30 /* sec */
+#define DEFAULT_LOCALPLAYBACK_STATE_CHANGE_TIMEOUT 		10 /* sec */
 /* http streaming */
-#define DEFAULT_HTTPSRC				"souphttpsrc"
-#define DEFAULT_HTTP_FILE_BUFFER_PATH		""
-#define DEFAULT_HTTP_BUFFERING_LIMIT	99.0		/* percent */
-#define DEFAULT_HTTP_MAX_SIZE_BYTES		1048576 	/* bytes : 1 MBytes  */
-#define DEFAULT_HTTP_BUFFERING_TIME		3.0 		/* sec */
-#define DEFAULT_HTTP_TIMEOUT                 30              /* sec */
+#define DEFAULT_HTTPSRC										"souphttpsrc"
+#define DEFAULT_HTTP_FILE_BUFFER_PATH						""
+#define DEFAULT_HTTP_BUFFERING_LIMIT							99.0		/* percent */
+#define DEFAULT_HTTP_MAX_SIZE_BYTES							1048576 	/* bytes : 1 MBytes  */
+#define DEFAULT_HTTP_BUFFERING_TIME							3.0 		/* sec */
+#define DEFAULT_HTTP_TIMEOUT                 						30              /* sec */
 /* rtsp streaming */
-#define DEFAULT_RTSPSRC				"secrtspsrc"
-#define DEFAULT_RTSP_BUFFERING			5000 	/* msec */
-#define DEFAULT_RTSP_REBUFFERING		15000 	/* msec */
-#define DEFAULT_RTSP_DO_TYPEFINDING		FALSE
-#define DEFAULT_RTSP_ERROR_CONCEALMENT		TRUE
-/* hw accel */
-#define DEFAULT_USE_VIDEO_HW_ACCEL	FALSE
-/* priority */
-#define DEFAULT_USE_PRIORITY_SETTING	FALSE
-#define DEFAULT_PRIORITY_DEMUX		96
-#define DEFAULT_PRIORITY_VIDEO_SINK	97
-#define DEFAULT_PRIORITY_AUDIO_SINK	98
-#define DEFAULT_PRIORITY_RINGBUFFER	99
+#define DEFAULT_RTSPSRC										"secrtspsrc"
+#define DEFAULT_RTSP_BUFFERING								5000 	/* msec */
+#define DEFAULT_RTSP_REBUFFERING								15000 	/* msec */
+#define DEFAULT_RTSP_DO_TYPEFINDING							FALSE
+#define DEFAULT_RTSP_ERROR_CONCEALMENT						TRUE
 
 /* NOTE : following content should be same with above default values */
 /* FIXIT : need smarter way to generate default ini file. */
@@ -252,27 +233,6 @@ rtsp do typefinding = no; if no, caps on rtspsrc:src pad will be used for autopl
 \n\
 rtsp error concealment = yes \n\
 \n\
-\n\
-[hw accelation] \n\
-use video hw accel = yes \n\
-\n\
-\n\
-[features] \n\
-\n\
-audio filter = no \n\
-\n\
-\n\
-[priority] \n\
-\n\
-use priority setting = no \n\
-\n\
-demux = 95 \n\
-\n\
-videosink = 96 \n\
-\n\
-audiosink = 97\n\
-\n\
-ringbuffer = 98 \n\
 \n\
 "
 
