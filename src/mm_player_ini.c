@@ -3,8 +3,7 @@
  *
  * Copyright (c) 2000 - 2011 Samsung Electronics Co., Ltd. All rights reserved.
  *
- * Contact: JongHyuk Choi <jhchoi.choi@samsung.com>, YeJin Cho <cho.yejin@samsung.com>,
- * Seungbae Shin <seungbae.shin@samsung.com>, YoungHwan An <younghwan_.an@samsung.com>
+ * Contact: JongHyuk Choi <jhchoi.choi@samsung.com>, YeJin Cho <cho.yejin@samsung.com>, YoungHwan An <younghwan_.an@samsung.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,9 +37,8 @@ static mm_player_ini_t g_player_ini;
 /* internal functions, macros here */
 static gboolean	__generate_default_ini(void);
 static void	__get_string_list(gchar** out_list, gchar* str);
-
-static void __mm_player_ini_force_setting(void);
 static void __mm_player_ini_check_ini_status(void);
+//static void __mm_player_ini_force_setting(void);
 
 /* macro */
 #define MMPLAYER_INI_GET_STRING( x_item, x_ini, x_default ) \
@@ -267,16 +265,6 @@ mm_player_ini_load(void)
 		g_player_ini.rtsp_rebuffering_time = iniparser_getint(dict, "rtsp streaming:rtsp rebuffering time", DEFAULT_RTSP_REBUFFERING);
 		g_player_ini.rtsp_do_typefinding = iniparser_getboolean(dict, "rtsp streaming:rtsp do typefinding", DEFAULT_RTSP_DO_TYPEFINDING);
 		g_player_ini.rtsp_error_concealment = iniparser_getboolean(dict, "rtsp streaming:rtsp error concealment", DEFAULT_RTSP_ERROR_CONCEALMENT);
-
-		/* hw accelation */
-		g_player_ini.use_video_hw_accel = iniparser_getboolean(dict, "hw accelation:use video hw accel", DEFAULT_USE_VIDEO_HW_ACCEL);
-		
-		/* priority */
-		g_player_ini.use_priority_setting = iniparser_getboolean(dict, "priority:use priority setting", DEFAULT_USE_PRIORITY_SETTING);
-		g_player_ini.demux_priority = iniparser_getint(dict, "priority:demux", DEFAULT_PRIORITY_DEMUX);
-		g_player_ini.videosink_priority = iniparser_getint(dict, "priority:videosink", DEFAULT_PRIORITY_VIDEO_SINK);
-		g_player_ini.audiosink_priority = iniparser_getint(dict, "priority:audiosink", DEFAULT_PRIORITY_AUDIO_SINK);
-		g_player_ini.ringbuffer_priority = iniparser_getint(dict, "priority:ringbuffer", DEFAULT_PRIORITY_RINGBUFFER);
 	}	
 	else /* if dict is not available just fill the structure with default value */
 	{
@@ -331,16 +319,6 @@ mm_player_ini_load(void)
 		g_player_ini.rtsp_rebuffering_time = DEFAULT_RTSP_REBUFFERING;
 		g_player_ini.rtsp_do_typefinding = DEFAULT_RTSP_DO_TYPEFINDING;
 		g_player_ini.rtsp_error_concealment = DEFAULT_RTSP_ERROR_CONCEALMENT;
-
-		/* hw accelation */
-		g_player_ini.use_video_hw_accel = DEFAULT_USE_VIDEO_HW_ACCEL;
-
-		/* priority  */
-		g_player_ini.use_priority_setting = DEFAULT_USE_PRIORITY_SETTING;
-		g_player_ini.demux_priority = DEFAULT_PRIORITY_DEMUX;
-		g_player_ini.videosink_priority = DEFAULT_PRIORITY_VIDEO_SINK;
-		g_player_ini.audiosink_priority = DEFAULT_PRIORITY_AUDIO_SINK;
-		g_player_ini.ringbuffer_priority = DEFAULT_PRIORITY_RINGBUFFER;
 	}
 
 	/* free dict as we got our own structure */
@@ -403,16 +381,6 @@ mm_player_ini_load(void)
 	debug_log("rtsp_do_typefinding : %d \n", g_player_ini.rtsp_do_typefinding);
 	debug_log("rtsp_error_concealment : %d \n", g_player_ini.rtsp_error_concealment);
 
-	/* hw accel */
-	debug_log("use_video_hw_accel : %d\n", g_player_ini.use_video_hw_accel);
-
-	/* priority */
-	debug_log("use_priority_setting : %d\n", g_player_ini.use_priority_setting);
-	debug_log("demux_priority : %d\n", g_player_ini.demux_priority);
-	debug_log("audiosink_priority : %d\n", g_player_ini.audiosink_priority);
-	debug_log("videosink_priority : %d\n", g_player_ini.videosink_priority);
-	debug_log("ringbuffer_priority : %d\n", g_player_ini.ringbuffer_priority);
-
 	debug_log("---------------------------------------------------\n");	
 
 	return MM_ERROR_NONE;
@@ -439,60 +407,13 @@ void __mm_player_ini_check_ini_status(void)
 	}
 }
 
+#if 0
 static 
 void __mm_player_ini_force_setting(void)
 {
-	/* FIXIT : remove it when all other elements are available on simulator, SDK */
-	
-	#if ! defined(__arm__)
-		debug_warning("player is running on simulator. force to use ximagesink\n");
-		//g_player_ini.videosink_element = PLAYER_INI_VSINK_XIMAGESINK;
-		g_player_ini.use_audio_filter_preset = FALSE;
-		g_player_ini.use_audio_filter_custom = FALSE;
-
-		strcpy( g_player_ini.name_of_drmsrc, "filesrc" );
-
-		// Force setting for simulator :+:091218 
-		strcpy( g_player_ini.name_of_audiosink, "alsasink" );
-
-		
-//		__get_string_list( (gchar**) g_player_ini.exclude_element_keyword, "");
-		
-	#endif
-
-	#if defined(VDF_SDK) || defined (SEC_SDK)
-		debug_warning("player is running on SDK.\n");
-		debug_warning("So, it seems like that some plugin values are not same with those\n");
-		debug_warning("which are written in default ini file.\n");
-
-		//g_player_ini.videosink_element = PLAYER_INI_VSINK_XIMAGESINK;
-		g_player_ini.use_audio_filter_preset = FALSE;
-		g_player_ini.use_audio_filter_custom = FALSE;
-
-		strcpy( g_player_ini.name_of_drmsrc, "filesrc" );
-	#endif
-
-	#if defined(NEW_SOUND) 
-		strcpy (g_player_ini.name_of_audiosink, "soundsink"); // :+:090707
-	#endif
-
-	/* FIXIT : The HW quality of volans is not better than protector.
-	 * So, it can't use same timeout value because state change(resume) is sometimes failed in volans.
-	 * Thus, it should be set more than 10sec. 
-	 */
-	#if defined(_MM_PROJECT_VOLANS)
-		g_player_ini.localplayback_state_change_timeout = 10;
-		debug_log("localplayback_state_change_timeout is set as 30sec by force\n");
-	#endif
-
-	#if 0
-	#if defined(_MM_PROJECT_VOLANS)
-		debug_warning("player is running on VOLANS\n");
-		g_player_ini.use_audio_filter = FALSE;		// (+)090702, disabled temporally
-	#endif
-	#endif
-	
+	//TODO:IF NEEDED
 }
+#endif
 
 mm_player_ini_t* 
 mm_player_ini_get_structure(void)
