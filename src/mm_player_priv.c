@@ -878,6 +878,7 @@ __mmplayer_set_state(mm_player_t* player, int state) // @
 			 * note that this is only happening pause command has come before the state of pipeline
 			 * reach to the PLAYING.
 			 */
+			player->need_update_content_dur = TRUE;
 			_mmplayer_update_content_attrs( player );
 
 			/* add audio callback probe if condition is satisfied */
