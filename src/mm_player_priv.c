@@ -609,15 +609,19 @@ _mmplayer_update_content_attrs(mm_player_t* player) // @
 			{
 				p = gst_caps_get_structure (caps_a, 0);
 
-				gst_structure_get_int (p, "rate", &samplerate);
-				mm_attrs_set_int_by_name(attrs, "content_audio_samplerate", samplerate);
+				mm_attrs_get_int_by_name(attrs, "content_audio_samplerate", &samplerate);
+				if ( ! samplerate ) // check if update already or not
+				{
+					gst_structure_get_int (p, "rate", &samplerate);
+					mm_attrs_set_int_by_name(attrs, "content_audio_samplerate", samplerate);
 
-				gst_structure_get_int (p, "channels", &channels);
-				mm_attrs_set_int_by_name(attrs, "content_audio_channels", channels);
+					gst_structure_get_int (p, "channels", &channels);
+					mm_attrs_set_int_by_name(attrs, "content_audio_channels", channels);
+
+					debug_log("samplerate : %d	channels : %d", samplerate, channels);
+				}
 				gst_caps_unref( caps_a );
-					caps_a = NULL;
-
-				debug_log("samplerate : %d	channels : %d", samplerate, channels);
+				caps_a = NULL;
 			}
 			else
 			{
@@ -8977,56 +8981,53 @@ static void __mmplayer_add_new_pad(GstElement *element, GstPad *pad, gpointer da
 	player->num_dynamic_pad++;
 	debug_log("stream count inc : %d\n", player->num_dynamic_pad);
 
-	if (__mmplayer_is_amr_type(name))
-	{
-		/* store type string */
-		MMPLAYER_FREEIF(player->type);
-		player->type = gst_caps_to_string(caps);
-		player->bypass_sound_effect = FALSE;
-		if ( (PLAYER_INI()->use_audio_filter_preset || PLAYER_INI()->use_audio_filter_custom) )
-		{
-			if ( player->audio_filter_info.filter_type == MM_AUDIO_FILTER_TYPE_PRESET )
-			{
-				if (!_mmplayer_sound_filter_preset_apply(player, player->audio_filter_info.preset))
-				{
-					debug_msg("apply sound effect(preset:%d) setting success\n",player->audio_filter_info.preset);
-				}
-			}
-			else if ( player->audio_filter_info.filter_type == MM_AUDIO_FILTER_TYPE_CUSTOM )
-			{
-				if (!_mmplayer_sound_filter_custom_apply(player))
-				{
-					debug_msg("apply sound effect(custom) setting success\n");
-				}
-			}
-		}
-	}
 	/* Note : If the stream is the subtitle, we try not to play it. Just close the demuxer subtitle pad.
 	  *	If want to play it, remove this code.
 	  */
-	else if (g_strrstr(name, "application"))
+	if (g_strrstr(name, "application"))
 	{
 		if (g_strrstr(name, "x-id3") || g_strrstr(name, "x-apetag"))
 		{
 			/* If id3/ape tag comes, keep going */
-			debug_log("application mime exception : id3/ape tag\n");
+			debug_log("application mime exception : id3/ape tag");
 		}
 		else
 		{
 			/* Otherwise, we assume that this stream is subtile. */
-			debug_log(" application mime type pad is closed. \n");
+			debug_log(" application mime type pad is closed.");
 			return;
+		}
+	}
+	else if (g_strrstr(name, "audio"))
+	{
+		gint samplerate = 0, channels = 0;
+
+		/* set stream information */
+		/* if possible, set it here because the caps is not distrubed by resampler. */
+		gst_structure_get_int (str, "rate", &samplerate);
+		mm_attrs_set_int_by_name(player->attrs, "content_audio_samplerate", samplerate);
+
+		gst_structure_get_int (str, "channels", &channels);
+		mm_attrs_set_int_by_name(player->attrs, "content_audio_channels", channels);
+
+		debug_log("audio samplerate : %d	channels : %d", samplerate, channels);
+
+		/* validate all */
+		if (  mmf_attrs_commit ( player->attrs ) )
+		{
+			debug_error("failed to update attributes");
+			return FALSE;
 		}
 	}
 	else if (g_strrstr(name, "video"))
 	{
-		int stype;
+		gint stype;
 		mm_attrs_get_int_by_name (player->attrs, "display_surface_type", &stype);
 
 		/* don't make video because of not required */
 		if (stype == MM_DISPLAY_SURFACE_NULL)
 		{
-			debug_log("no video because it's not required\n");
+			debug_log("no video because it's not required");
 			return;
 		}
 
@@ -9035,15 +9036,14 @@ static void __mmplayer_add_new_pad(GstElement *element, GstPad *pad, gpointer da
 
 	if ( ! __mmplayer_try_to_plug(player, pad, caps) )
 	{
-		debug_error("failed to autoplug for type (%s)\n", name);
-		
-		__mmplayer_set_unlinked_mime_type(player, caps);		
+		debug_error("failed to autoplug for type (%s)", name);
+
+		__mmplayer_set_unlinked_mime_type(player, caps);
 	}
 
 	gst_caps_unref(caps);
 
 	debug_fleave();
-
 	return;
 }
 
@@ -10092,7 +10092,7 @@ __gst_send_event_to_sink( mm_player_t* player, GstEvent* event )
 	{
 		GstElement *sink = GST_ELEMENT_CAST (sinks->data);
 
-		if ( sink )
+		if (GST_IS_ELEMENT(sink))
 		{
 			/* keep ref to the event */
 			gst_event_ref (event);
