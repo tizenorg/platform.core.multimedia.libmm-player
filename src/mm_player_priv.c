@@ -112,7 +112,7 @@ gulong ahs_appsrc_cb_probe_id = 0;
 ---------------------------------------------------------------------------*/
 static gboolean __mmplayer_set_state(mm_player_t* player, int state);
 static int 		__mmplayer_get_state(mm_player_t* player);
-static int 		__mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps *caps);
+static int 		__mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps *caps, MMDisplaySurfaceType surface_type);
 static int 		__mmplayer_gst_create_audio_pipeline(mm_player_t* player);
 static int 		__mmplayer_gst_create_text_pipeline(mm_player_t* player);
 static int 		__mmplayer_gst_create_subtitle_pipeline(mm_player_t* player);
@@ -166,6 +166,7 @@ static int 	__mmplayer_post_missed_plugin(mm_player_t* player);
 static int		__mmplayer_check_not_supported_codec(mm_player_t* player, gchar* mime);
 static gboolean __mmplayer_configure_audio_callback(mm_player_t* player);
 static void 	__mmplayer_add_sink( mm_player_t* player, GstElement* sink);
+static void 	__mmplayer_del_sink( mm_player_t* player, GstElement* sink);
 static void		__mmplayer_release_signal_connection(mm_player_t* player);
 static void __mmplayer_set_antishock( mm_player_t* player, gboolean disable_by_force);
 static gpointer __mmplayer_repeat_thread(gpointer data);
@@ -196,7 +197,6 @@ static gint 	__gst_handle_stream_error( mm_player_t* player, GError* error, GstM
 static gint		__gst_transform_gsterror( mm_player_t* player, GstMessage * message, GError* error);
 static gboolean __gst_send_event_to_sink( mm_player_t* player, GstEvent* event );
 
-static int  __mmplayer_get_video_frame_from_buffer(mm_player_t* player, GstBuffer *buffer);
 static int __mmplayer_set_pcm_extraction(mm_player_t* player);
 static gboolean __mmplayer_can_extract_pcm( mm_player_t* player );
 
@@ -206,7 +206,6 @@ static void __mmplayer_undo_sound_fadedown(mm_player_t* player);
 
 static void 	__mmplayer_add_new_caps(GstPad* pad, GParamSpec* unused, gpointer data);
 static void __mmplayer_set_unlinked_mime_type(mm_player_t* player, GstCaps *caps);
-static void __mmplayer_set_videosink_type(mm_player_t* player);
 
 /* util */
 const gchar * __get_state_name ( int state );
@@ -815,12 +814,6 @@ __mmplayer_set_state(mm_player_t* player, int state) // @
 		return TRUE;
 	}
 
-	/* update player states */
-	MMPLAYER_PREV_STATE(player) = MMPLAYER_CURRENT_STATE(player);
-	MMPLAYER_CURRENT_STATE(player) = new_state;
-	if ( MMPLAYER_CURRENT_STATE(player) == MMPLAYER_PENDING_STATE(player) )
-		MMPLAYER_PENDING_STATE(player) = MM_PLAYER_STATE_NONE;
-
 	/* print state */
 	MMPLAYER_PRINT_STATE(player);
 
@@ -828,8 +821,8 @@ __mmplayer_set_state(mm_player_t* player, int state) // @
 	if (MMPLAYER_TARGET_STATE(player) == new_state)
 	{
 		/* fill the message with state of player */
-		msg.state.previous = MMPLAYER_PREV_STATE(player);
-		msg.state.current = MMPLAYER_CURRENT_STATE(player);
+		msg.state.previous = MMPLAYER_CURRENT_STATE(player);
+		msg.state.current = new_state;
 
 		/* state changed by asm callback */
 		if ( player->sm.by_asm_cb )
@@ -852,7 +845,13 @@ __mmplayer_set_state(mm_player_t* player, int state) // @
 		debug_log ("intermediate state, do nothing.\n");
 		return TRUE;
 	}
-	
+
+	/* update player states */
+	MMPLAYER_PREV_STATE(player) = MMPLAYER_CURRENT_STATE(player);
+	MMPLAYER_CURRENT_STATE(player) = new_state;
+	if ( MMPLAYER_CURRENT_STATE(player) == MMPLAYER_PENDING_STATE(player) )
+		MMPLAYER_PENDING_STATE(player) = MM_PLAYER_STATE_NONE;
+
 	switch ( MMPLAYER_TARGET_STATE(player) )
 	{
 		case MM_PLAYER_STATE_NULL:	
@@ -2280,22 +2279,25 @@ __mmplayer_gst_decode_callback(GstElement *decodebin, GstPad *pad, gboolean last
 	{
 		if (player->pipeline->videobin == NULL)
 		{
-				__mmplayer_set_videosink_type(player);
+			/*	NOTE : not make videobin because application dose not want to play it even though file has video stream.
+			*/
 
-				/*	NOTE : not make videobin because application dose not want to play it even though file has video stream.
-				*/
-				if (PLAYER_INI()->video_surface == MM_DISPLAY_SURFACE_NULL)
-				{
-					debug_log("not make videobin because it dose not want\n");
-					goto ERROR;
-				}
+			/* get video surface type */
+			int surface_type = 0;
+			mm_attrs_get_int_by_name (player->attrs, "display_surface_type", &surface_type);
+			debug_log("check display surface type attribute: %d", surface_type);
+			if (surface_type == MM_DISPLAY_SURFACE_NULL)
+			{
+				debug_log("not make videobin because it dose not want\n");
+				goto ERROR;
+			}
 
 			__ta__("__mmplayer_gst_create_video_pipeline",
-				if (MM_ERROR_NONE !=  __mmplayer_gst_create_video_pipeline(player, caps) )
-				{
-					debug_error("failed to create videobin. continuing without video\n");
-					goto ERROR;
-				}
+			if (MM_ERROR_NONE !=  __mmplayer_gst_create_video_pipeline(player, caps, surface_type) )
+			{
+				debug_error("failed to create videobin. continuing without video\n");
+				goto ERROR;
+			}
 			)
 
 			sinkbin = player->pipeline->videobin[MMPLAYER_V_BIN].gst;
@@ -2424,8 +2426,7 @@ int
 _mmplayer_update_video_param(mm_player_t* player) // @
 {
 	MMHandleType attrs = 0;
-	gint videosink_idx_x = 0;
-	gint videosink_idx_evas = 0;
+	MMDisplaySurfaceType surface_type = 0;
 
 	debug_fenter();
 
@@ -2445,7 +2446,8 @@ _mmplayer_update_video_param(mm_player_t* player) // @
 	}
 
 	/* update display surface */
-	__mmplayer_set_videosink_type(player);
+	mm_attrs_get_int_by_name (player->attrs, "display_surface_type", &surface_type);
+	debug_log("check display surface type attribute: %d", surface_type);
 
 	/* check video stream callback is used */
 	if( player->use_video_stream )
@@ -2537,10 +2539,8 @@ _mmplayer_update_video_param(mm_player_t* player) // @
 		return MM_ERROR_NONE;
 	}
 
-	videosink_idx_x = videosink_idx_evas = MMPLAYER_V_SINK;
-
 	/* configuring display */
-	switch ( PLAYER_INI()->video_surface )
+	switch ( surface_type )
 	{
 		case MM_DISPLAY_SURFACE_X:
 		{
@@ -2583,7 +2583,7 @@ _mmplayer_update_video_param(mm_player_t* player) // @
 				mm_attrs_get_int_by_name(attrs, "display_roi_height", &roi_h);
 				mm_attrs_get_int_by_name(attrs, "display_visible", &visible);
 
-				g_object_set(player->pipeline->videobin[videosink_idx_x].gst,
+				g_object_set(player->pipeline->videobin[MMPLAYER_V_SINK].gst,
 					"force-aspect-ratio", force_aspect_ratio,
 					"zoom", zoom,
 					"rotate", degree,
@@ -2619,7 +2619,7 @@ _mmplayer_update_video_param(mm_player_t* player) // @
 			mm_attrs_get_int_by_name(attrs, "display_evas_do_scaling", &scaling);
 			if (object)
 			{
-				g_object_set(player->pipeline->videobin[videosink_idx_evas].gst,
+				g_object_set(player->pipeline->videobin[MMPLAYER_V_SINK].gst,
 						"evas-object", object,
 						"visible", visible,
 						NULL);
@@ -2684,7 +2684,7 @@ _mmplayer_update_video_param(mm_player_t* player) // @
 				mm_attrs_get_int_by_name(attrs, "display_roi_width", &roi_w);
 				mm_attrs_get_int_by_name(attrs, "display_roi_height", &roi_h);
 
-				g_object_set(player->pipeline->videobin[videosink_idx_evas].gst,
+				g_object_set(player->pipeline->videobin[MMPLAYER_V_SINK].gst,
 					"force-aspect-ratio", force_aspect_ratio,
 					"origin-size", origin_size,
 					"dst-roi-x", roi_x,
@@ -3184,6 +3184,7 @@ __mmplayer_ahs_appsrc_probe (GstPad *pad, GstBuffer *buffer, gpointer u_data)
  *
  * @param	player		[in]	handle of player
  *		caps 		[in]	src caps of decoder
+ *		surface_type	[in]	surface type for video rendering
  *
  * @return	This function returns zero on success.
  * @remark
@@ -3197,7 +3198,7 @@ __mmplayer_ahs_appsrc_probe (GstPad *pad, GstBuffer *buffer, gpointer u_data)
   * - evas surface  (x86) : videoconvertor ! evasimagesink
   */
 static int
-__mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps)
+__mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps, MMDisplaySurfaceType surface_type)
 {
 	GstPad *pad = NULL;
 	MMHandleType attrs;
@@ -3205,7 +3206,7 @@ __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps)
 	MMPlayerGstElement* first_element = NULL;
 	MMPlayerGstElement* videobin = NULL;
 	gchar* vconv_factory = NULL;
-	char *videosink_element = NULL;
+	gchar *videosink_element = NULL;
 
 	debug_fenter();
 
@@ -3225,7 +3226,7 @@ __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps)
 	videobin[MMPLAYER_V_BIN].gst = gst_bin_new("videobin");
 	if ( !videobin[MMPLAYER_V_BIN].gst )
 	{
-		debug_critical("failed to create audiobin\n");
+		debug_critical("failed to create videobin");
 		goto ERROR;
 	}
 
@@ -3354,7 +3355,7 @@ __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps)
 			
 			if (player->is_nv12_tiled)
 			{
-				if ( ((PLAYER_INI()->video_surface == MM_DISPLAY_SURFACE_EVAS) && !strcmp(PLAYER_INI()->videosink_element_evas, "evasimagesink")) )
+				if ( ((surface_type == MM_DISPLAY_SURFACE_EVAS) && !strcmp(PLAYER_INI()->videosink_element_evas, "evasimagesink")) )
 				{
 					vconv_factory = "fimcconvert";
 				}
@@ -3377,7 +3378,7 @@ __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps)
 		#endif
 
 		/* set video sink */
-		switch (PLAYER_INI()->video_surface)
+		switch (surface_type)
 		{
 			case MM_DISPLAY_SURFACE_X:
 				if (strlen(PLAYER_INI()->videosink_element_x) > 0)
@@ -3402,7 +3403,7 @@ __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps)
 				goto ERROR;
 		}
 
-		MMPLAYER_CREATE_ELEMENT(videobin, MMPLAYER_V_SINK, videosink_element, "videosink", TRUE);
+		MMPLAYER_CREATE_ELEMENT(videobin, MMPLAYER_V_SINK, videosink_element, videosink_element, TRUE);
 		debug_log("selected videosink name: %s", videosink_element);
 	}
 
@@ -3632,7 +3633,6 @@ ERROR:
 static int
 __mmplayer_gst_create_subtitle_pipeline(mm_player_t* player)
 {
-	GstBus	*bus = NULL;
 	MMPlayerGstElement* subtitlebin = NULL;
 	MMHandleType attrs = 0;
 	gchar *subtitle_uri =NULL;
@@ -4636,7 +4636,6 @@ __mmplayer_gst_destroy_pipeline(mm_player_t* player) // @
 {
 	gint timeout = 0;
 	int ret = MM_ERROR_NONE;
-	int i = 0;
 
 	debug_fenter();
 	
@@ -4740,6 +4739,7 @@ __mmplayer_gst_destroy_pipeline(mm_player_t* player) // @
 			MMPLAYER_FREEIF( audiobin );
 			MMPLAYER_FREEIF( videobin );
 			MMPLAYER_FREEIF( textbin );
+			MMPLAYER_FREEIF( subtitlebin);
 			MMPLAYER_FREEIF( mainbin );
 		}
 
@@ -5073,7 +5073,7 @@ static int __gst_stop(mm_player_t* player) // @
 
 	/* Just set state to PAUESED and the rewind. it's usual player behavior. */
 	timeout = MMPLAYER_STATE_CHANGE_TIMEOUT ( player );
-	if  ( player->profile.uri_type == MM_PLAYER_URI_TYPE_BUFF )
+	if  ( player->profile.uri_type == MM_PLAYER_URI_TYPE_BUFF || player->profile.uri_type == MM_PLAYER_URI_TYPE_HLS)
 	{
 		ret = __mmplayer_gst_set_state(player, 
 			player->pipeline->mainbin[MMPLAYER_M_PIPE].gst, GST_STATE_READY, FALSE, timeout );
@@ -5880,7 +5880,6 @@ __mmplayer_asm_callback(int handle, ASM_event_sources_t event_src, ASM_sound_com
 {
 	mm_player_t* player = (mm_player_t*) cb_data;
 	ASM_cb_result_t cb_res = ASM_CB_RES_IGNORE;
-	MMHandleType attrs = 0;
 	int result = MM_ERROR_NONE;
 	gboolean lazy_pause = FALSE;
 
@@ -7392,29 +7391,6 @@ __mmplayer_set_pcm_extraction(mm_player_t* player)
 	debug_fleave();	
 
 	return MM_ERROR_NONE;
-}
-
-static
-void __mmplayer_set_videosink_type(mm_player_t* player)
-{
-	int type = 0;
-
-	debug_fenter();
-
-	return_if_fail( player );
-
-	mm_attrs_get_int_by_name (player->attrs, "display_surface_type", &type);
-	
-	debug_log("check display surface attribute: %d\n", type);
-
-	if (type >=MM_DISPLAY_SURFACE_X)
-	{
-		PLAYER_INI()->video_surface = type;
-	}
-
-	debug_fleave();
-
-	return;
 }
 
 int
@@ -10151,6 +10127,20 @@ __mmplayer_add_sink( mm_player_t* player, GstElement* sink )
 
 	player->sink_elements =
 		g_list_append(player->sink_elements, sink);
+
+	debug_fleave();
+}
+
+static void
+__mmplayer_del_sink( mm_player_t* player, GstElement* sink )
+{
+	debug_fenter();
+
+	return_if_fail ( player );
+	return_if_fail ( sink );
+
+	player->sink_elements =
+			g_list_remove(player->sink_elements, sink);
 
 	debug_fleave();
 }

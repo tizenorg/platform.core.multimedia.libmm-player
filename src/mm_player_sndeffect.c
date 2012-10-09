@@ -31,15 +31,16 @@ mm_player_get_foreach_present_supported_filter_type(MMHandleType player, MMAudio
 {
 	debug_fenter();
 	int result = MM_ERROR_NONE;
-	gboolean is_earphone = NULL;
+	mm_sound_device_in device_in;
+	mm_sound_device_out device_out;
 	int i = 0;
 
 	return_val_if_fail ( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
 
-	/* get status if earphone is activated */
-	result = mm_sound_is_route_available(MM_SOUND_ROUTE_OUT_WIRED_ACCESSORY, &is_earphone);
+	/* get status if speaker is activated */
+	result = mm_sound_get_active_device(&device_in, &device_out);
 	if ( result ) {
-		debug_error("mm_sound_is_route_available() failed [%x]!!\n", result);
+		debug_error("mm_sound_get_active_device() failed [%x]!!\n", result);
 		return result;
 	}
 
@@ -48,25 +49,17 @@ mm_player_get_foreach_present_supported_filter_type(MMHandleType player, MMAudio
 	{
 		for ( i = 0; i < MM_AUDIO_FILTER_PRESET_NUM; i++ )
 		{
-			if (is_earphone) {
-				if (PLAYER_INI()->audio_filter_preset_list[i])
-				{
-					if (!foreach_cb(filter_type, i, user_data))
-					{
-						goto CALLBACK_ERROR;
-					}
-				}
-			}
-			else
+			if (PLAYER_INI()->audio_filter_preset_list[i] )
 			{
-				if (PLAYER_INI()->audio_filter_preset_list[i] && !PLAYER_INI()->audio_filter_preset_earphone_only_list[i])
+				if (device_out == MM_SOUND_DEVICE_OUT_SPEAKER &&
+					PLAYER_INI()->audio_filter_preset_earphone_only_list[i])
 				{
-					if (!foreach_cb(filter_type, i, user_data))
-					{
-						goto CALLBACK_ERROR;
-					}
+					continue;
 				}
-
+				if (!foreach_cb(filter_type,i, user_data))
+				{
+					goto CALLBACK_ERROR;
+				}
 			}
 		}
 	}
@@ -75,24 +68,16 @@ mm_player_get_foreach_present_supported_filter_type(MMHandleType player, MMAudio
 	{
 		for ( i = 0; i < MM_AUDIO_FILTER_CUSTOM_NUM; i++ )
 		{
-			if (is_earphone)
+			if (PLAYER_INI()->audio_filter_custom_list[i] )
 			{
-				if (PLAYER_INI()->audio_filter_custom_list[i])
+				if (device_out == MM_SOUND_DEVICE_OUT_SPEAKER &&
+					PLAYER_INI()->audio_filter_custom_earphone_only_list[i])
 				{
-					if (!foreach_cb(filter_type, i, user_data))
-					{
-						goto CALLBACK_ERROR;
-					}
+					continue;
 				}
-			}
-			else
-			{
-				if (PLAYER_INI()->audio_filter_custom_list[i] && !PLAYER_INI()->audio_filter_custom_earphone_only_list[i])
+				if (!foreach_cb(filter_type,i, user_data))
 				{
-					if (!foreach_cb(filter_type,i, user_data))
-					{
-						goto CALLBACK_ERROR;
-					}
+					goto CALLBACK_ERROR;
 				}
 			}
 		}
@@ -278,7 +263,9 @@ _mmplayer_sound_filter_preset_apply(mm_player_t *player, MMAudioFilterPresetType
 	GstElement *filter_element = NULL;
 	int result = MM_ERROR_NONE;
 	int output_type = 0;
-	bool is_earphone = FALSE;
+	mm_sound_device_in device_in;
+	mm_sound_device_out device_out;
+
 	debug_fenter();
 
 	return_val_if_fail( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
@@ -300,18 +287,15 @@ _mmplayer_sound_filter_preset_apply(mm_player_t *player, MMAudioFilterPresetType
 
 		filter_element = player->pipeline->audiobin[MMPLAYER_A_FILTER].gst;
 
-		/* get status if earphone is activated */
-		result = mm_sound_is_route_available(MM_SOUND_ROUTE_OUT_WIRED_ACCESSORY, &is_earphone);
+		/* get status if speaker is activated */
+		result = mm_sound_get_active_device(&device_in, &device_out);
 		if ( result ) {
-			debug_error("mm_sound_is_route_available() failed [%x]!!\n", result);
+			debug_error("mm_sound_get_active_device() failed [%x]!!\n", result);
 			return result;
 		}
 
-		if (is_earphone)
-		{
-			output_type = MM_AUDIO_FILTER_OUTPUT_EAR;
-		}
-		else
+		/* SPEAKER case */
+		if (device_out == MM_SOUND_DEVICE_OUT_SPEAKER)
 		{
 			output_type = MM_AUDIO_FILTER_OUTPUT_SPK;
 			if (__mmplayer_is_earphone_only_filter_type(player, MM_AUDIO_FILTER_TYPE_PRESET, filter_type))
@@ -319,6 +303,11 @@ _mmplayer_sound_filter_preset_apply(mm_player_t *player, MMAudioFilterPresetType
 				debug_error("earphone is not equipped, this filter will not be applied\n");
 				return MM_ERROR_PLAYER_SOUND_EFFECT_INVALID_STATUS;
 			}
+		}
+		/* Other case, include WIRED_ACCESSORY, BLUETOOTH, DOCK */
+		else
+		{
+			output_type = MM_AUDIO_FILTER_OUTPUT_EAR;
 		}
 
 		/* set filter output mode as SPEAKER or EARPHONE */
@@ -370,24 +359,23 @@ _mmplayer_sound_filter_custom_apply(mm_player_t *player)
 	}
 	else
 	{
-		int output_type;
-		bool is_earphone = FALSE;
+		int output_type = 0;
+		mm_sound_device_in device_in;
+		mm_sound_device_out device_out;
+
 		return_val_if_fail( player->pipeline->audiobin, MM_ERROR_PLAYER_NOT_INITIALIZED );
 
 		filter_element = player->pipeline->audiobin[MMPLAYER_A_FILTER].gst;
 
-		/* get status if earphone is activated */
-		result = mm_sound_is_route_available(MM_SOUND_ROUTE_OUT_WIRED_ACCESSORY, &is_earphone);
+		/* get status if speaker is activated */
+		result = mm_sound_get_active_device(&device_in, &device_out);
 		if ( result ) {
-			debug_error("mm_sound_is_route_available() failed [%x]!!\n", result);
+			debug_error("mm_sound_get_active_device() failed [%x]!!\n", result);
 			return result;
 		}
 
-		if (is_earphone)
-		{
-			output_type = MM_AUDIO_FILTER_OUTPUT_EAR;
-		}
-		else
+		/* SPEAKER case */
+		if (device_out == MM_SOUND_DEVICE_OUT_SPEAKER)
 		{
 			output_type = MM_AUDIO_FILTER_OUTPUT_SPK;
 			if (__mmplayer_is_earphone_only_filter_type(player, MM_AUDIO_FILTER_TYPE_CUSTOM, NULL))
@@ -395,6 +383,11 @@ _mmplayer_sound_filter_custom_apply(mm_player_t *player)
 				debug_error("earphone is not equipped, some custom filter should operate with earphone(%x)\n", result);
 				return MM_ERROR_PLAYER_SOUND_EFFECT_INVALID_STATUS;
 			}
+		}
+		/* Other case, include WIRED_ACCESSORY, BLUETOOTH, DOCK */
+		else
+		{
+			output_type = MM_AUDIO_FILTER_OUTPUT_EAR;
 		}
 
 		/* set filter output mode as SPEAKER or EARPHONE */

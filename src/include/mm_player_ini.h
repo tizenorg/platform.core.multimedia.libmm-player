@@ -51,7 +51,6 @@ typedef struct __mm_player_ini
 {
 	/* general */
 	gboolean use_decodebin;	// @
-	gint video_surface;
 	gchar videosink_element_x[PLAYER_INI_MAX_STRLEN];
 	gchar videosink_element_evas[PLAYER_INI_MAX_STRLEN];
 	gchar videosink_element_fake[PLAYER_INI_MAX_STRLEN];
@@ -121,7 +120,6 @@ typedef struct __mm_player_ini
 #define DEFAULT_DELAY_BEFORE_REPEAT	 						50 /* msec */
 #define DEFAULT_EOS_DELAY 										150 /* msec */
 #define DEFAULT_DRMSRC											"drmsrc"
-#define DEFAULT_VIDEO_SURFACE									MM_DISPLAY_SURFACE_X
 #define DEFAULT_VIDEOSINK_X									"xvimagesink"
 #define DEFAULT_VIDEOSINK_EVAS								"evasimagesink"
 #define DEFAULT_VIDEOSINK_FAKE								"fakesink"

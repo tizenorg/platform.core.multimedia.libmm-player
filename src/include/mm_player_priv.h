@@ -190,7 +190,6 @@ enum VideoElementID
 	MMPLAYER_V_CONV,
 	MMPLAYER_V_SCALE,
 	MMPLAYER_V_CAPS,
-	MMPLAYER_V_TEE,
 	MMPLAYER_V_SINK,
 	MMPLAYER_V_NUM
 };
@@ -459,7 +458,7 @@ typedef struct {
 	/* gstreamer pipeline */
 	MMPlayerGstPipelineInfo	*pipeline;
 	gboolean pipeline_is_constructed;
-	
+
 	/* Buffering support cbs*/
 	mm_player_buffer_need_data_callback need_data_cb;
 	mm_player_buffer_enough_data_callback enough_data_cb;

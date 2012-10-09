@@ -286,6 +286,20 @@ int mm_player_set_buffer_seek_data_callback(MMHandleType player, mm_player_buffe
  */
 int mm_player_push_buffer(MMHandleType player, unsigned char *buf, int size);
 
+/**
+ * This function changes the previous videosink plugin for a new one
+ *
+ * @param	player			[in]	Handle of player.
+ * @param	display_surface_type	[in]	display surface type to set
+ * @param	display_overlay			[in]	display overlay to set
+ *
+ * @return	This function returns zero on success, or negative value with error
+ *			code.
+ * @remark	Not supported
+ * @see
+ * @since
+ */
+int mm_player_change_videosink(MMHandleType player, MMDisplaySurfaceType display_surface_type, void *display_overlay);
 
 /**
 	@}

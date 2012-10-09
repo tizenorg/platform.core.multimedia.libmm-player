@@ -167,7 +167,6 @@ mm_player_ini_load(void)
 		g_player_ini.use_decodebin = iniparser_getboolean(dict, "general:use decodebin", DEFAULT_USE_DECODEBIN);
 		g_player_ini.disable_segtrap = iniparser_getboolean(dict, "general:disable segtrap", DEFAULT_DISABLE_SEGTRAP);
 		g_player_ini.skip_rescan = iniparser_getboolean(dict, "general:skip rescan", DEFAULT_SKIP_RESCAN);
-		g_player_ini.video_surface = DEFAULT_VIDEO_SURFACE;
 		g_player_ini.generate_dot = iniparser_getboolean(dict, "general:generate dot", DEFAULT_GENERATE_DOT);
 		g_player_ini.provide_clock= iniparser_getboolean(dict, "general:provide clock", DEFAULT_PROVIDE_CLOCK);
 		g_player_ini.live_state_change_timeout = iniparser_getint(dict, "general:live state change timeout", DEFAULT_LIVE_STATE_CHANGE_TIMEOUT);
@@ -276,7 +275,6 @@ mm_player_ini_load(void)
 		g_player_ini.use_audio_filter_preset = DEFAULT_USE_AUDIO_FILTER_PRESET;
 		g_player_ini.use_audio_filter_custom = DEFAULT_USE_AUDIO_FILTER_CUSTOM;
 		g_player_ini.skip_rescan = DEFAULT_SKIP_RESCAN;
-		g_player_ini.video_surface = DEFAULT_VIDEO_SURFACE;
 		strncpy( g_player_ini.videosink_element_x, DEFAULT_VIDEOSINK_X, PLAYER_INI_MAX_STRLEN - 1 );
 		strncpy( g_player_ini.videosink_element_evas, DEFAULT_VIDEOSINK_EVAS, PLAYER_INI_MAX_STRLEN - 1 );
 		strncpy( g_player_ini.videosink_element_fake, DEFAULT_VIDEOSINK_FAKE, PLAYER_INI_MAX_STRLEN - 1 );
@@ -339,7 +337,6 @@ mm_player_ini_load(void)
 	debug_log("use_audio_filter_custom : %d\n", g_player_ini.use_audio_filter_custom);
 	debug_log("disable_segtrap : %d\n", g_player_ini.disable_segtrap);
 	debug_log("skip rescan : %d\n", g_player_ini.skip_rescan);
-	debug_log("video surface(0:X, 1:EVAS, 2:GL, 3:NULL) : %d\n", g_player_ini.video_surface);
 	debug_log("videosink element x: %s\n", g_player_ini.videosink_element_x);
 	debug_log("videosink element evas: %s\n", g_player_ini.videosink_element_evas);
 	debug_log("videosink element fake: %s\n", g_player_ini.videosink_element_fake);

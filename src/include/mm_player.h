@@ -279,11 +279,6 @@
 	<td>N/A</td>
 	</tr>
 	<tr>
-	<td>"display_overlay_ext"</td>
-	<td>data</td>
-	<td>N/A</td>
-	</tr>
-	<tr>
 	<td>"display_rotation"</td>
 	<td>int</td>
 	<td>range</td>

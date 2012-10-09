@@ -79,6 +79,7 @@ do \
 #define GST_ELEMENT_LINK_FILTERED 	gst_element_link_filtered
 #define GST_ELEMENT_LINK_MANY 		gst_element_link_many
 #define GST_ELEMENT_LINK 			gst_element_link
+#define GST_ELEMENT_UNLINK 			gst_element_unlink
 #define GST_ELEMENT_LINK_PADS 		gst_element_link_pads
 #define GST_PAD_LINK 				gst_pad_link
 #endif

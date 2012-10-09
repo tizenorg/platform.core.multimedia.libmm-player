@@ -196,7 +196,7 @@ __mmplayer_apply_attribute(MMHandleType handle, const char *attribute_name)
 	return_val_if_fail(handle, MM_ERROR_COMMON_INVALID_ARGUMENT);
 	return_val_if_fail(attribute_name, MM_ERROR_COMMON_INVALID_ARGUMENT);
 
-	attrs = MM_PLAYER_GET_ATTRS(handle);;
+	attrs = MM_PLAYER_GET_ATTRS(handle);
 	player = MM_PLAYER_CAST(handle);
 
 	if ( g_strrstr(attribute_name, "display") )
@@ -206,7 +206,7 @@ __mmplayer_apply_attribute(MMHandleType handle, const char *attribute_name)
 			 !player->pipeline->videobin ||
 			 !player->pipeline->videobin[MMPLAYER_V_SINK].gst )
 		{
-			debug_warning("videosink element is not yet ready\n");
+			debug_warning("videosink element is not yet ready");
 			/*
 			 * The attribute should be committed even though videobin is not created yet.
 			 * So, true should be returned here.
@@ -217,7 +217,7 @@ __mmplayer_apply_attribute(MMHandleType handle, const char *attribute_name)
 
 		if ( MM_ERROR_NONE != _mmplayer_update_video_param( player ) )
 		{
-			debug_error("failed to update video param\n");
+			debug_error("failed to update video param");
 			return MM_ERROR_PLAYER_INTERNAL;
 		}
 	}
@@ -673,15 +673,6 @@ _mmplayer_construct_attribute(MMHandleType handle)
 			0
 		},
 		{
-			"display_overlay_ext",
-			MM_ATTRS_TYPE_DATA,
-			MM_ATTRS_FLAG_RW,
-			(void *) NULL,
-			MM_ATTRS_VALID_TYPE_NONE,
-			0,
-			0
-		},
-		{
 			"display_zoom",
 			MM_ATTRS_TYPE_INT,
 			MM_ATTRS_FLAG_RW,
@@ -694,19 +685,10 @@ _mmplayer_construct_attribute(MMHandleType handle)
 			"display_surface_type",
 			MM_ATTRS_TYPE_INT,
 			MM_ATTRS_FLAG_RW,
-			(void *) 0,
+			(void *) MM_DISPLAY_SURFACE_NULL,
 			MM_ATTRS_VALID_TYPE_INT_RANGE,
 			MM_DISPLAY_SURFACE_X,
 			MM_DISPLAY_SURFACE_NULL
-		},
-		{
-			"display_surface_use_multi",
-			MM_ATTRS_TYPE_INT,
-			MM_ATTRS_FLAG_RW,
-			(void *) FALSE,
-			MM_ATTRS_VALID_TYPE_INT_RANGE,
-			FALSE,
-			TRUE
 		},
 		{
 			"display_evas_surface_sink",

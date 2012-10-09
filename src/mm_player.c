@@ -430,6 +430,17 @@ int mm_player_get_state(MMHandleType player, MMPlayerStateType *state)
 	return result;
 }
 
+/* NOTE : Not supported */
+int mm_player_change_videosink(MMHandleType player, MMDisplaySurfaceType display_surface_type, void *display_overlay)
+{
+	int result = MM_ERROR_NONE;
+
+	debug_log("\n");
+
+	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+
+	return MM_ERROR_NOT_SUPPORT_API;
+}
 
 int mm_player_push_buffer(MMHandleType player, unsigned char *buf, int size)
 {
