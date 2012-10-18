@@ -239,14 +239,14 @@ __mmplayer_check_state(mm_player_t* player, enum PlayerCommandState command)
 
 	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
+	//debug_log("incomming command : %d \n", command );
+
 	current_state = MMPLAYER_CURRENT_STATE(player);
 	pending_state = MMPLAYER_PENDING_STATE(player);
 	target_state = MMPLAYER_TARGET_STATE(player);
 	prev_state = MMPLAYER_PREV_STATE(player);
 
 	MMPLAYER_PRINT_STATE(player);
-
-	debug_log("incomming command : %d", command );
 
 	switch( command )
 	{
@@ -407,13 +407,10 @@ __mmplayer_check_state(mm_player_t* player, enum PlayerCommandState command)
 		default:
 		break;
 	}
-
-	debug_log("status OK\n");
 	player->cmd = command;
 
-	debug_fenter();
+	debug_fleave();
 	return MM_ERROR_NONE;
-
 
 INVALID_STATE:
 	debug_warning("since player is in wrong state(%s). it's not able to apply the command(%d)",
@@ -421,6 +418,7 @@ INVALID_STATE:
 	return MM_ERROR_PLAYER_INVALID_STATE;
 
 NOT_COMPLETED_SEEK:
+	debug_warning("not completed seek");
 	return MM_ERROR_PLAYER_DOING_SEEK;
 
 NO_OP:
@@ -444,7 +442,7 @@ __mmplayer_gst_set_state (mm_player_t* player, GstElement * element,  GstState s
 	return_val_if_fail ( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
 	return_val_if_fail ( element, MM_ERROR_INVALID_ARGUMENT );
 
-	debug_log("setting [%s] state to : %d\n", GST_ELEMENT_NAME(element),  state);
+	debug_log("setting [%s] element state to : %d\n", GST_ELEMENT_NAME(element),  state);
 
 	/* set state */
 	ret = gst_element_set_state(element, state);
@@ -467,7 +465,7 @@ __mmplayer_gst_set_state (mm_player_t* player, GstElement * element,  GstState s
 
 	if ( ret == GST_STATE_CHANGE_FAILURE || ( state != element_state ) )
 	{
-		debug_error("failed to change [%s] state to [%s] within %d sec\n",
+		debug_error("failed to change [%s] element state to [%s] within %d sec\n",
 			GST_ELEMENT_NAME(element), 
 			gst_element_state_get_name(state), timeout );
 		
@@ -479,7 +477,7 @@ __mmplayer_gst_set_state (mm_player_t* player, GstElement * element,  GstState s
 		return MM_ERROR_PLAYER_INTERNAL;
 	}
 
-	debug_log("[%s] state has changed to %s \n", 
+	debug_log("[%s] element state has changed to %s \n",
 		GST_ELEMENT_NAME(element), 
 		gst_element_state_get_name(element_state));
 
@@ -586,7 +584,7 @@ _mmplayer_update_content_attrs(mm_player_t* player) // @
 	}
 	else
 	{
-		debug_log("no ready to get or content duration already updated");
+		debug_log("not ready to get duration or already updated");
 	}
 
 	/* update rate, channels */
@@ -674,7 +672,6 @@ _mmplayer_update_content_attrs(mm_player_t* player) // @
 			{
 				debug_warning("failed to get negitiated caps from videosink");
 			}
-
 			gst_object_unref( pad );
 			pad = NULL;
 		}
@@ -802,27 +799,23 @@ __mmplayer_set_state(mm_player_t* player, int state) // @
 {
 	MMMessageParamType msg = {0, };
 	int asm_result = MM_ERROR_NONE;
-	int new_state = state;
 
 	debug_fenter();
-
 	return_val_if_fail ( player, FALSE );
 
-	if ( MMPLAYER_CURRENT_STATE(player) == new_state )
+	if ( MMPLAYER_CURRENT_STATE(player) == state )
 	{
 		debug_warning("already same state(%s)\n", MMPLAYER_STATE_GET_NAME(state));
+		MMPLAYER_PENDING_STATE(player) = MM_PLAYER_STATE_NONE;
 		return TRUE;
 	}
 
-	/* print state */
-	MMPLAYER_PRINT_STATE(player);
-
 	/* post message to application */
-	if (MMPLAYER_TARGET_STATE(player) == new_state)
+	if (MMPLAYER_TARGET_STATE(player) == state)
 	{
 		/* fill the message with state of player */
 		msg.state.previous = MMPLAYER_CURRENT_STATE(player);
-		msg.state.current = new_state;
+		msg.state.current = state;
 
 		/* state changed by asm callback */
 		if ( player->sm.by_asm_cb )
@@ -843,15 +836,20 @@ __mmplayer_set_state(mm_player_t* player, int state) // @
 	else
 	{
 		debug_log ("intermediate state, do nothing.\n");
+		MMPLAYER_PRINT_STATE(player);
+
 		return TRUE;
 	}
 
 	/* update player states */
 	MMPLAYER_PREV_STATE(player) = MMPLAYER_CURRENT_STATE(player);
-	MMPLAYER_CURRENT_STATE(player) = new_state;
+	MMPLAYER_CURRENT_STATE(player) = state;
 	if ( MMPLAYER_CURRENT_STATE(player) == MMPLAYER_PENDING_STATE(player) )
 		MMPLAYER_PENDING_STATE(player) = MM_PLAYER_STATE_NONE;
 
+	/* print state */
+	MMPLAYER_PRINT_STATE(player);
+	
 	switch ( MMPLAYER_TARGET_STATE(player) )
 	{
 		case MM_PLAYER_STATE_NULL:	
@@ -1034,8 +1032,7 @@ __mmplayer_get_state(mm_player_t* player) // @
 static void
 __gst_set_async_state_change(mm_player_t* player, gboolean async)
 {
-	debug_fenter();
-	
+	//debug_fenter();
 	return_if_fail( player && player->pipeline && player->pipeline->mainbin );
 
 	/* need only when we are using decodebin */
@@ -1065,7 +1062,7 @@ __gst_set_async_state_change(mm_player_t* player, gboolean async)
 		g_object_set (G_OBJECT (player->pipeline->mainbin[MMPLAYER_M_AUTOPLUG].gst), "async-handling", async, NULL);
 	}
 
-	debug_fleave();
+	//debug_fleave();
 }
 
 static gpointer __mmplayer_repeat_thread(gpointer data)
@@ -1605,7 +1602,7 @@ __mmplayer_gst_callback(GstBus *bus, GstMessage *msg, gpointer data) // @
 
 					gboolean is_async = FALSE;
 
-		                        if (player->doing_seek && async_done)
+		           if (player->doing_seek && async_done)
 					{
 						player->doing_seek = FALSE;
 						async_done = FALSE;
@@ -4094,8 +4091,6 @@ __mmplayer_bus_sync_callback (GstBus * bus, GstMessage * message, gpointer data)
 		default:
 			return GST_BUS_PASS;
 	}
-
-	debug_log("GST_MESSAGE_TAG from %s", name);
 	gst_message_unref (message);
 
 	return GST_BUS_DROP;
@@ -4766,7 +4761,6 @@ static int __gst_realize(mm_player_t* player) // @
 	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	MMPLAYER_PENDING_STATE(player) = MM_PLAYER_STATE_READY;
-	MMPLAYER_PRINT_STATE(player);	
 
 	__ta__("__mmplayer_gst_create_pipeline",
 		ret = __mmplayer_gst_create_pipeline(player);
@@ -4948,9 +4942,9 @@ static int __gst_start(mm_player_t* player) // @
 		}
 	}
 
+	debug_log("current state before doing transition");
 	MMPLAYER_PENDING_STATE(player) = MM_PLAYER_STATE_PLAYING;
-
-	MMPLAYER_PRINT_STATE(player);	
+	MMPLAYER_PRINT_STATE(player);
 
 	/* NOTE : note that current variant of rtspsrc has their own buffering mechanism.
 	  * their keeping rtp packets without gst timestamping. there's no easy way to export buffering mechanism to plugin-level. and
@@ -5055,6 +5049,7 @@ static int __gst_stop(mm_player_t* player) // @
 
 	return_val_if_fail ( player && player->pipeline, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
+	debug_log("current state before doing transition");
 	MMPLAYER_PENDING_STATE(player) = MM_PLAYER_STATE_READY;
 	MMPLAYER_PRINT_STATE(player);	
 
@@ -5155,6 +5150,7 @@ int __gst_pause(mm_player_t* player, gboolean async) // @
 
 	return_val_if_fail(player && player->pipeline, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
+	debug_log("current state before doing transition");
 	MMPLAYER_PENDING_STATE(player) = MM_PLAYER_STATE_PAUSED;
 	MMPLAYER_PRINT_STATE(player);	
 
@@ -5195,7 +5191,6 @@ int __gst_pause(mm_player_t* player, gboolean async) // @
 	{	
 		if ( async == FALSE ) 
 		{
-			debug_log("sync state changing is completed.");
 			MMPLAYER_SET_STATE ( player, MM_PLAYER_STATE_PAUSED );
 		}
 	} 
@@ -5223,7 +5218,7 @@ int __gst_resume(mm_player_t* player, gboolean async) // @
 	return_val_if_fail(player && player->pipeline,
 		MM_ERROR_PLAYER_NOT_INITIALIZED);
 
-
+	debug_log("current state before doing transition");
 	MMPLAYER_PENDING_STATE(player) = MM_PLAYER_STATE_PLAYING;
 	MMPLAYER_PRINT_STATE(player);	
 
@@ -5263,8 +5258,7 @@ int __gst_resume(mm_player_t* player, gboolean async) // @
 	else
 	{
 		if (async == FALSE)
-		{	
-			debug_log("sync state changing is completed.");
+		{
 			MMPLAYER_SET_STATE ( player, MM_PLAYER_STATE_PLAYING );
 		}
 	}
@@ -5284,60 +5278,62 @@ int __gst_resume(mm_player_t* player, gboolean async) // @
 static int
 __gst_set_position(mm_player_t* player, int format, unsigned long position) // @
 {
-	MMPlayerStateType current_state = MM_PLAYER_STATE_NONE;
-	MMPlayerStateType pending_state = MM_PLAYER_STATE_NONE;
 	GstFormat fmt  = GST_FORMAT_TIME;
-	unsigned long dur = 0;
-	gint64 dur_msec = 0;
-	gint64 pos_msec = 0;
+	unsigned long dur_msec = 0;
+	gint64 dur_nsec = 0;
+	gint64 pos_nsec = 0;
 	gboolean ret = TRUE;
 
 	debug_fenter();
-
 	return_val_if_fail ( player && player->pipeline, MM_ERROR_PLAYER_NOT_INITIALIZED );
 	return_val_if_fail ( !MMPLAYER_IS_LIVE_STREAMING(player), MM_ERROR_PLAYER_NO_OP );
 
-	/* check player state if player could seek or not. */
-	current_state = MMPLAYER_CURRENT_STATE(player);
-	pending_state = MMPLAYER_PENDING_STATE(player);
-		
-	if ( current_state != MM_PLAYER_STATE_PLAYING && current_state != MM_PLAYER_STATE_PAUSED )
-		goto PENDING;
+	debug_log(" sent bos = %d", player->sent_bos);
+
+	if ( MMPLAYER_CURRENT_STATE(player) != MM_PLAYER_STATE_PLAYING
+		&& MMPLAYER_CURRENT_STATE(player) != MM_PLAYER_STATE_PAUSED )
+	{
+			debug_log();
+			goto PENDING;
+	}
+
+	debug_log();
 
 	/* check duration */
-	/* NOTE : duration cannot be zero except live streaming. 
+	/* NOTE : duration cannot be zero except live streaming.
 	 * 		Since some element could have some timing problemn with quering duration, try again.
 	 */
-	if ( player->duration == 0 )
+	if ( !player->duration )
 	{
-		ret = gst_element_query_duration( player->pipeline->mainbin[MMPLAYER_M_PIPE].gst, &fmt, &dur_msec );
-		if ( !ret )
+		if ( !gst_element_query_duration( player->pipeline->mainbin[MMPLAYER_M_PIPE].gst, &fmt, &dur_nsec ))
+		{
 			goto SEEK_ERROR;
-		else
-			player->duration = dur_msec;
+		}
+		player->duration = dur_nsec;
 	}
 
 	if ( player->duration )
 	{
-		dur = GST_TIME_AS_MSECONDS(player->duration);
-		debug_log("duration is %d [msec]. \n", dur);
+		dur_msec = GST_TIME_AS_MSECONDS(player->duration);
 	}
 	else
 	{
 		debug_error("could not get the duration. fail to seek.\n");
 		goto SEEK_ERROR;
 	}
-	
+
+	debug_log("playback rate: %f\n", player->playback_rate);
+
 	/* do seek */
 	switch ( format )
 	{
 		case MM_PLAYER_POS_FORMAT_TIME:
 		{
 			/* check position is valid or not */
-			if ( position > dur )
+			if ( position > dur_msec )
 				goto INVALID_ARGS;
 
-			debug_log("seeking to (%lu) msec\n", position);
+			debug_log("seeking to (%lu) msec, duration is %d msec\n", position, dur_msec);
 
 			if (player->doing_seek)
 			{
@@ -5346,14 +5342,13 @@ __gst_set_position(mm_player_t* player, int format, unsigned long position) // @
 			}
 			player->doing_seek = TRUE;
 
-			pos_msec = position * G_GINT64_CONSTANT(1000000);
+			pos_nsec = position * G_GINT64_CONSTANT(1000000);
 			ret = __gst_seek ( player, player->pipeline->mainbin[MMPLAYER_M_PIPE].gst, 1.0,
-				GST_FORMAT_TIME, ( GST_SEEK_FLAG_FLUSH | GST_SEEK_FLAG_ACCURATE ),
-				GST_SEEK_TYPE_SET, pos_msec, GST_SEEK_TYPE_NONE, GST_CLOCK_TIME_NONE );
-
+							GST_FORMAT_TIME, ( GST_SEEK_FLAG_FLUSH | GST_SEEK_FLAG_ACCURATE ),
+							GST_SEEK_TYPE_SET, pos_nsec, GST_SEEK_TYPE_NONE, GST_CLOCK_TIME_NONE );
 			if ( !ret  )
 			{
-				debug_error("failed to set position. dur[%lud]  pos[%lud]  pos_msec[%llud]\n", dur, position, pos_msec);
+				debug_error("failed to set position. dur[%lu]  pos[%lu]  pos_msec[%llu]\n", dur_msec, position, pos_nsec);
 				goto SEEK_ERROR;
 			}
 		}
@@ -5374,14 +5369,13 @@ __gst_set_position(mm_player_t* player, int format, unsigned long position) // @
 			player->doing_seek = TRUE;
 
 			/* FIXIT : why don't we use 'GST_FORMAT_PERCENT' */
-			pos_msec = (gint64) ( ( position * player->duration ) / 100 );
+			pos_nsec = (gint64) ( ( position * player->duration ) / 100 );
 			ret = __gst_seek ( player, player->pipeline->mainbin[MMPLAYER_M_PIPE].gst, 1.0,
-				GST_FORMAT_TIME, ( GST_SEEK_FLAG_FLUSH | GST_SEEK_FLAG_ACCURATE ),
-				GST_SEEK_TYPE_SET, pos_msec, GST_SEEK_TYPE_NONE, GST_CLOCK_TIME_NONE );
-
+							GST_FORMAT_TIME, ( GST_SEEK_FLAG_FLUSH | GST_SEEK_FLAG_ACCURATE ),
+							GST_SEEK_TYPE_SET, pos_nsec, GST_SEEK_TYPE_NONE, GST_CLOCK_TIME_NONE );
 			if ( !ret  )
 			{
-				debug_error("failed to set position. dur[%lud]  pos[%lud]  pos_msec[%llud]\n", dur, position, pos_msec);
+				debug_error("failed to set position. dur[%lud]  pos[%lud]  pos_msec[%llud]\n", dur_msec, position, pos_nsec);
 				goto SEEK_ERROR;
 			}
 		}
@@ -5392,20 +5386,16 @@ __gst_set_position(mm_player_t* player, int format, unsigned long position) // @
 			
 	}
 
-
 	/* NOTE : store last seeking point to overcome some bad operation 
 	  *      ( returning zero when getting current position ) of some elements 
 	  */
-	player->last_position = pos_msec;
-
-	debug_log("playback rate: %f\n", player->playback_rate);
+	player->last_position = pos_nsec;
 
 	/* MSL should guarante playback rate when seek is selected during trick play of fast forward. */
 	if ( player->playback_rate > 1.0 )
 		_mmplayer_set_playspeed ( (MMHandleType)player, player->playback_rate );
 
 	debug_fleave();
-
 	return MM_ERROR_NONE;
 
 PENDING:
@@ -5414,19 +5404,17 @@ PENDING:
 	player->pending_seek.pos = position;
 	
 	debug_warning("player current-state : %s, pending-state : %s, just preserve pending position(%lu).\n", 
-		MMPLAYER_STATE_GET_NAME(current_state), MMPLAYER_STATE_GET_NAME(pending_state), player->pending_seek.pos);
+		MMPLAYER_STATE_GET_NAME(MMPLAYER_CURRENT_STATE(player)), MMPLAYER_STATE_GET_NAME(MMPLAYER_PENDING_STATE(player)), player->pending_seek.pos);
 	
 	return MM_ERROR_NONE;
 	
 INVALID_ARGS:	
-	debug_error("invalid arguments, position : %ld  dur : %ld format : %d \n", position, dur, format);
-	
-	return MM_ERROR_PLAYER_INTERNAL;
+	debug_error("invalid arguments, position : %ld  dur : %ld format : %d \n", position, dur_msec, format);
+	return MM_ERROR_INVALID_ARGUMENT;
 
 SEEK_ERROR:
 	player->doing_seek = FALSE;
 	return MM_ERROR_PLAYER_SEEK;
-
 }
 
 #define TRICKPLAY_OFFSET GST_MSECOND
@@ -5460,7 +5448,6 @@ __gst_get_position(mm_player_t* player, int format, unsigned long* position) // 
 		|| ( ! ret ))
 		//|| ( player->last_position != 0 && pos_msec == 0 ) )
 	{
-		debug_warning(" Playback rate is %f\n", player->playback_rate);
 		debug_warning ("pos_msec = %"GST_TIME_FORMAT" and ret = %d and state = %d", GST_TIME_ARGS (pos_msec), ret, current_state);
 
 		if(player->playback_rate < 0.0)
@@ -6019,7 +6006,6 @@ _mmplayer_create_player(MMHandleType handle) // @
 	MMPLAYER_PREV_STATE(player) = MM_PLAYER_STATE_NONE;
 	MMPLAYER_PENDING_STATE(player) = MM_PLAYER_STATE_NONE;
 	MMPLAYER_TARGET_STATE(player) = MM_PLAYER_STATE_NONE;
-	MMPLAYER_PRINT_STATE(player);	
 
 	/* check current state */
 	MMPLAYER_CHECK_STATE_RETURN_IF_FAIL ( player, MMPLAYER_COMMAND_CREATE );
@@ -6100,84 +6086,16 @@ _mmplayer_create_player(MMHandleType handle) // @
 	}
 
 	/* give default value of sound effect setting */
-	player->audio_filter_info.filter_type = MM_AUDIO_FILTER_TYPE_NONE;
 	player->bypass_sound_effect = TRUE;
-
 	player->sound.volume = MM_VOLUME_FACTOR_DEFAULT;
-
-	/* initialize last position */
-	player->last_position = 0;
-
-	/* initialize missing plugin */
-	player->not_supported_codec = MISSING_PLUGIN_NONE;
-
-	/* initialize found plugin */
-	player->can_support_codec = FOUND_PLUGIN_NONE;
-
-	player->posted_msg = FALSE;
-
-#if 0
-	/* initialize application client id for dnse */
-	player->app_id_set_up_dnse = MM_AUDIO_FILTER_CLIENT_NONE;
-#endif
-	/* set player state to ready */
-	MMPLAYER_SET_STATE(player, MM_PLAYER_STATE_NULL);
-
-	player->section_repeat = FALSE;
-	player->section_repeat_start = 0;
-	player->section_repeat_end = 0;
-	player->is_sound_extraction	= FALSE;
 	player->playback_rate = DEFAULT_PLAYBACK_RATE;
-	player->resumed_by_rewind = FALSE;
-	player->is_nv12_tiled = FALSE;
-	player->has_many_types = FALSE;
 	player->no_more_pad = TRUE;
-	player->parsers = NULL;
-	player->pipeline_is_constructed = FALSE;
-	
-	/*initialize adaptive http streaming handle */
-	player->ahs_player = NULL;
-	
-	/* set buffering parameter for streaming */
-	for(i=0; i<MM_PLAYER_STREAM_COUNT_MAX; i++)
-	{
-		player->bitrate[i] = 0;
-		player->maximum_bitrate[i] = 0;
-	}
-	player->updated_bitrate_count = 0;
-	player->total_bitrate = 0;
-	player->updated_maximum_bitrate_count = 0;
-	player->total_maximum_bitrate = 0;
-
-	/* initialize unlinked  audio/video mime type */
-	player->unlinked_audio_mime = NULL;
-	player->unlinked_video_mime = NULL;
-	player->unlinked_demuxer_mime = NULL;
-	player->not_found_demuxer = 0;
-	
-	player->sent_bos = FALSE;
-
-	player->doing_seek = FALSE;
-
-	player->lazy_pause_event_id = 0;
-	
-	player->streamer = NULL;
-
-	player->play_subtitle = FALSE;
-
-	player->v_stream_caps = NULL;
-	
-	/* initialize pending seek */
-	player->pending_seek.is_pending = FALSE;
-	player->pending_seek.format = MM_PLAYER_POS_FORMAT_TIME;
-	player->pending_seek.pos = 0;
 
 	/* set player state to null */
 	MMPLAYER_STATE_CHANGE_TIMEOUT(player) = PLAYER_INI()->localplayback_state_change_timeout;
 	MMPLAYER_SET_STATE ( player, MM_PLAYER_STATE_NULL );
 
 	debug_fleave();
-
 	return MM_ERROR_NONE;
 
 ERROR:
@@ -8930,7 +8848,6 @@ static void __mmplayer_add_new_pad(GstElement *element, GstPad *pad, gpointer da
 	const char *name;
 
 	debug_fenter();
-
 	return_if_fail ( player );
 	return_if_fail ( pad );
 
@@ -10073,9 +9990,6 @@ __gst_send_event_to_sink( mm_player_t* player, GstEvent* event )
 		{
 			/* keep ref to the event */
 			gst_event_ref (event);
-
-			debug_log("sending event[%s] to sink element [%s]\n",
-				GST_EVENT_TYPE_NAME(event), GST_ELEMENT_NAME(sink) );
 
 			if ( (res = gst_element_send_event (sink, event)) )
 			{

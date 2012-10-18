@@ -101,7 +101,7 @@ __mmplayer_post_message(x_player, x_msgtype, x_msg_param);
 
 /* setting player state */
 #define MMPLAYER_SET_STATE( x_player, x_state ) \
-debug_log("setting player state to %d\n", x_state); \
+debug_log("setting state machine to %d\n", x_state); \
 __mmplayer_set_state(x_player, x_state);
 
 
@@ -116,6 +116,8 @@ switch ( __mmplayer_check_state(x_player, x_command) ) \
 	case MM_ERROR_PLAYER_NO_OP: \
 		return MM_ERROR_NONE; \
 	break; \
+	case MM_ERROR_PLAYER_DOING_SEEK: \
+		return MM_ERROR_PLAYER_DOING_SEEK; \
 	default: \
 	break; \
 }
