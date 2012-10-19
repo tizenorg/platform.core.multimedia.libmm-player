@@ -1162,6 +1162,9 @@ __mmplayer_handle_buffering_message ( mm_player_t* player )
 	target_state = MMPLAYER_TARGET_STATE(player);
 	pending_state = MMPLAYER_PENDING_STATE(player);
 
+	if ( MMPLAYER_IS_RTSP_STREAMING(player) )
+		return;
+
 	if ( !player->streamer->is_buffering )
 	{
 		debug_log( "player state : prev %s, current %s, pending %s, target %s \n",
@@ -1175,9 +1178,6 @@ __mmplayer_handle_buffering_message ( mm_player_t* player )
 		{
 			case MM_PLAYER_STATE_PAUSED :
 			{
-				if ( MMPLAYER_IS_RTSP_STREAMING(player) )
-					return;
-
 				switch ( pending_state )
 				{
 					case MM_PLAYER_STATE_PLAYING:
@@ -1206,16 +1206,6 @@ __mmplayer_handle_buffering_message ( mm_player_t* player )
 
 			case MM_PLAYER_STATE_PLAYING :
 			{
-				if ( MMPLAYER_IS_RTSP_STREAMING(player) )
-				{
-					__gst_resume ( player, TRUE );
-
-					/* now we can overcome 'state-lost' situation */
-					player->state_lost = FALSE;
-
-					return;
-				}
-
 				switch ( pending_state )
 				{
 					case MM_PLAYER_STATE_NONE:
@@ -1260,16 +1250,6 @@ __mmplayer_handle_buffering_message ( mm_player_t* player )
 	}
 	else
 	{
-		/* NOTE : in case of rtsp streaming, the src plugin provide the pipeline clock.
-		 * 	the src plugin is buffering, the pipeline clock stop automatically.
-		 * 	so don't need to pause the player.
-		 */
-		if ( MMPLAYER_IS_RTSP_STREAMING(player) )
-		{
-			player->state_lost = TRUE;
-			return;
-		}
-
 		/* NOTE : during the buffering, pause the player for stopping pipeline clock.
 		 * 	it's for stopping the pipeline clock to prevent dropping the data in sink element.
 		 */
@@ -2027,26 +2007,6 @@ __mmplayer_gst_rtp_dynamic_pad (GstElement *element, GstPad *pad, gpointer data)
 					player->pipeline->mainbin );
 
 
-	/* first, check pt type which we are supporting or not */
-	if ( MMPLAYER_PT_IS_VIDEO( GST_PAD_NAME( pad ) ) )
-	{
-		/* video packet */
-		debug_log("is video stream. take it.\n");
-		element_id = MMPLAYER_M_S_VDEC;
-	}
-	else if ( MMPLAYER_PT_IS_AUDIO( GST_PAD_NAME( pad ) ) )
-	{
-		/* audio packet */
-		debug_log("is audio stream. take it.\n");
-		element_id = MMPLAYER_M_S_ADEC;
-	}
-	else
-	{
-		/* FIXIT : application should know this. need one more message type */
-		debug_error ("This Payload type is unknown!\n");
-		goto ERROR;
-	}
-
 	/* payload type is recognizable. increase num_dynamic and wait for sinkbin creation.
 	 * num_dynamic_pad will decreased after creating a sinkbin.
 	 */
@@ -2054,79 +2014,52 @@ __mmplayer_gst_rtp_dynamic_pad (GstElement *element, GstPad *pad, gpointer data)
 	debug_log("stream count inc : %d\n", player->num_dynamic_pad);
 
 	/* perform autoplugging if dump is disabled */
-	if ( ! new_element )
+	if ( PLAYER_INI()->rtsp_do_typefinding )
 	{
-		if ( PLAYER_INI()->rtsp_do_typefinding )
+		/* create typefind */
+		new_element = gst_element_factory_make( "typefind", NULL );
+		if ( ! new_element )
 		{
-			/* create autoplugging element */
-			if( PLAYER_INI()->use_decodebin )
-			{
-				/* create decodebin */
-				new_element = gst_element_factory_make("decodebin", NULL);
-
-				g_object_set(G_OBJECT(new_element), "async-handling", TRUE, NULL);
-
-			if ( ! new_element )
-			{
-				debug_error("failed to create autoplug element\n");
-				goto ERROR;
-			}
-
-				/* set signal handler */
-				MMPLAYER_SIGNAL_CONNECT( 	player,
-											G_OBJECT(new_element),
-											"new-decoded-pad",
-											G_CALLBACK(__mmplayer_gst_decode_callback),
-											(gpointer)player );
-			}
-			else
-			{
-				/* create typefind */
-				new_element = gst_element_factory_make( "typefind", NULL );
-				if ( ! new_element )
-				{
-					debug_error("failed to create typefind\n");
-					goto ERROR;
-				}
-
-				MMPLAYER_SIGNAL_CONNECT( 	player,
-											G_OBJECT(new_element),
-											"have-type",
-											G_CALLBACK(__mmplayer_typefind_have_type),
-											(gpointer)player);
-
-				/* FIXIT : try to remove it */
-				player->have_dynamic_pad = FALSE;
-			}
+			debug_error("failed to create typefind\n");
+			goto ERROR;
 		}
-		else  /* NOTE : use pad's caps directely. if enabled. what I am assuming is there's no elemnt has dynamic pad */
+
+		MMPLAYER_SIGNAL_CONNECT( 	player,
+									G_OBJECT(new_element),
+									"have-type",
+									G_CALLBACK(__mmplayer_typefind_have_type),
+									(gpointer)player);
+
+		/* FIXIT : try to remove it */
+		player->have_dynamic_pad = FALSE;
+	}
+	else  /* NOTE : use pad's caps directely. if enabled. what I am assuming is there's no elemnt has dynamic pad */
+	{
+		debug_log("using pad caps to autopluging instead of doing typefind\n");
+
+		caps = gst_pad_get_caps( pad );
+
+		MMPLAYER_CHECK_NULL( caps );
+
+		/* clear  previous result*/
+		player->have_dynamic_pad = FALSE;
+
+		if ( ! __mmplayer_try_to_plug( player, pad, caps ) )
 		{
-			debug_log("using pad caps to autopluging instead of doing typefind\n");
-
-			caps = gst_pad_get_caps( pad );
-
-			MMPLAYER_CHECK_NULL( caps );
-
-			/* clear  previous result*/
-			player->have_dynamic_pad = FALSE;
-
-			if ( ! __mmplayer_try_to_plug( player, pad, caps ) )
-			{
-				debug_error("failed to autoplug for caps : %s\n", gst_caps_to_string( caps ) );
-				goto ERROR;
-			}
-
-			/* check if there's dynamic pad*/
-			if( player->have_dynamic_pad )
-			{
-				debug_error("using pad caps assums there's no dynamic pad !\n");
-				debug_error("try with enalbing rtsp_do_typefinding\n");
-				goto ERROR;
-			}
-
-			gst_caps_unref( caps );
-			caps = NULL;
+			debug_error("failed to autoplug for caps : %s\n", gst_caps_to_string( caps ) );
+			goto ERROR;
 		}
+
+		/* check if there's dynamic pad*/
+		if( player->have_dynamic_pad )
+		{
+			debug_error("using pad caps assums there's no dynamic pad !\n");
+			debug_error("try with enalbing rtsp_do_typefinding\n");
+			goto ERROR;
+		}
+
+		gst_caps_unref( caps );
+		caps = NULL;
 	}
 
 	/* excute new_element if created*/
@@ -2883,6 +2816,8 @@ __mmplayer_gst_create_audio_pipeline(mm_player_t* player)
 
 	if ( ! player->is_sound_extraction )
 	{
+		GstCaps* caps = NULL;
+
 		/* for logical volume control */
 		MMPLAYER_CREATE_ELEMENT(audiobin, MMPLAYER_A_VOL, "volume", "volume", TRUE);
 		g_object_set(G_OBJECT (audiobin[MMPLAYER_A_VOL].gst), "volume", player->sound.volume, NULL);
@@ -2893,36 +2828,31 @@ __mmplayer_gst_create_audio_pipeline(mm_player_t* player)
 			g_object_set(G_OBJECT (audiobin[MMPLAYER_A_VOL].gst), "mute", player->sound.mute, NULL);
 		}
 
-		/* NOTE : streaming doesn't need capsfilter and sound effect*/
-		if ( ! MMPLAYER_IS_RTSP_STREAMING( player ) )
+		/*capsfilter */
+		MMPLAYER_CREATE_ELEMENT(audiobin, MMPLAYER_A_CAPS_DEFAULT, "capsfilter", "audiocapsfilter", TRUE);
+
+		caps = gst_caps_from_string(		"audio/x-raw-int, "
+										"endianness = (int) LITTLE_ENDIAN, "
+										"signed = (boolean) true, "
+										"width = (int) 16, "
+										"depth = (int) 16" 	);
+
+		g_object_set (GST_ELEMENT(audiobin[MMPLAYER_A_CAPS_DEFAULT].gst), "caps", caps, NULL );
+
+		gst_caps_unref( caps );
+
+		/* audio filter. if enabled */
+		if ( PLAYER_INI()->use_audio_filter_preset || PLAYER_INI()->use_audio_filter_custom )
 		{
-			GstCaps* caps = NULL;
-
-			/*capsfilter */
-			MMPLAYER_CREATE_ELEMENT(audiobin, MMPLAYER_A_CAPS_DEFAULT, "capsfilter", "audiocapsfilter", TRUE);
-
-			caps = gst_caps_from_string(		"audio/x-raw-int, "
-											"endianness = (int) LITTLE_ENDIAN, "
-											"signed = (boolean) true, "
-											"width = (int) 16, "										
-											"depth = (int) 16" 	);
-
-			g_object_set (GST_ELEMENT(audiobin[MMPLAYER_A_CAPS_DEFAULT].gst), "caps", caps, NULL );
-
-			gst_caps_unref( caps );
-
-			/* audio filter. if enabled */
-			if ( PLAYER_INI()->use_audio_filter_preset || PLAYER_INI()->use_audio_filter_custom )
-			{
-				MMPLAYER_CREATE_ELEMENT(audiobin, MMPLAYER_A_FILTER, "soundalive", "audiofilter", TRUE);
-			}
+			MMPLAYER_CREATE_ELEMENT(audiobin, MMPLAYER_A_FILTER, "soundalive", "audiofilter", TRUE);
 		}
+
 		/* create audio sink */
 		MMPLAYER_CREATE_ELEMENT(audiobin, MMPLAYER_A_SINK, PLAYER_INI()->name_of_audiosink,
 			"audiosink", link_audio_sink_now);
 
 		/* sync on */
-		if (MMPLAYER_IS_RTSP_STREAMING (player) )
+		if (MMPLAYER_IS_RTSP_STREAMING(player))
 			g_object_set (G_OBJECT (audiobin[MMPLAYER_A_SINK].gst), "sync", FALSE, NULL); 	/* sync off */
 		else
 			g_object_set (G_OBJECT (audiobin[MMPLAYER_A_SINK].gst), "sync", TRUE, NULL); 	/* sync on */
@@ -2952,7 +2882,7 @@ __mmplayer_gst_create_audio_pipeline(mm_player_t* player)
 			 * It should be set after player creation through attribute.
 			 * But, it can not be changed during playing.
 			 */
-			mm_attrs_get_int_by_name(attrs, "sound_volume_type", &volume_type);			
+			mm_attrs_get_int_by_name(attrs, "sound_volume_type", &volume_type);
 			mm_attrs_get_int_by_name(attrs, "sound_route", &audio_route);
 			mm_attrs_get_int_by_name(attrs, "sound_priority", &sound_priority);
 			mm_attrs_get_int_by_name(attrs, "sound_spk_out_only", &is_spk_out_only);
@@ -4166,7 +4096,7 @@ __mmplayer_gst_create_pipeline(mm_player_t* player) // @
 		/* rtsp streamming */
 		case MM_PLAYER_URI_TYPE_URL_RTSP:
 		{
-			gint udp_timeout, network_bandwidth;
+			gint network_bandwidth;
 			gchar *user_agent, *wap_profile;
 
 			element = gst_element_factory_make(PLAYER_INI()->name_of_rtspsrc, "streaming_source");
@@ -4180,17 +4110,15 @@ __mmplayer_gst_create_pipeline(mm_player_t* player) // @
 			debug_log("using streamming source [%s].\n", PLAYER_INI()->name_of_rtspsrc);
 
 			/* make it zero */
-			udp_timeout = network_bandwidth = 0;
+			network_bandwidth = 0;
 			user_agent = wap_profile = NULL;
 
 			/* get attribute */
-			mm_attrs_get_int_by_name ( attrs,"streaming_udp_timeout", &udp_timeout );
 			mm_attrs_get_string_by_name ( attrs, "streaming_user_agent", &user_agent );
 			mm_attrs_get_string_by_name ( attrs,"streaming_wap_profile", &wap_profile );
 			mm_attrs_get_int_by_name ( attrs, "streaming_network_bandwidth", &network_bandwidth );
 
 			debug_log("setting streaming source ----------------\n");
-			debug_log("udp_timeout : %d\n", udp_timeout);
 			debug_log("user_agent : %s\n", user_agent);
 			debug_log("wap_profile : %s\n", wap_profile);
 			debug_log("network_bandwidth : %d\n", network_bandwidth);
@@ -4200,7 +4128,6 @@ __mmplayer_gst_create_pipeline(mm_player_t* player) // @
 
 			/* setting property to streaming source */
 			g_object_set(G_OBJECT(element), "location", player->profile.uri, NULL);
-			g_object_set(G_OBJECT(element), "timeout", udp_timeout, NULL);
 			g_object_set(G_OBJECT(element), "bandwidth", network_bandwidth, NULL);
 			g_object_set(G_OBJECT(element), "buffering_time", PLAYER_INI()->rtsp_buffering_time, NULL);
 			g_object_set(G_OBJECT(element), "rebuffering_time", PLAYER_INI()->rtsp_rebuffering_time, NULL);
@@ -4653,7 +4580,6 @@ __mmplayer_gst_destroy_pipeline(mm_player_t* player) // @
 		player->v_stream_caps = NULL;
 	}
 	
-	player->state_lost = FALSE;
 	player->need_update_content_dur = FALSE;
 
 	player->pending_seek.is_pending = FALSE;
@@ -5166,18 +5092,6 @@ int __gst_pause(mm_player_t* player, gboolean async) // @
 		ret = __mmplayer_gst_set_state(player,
 			player->pipeline->subtitlebin[MMPLAYER_SUB_PIPE].gst, GST_STATE_PAUSED, async, timeout );
 
-	/* NOTE : here we are setting state PAUSED to streaming source element again. because
-	 * main pipeline will not set the state of it's all childs if state of the pipeline
-	 * is already PAUSED for some reason. this situaition can happen when rebuffering or
-	 * buffering after seeking. in both case streaming source will send flush event and then
-	 * sink elements will lost it's state and it will set the state to PAUSED by theyself.
-	*/
-	if ( MMPLAYER_IS_RTSP_STREAMING( player ) && player->state_lost )
-	{
-		debug_log("setting PAUSED to streaming source again.\n");
-		gst_element_set_state(player->pipeline->mainbin[MMPLAYER_M_SRC].gst, GST_STATE_PAUSED);
-	}
-
 	if ( ret != MM_ERROR_NONE )
 	{
 		debug_error("failed to set state to PAUSED\n");
@@ -5239,13 +5153,6 @@ int __gst_resume(mm_player_t* player, gboolean async) // @
 		ret = __mmplayer_gst_set_state(player,
 			player->pipeline->subtitlebin[MMPLAYER_SUB_PIPE].gst, GST_STATE_PLAYING, async, timeout );
 
-	/* NOTE : same reason when pausing */
-	if ( MMPLAYER_IS_RTSP_STREAMING(player) && player->state_lost )
-	{
-		debug_log("setting PLAYING to streaming source again.\n");
-		gst_element_set_state(player->pipeline->mainbin[MMPLAYER_M_SRC].gst, GST_STATE_PLAYING);
-	}
-
 	if (ret != MM_ERROR_NONE)
 	{
 		debug_error("failed to set state to PLAYING\n");
@@ -5288,16 +5195,9 @@ __gst_set_position(mm_player_t* player, int format, unsigned long position) // @
 	return_val_if_fail ( player && player->pipeline, MM_ERROR_PLAYER_NOT_INITIALIZED );
 	return_val_if_fail ( !MMPLAYER_IS_LIVE_STREAMING(player), MM_ERROR_PLAYER_NO_OP );
 
-	debug_log(" sent bos = %d", player->sent_bos);
-
 	if ( MMPLAYER_CURRENT_STATE(player) != MM_PLAYER_STATE_PLAYING
 		&& MMPLAYER_CURRENT_STATE(player) != MM_PLAYER_STATE_PAUSED )
-	{
-			debug_log();
-			goto PENDING;
-	}
-
-	debug_log();
+		goto PENDING;
 
 	/* check duration */
 	/* NOTE : duration cannot be zero except live streaming.
@@ -5653,8 +5553,6 @@ static gboolean __mmfplayer_parse_profile(const char *uri, void *param, MMPlayer
 #ifdef NO_USE_GST_HLSDEMUX
 			if ((path = strstr(uri, "m3u")))
 			{
-				debug_log ("++++++++++++++++++++ M3U +++++++++++++++++++++\n");
-				debug_log ("\n\n\n\n \t HLS profile \n\n\n");
 				data->uri_type = MM_PLAYER_URI_TYPE_HLS;
 			}
 			else
@@ -5672,8 +5570,6 @@ static gboolean __mmfplayer_parse_profile(const char *uri, void *param, MMPlayer
 #ifdef NO_USE_GST_HLSDEMUX
 			if ((path = strstr(uri, "m3u")))
 			{
-				debug_log ("++++++++++++++++++++ M3U +++++++++++++++++++++\n");
-				debug_log ("\n\n\n\n \t HLS profile \n\n\n");
 				data->uri_type = MM_PLAYER_URI_TYPE_HLS;
 			}
 			else
@@ -7579,7 +7475,6 @@ GstCaps *caps, gpointer data)
 		debug_error("failed to autoplug for type : %s\n", player->type);
 
 		if ( ( PLAYER_INI()->async_start ) &&
-		( ! MMPLAYER_IS_RTSP_STREAMING ( player ) ) &&
 		( player->posted_msg == FALSE ) )
 		{
 			__mmplayer_post_missed_plugin( player );
@@ -7776,17 +7671,6 @@ __mmplayer_try_to_plug(mm_player_t* player, GstPad *pad, const GstCaps *caps) //
 
 		/* check factory class for filtering */
 		klass = gst_element_factory_get_klass(GST_ELEMENT_FACTORY(factory));
-
-		if ( MMPLAYER_IS_RTSP_STREAMING( player ) )
-		{
-			if ( g_strrstr(klass, "Parse") )
-			{
-				debug_log("streaming doesn't need any parser. skipping [%s]\n",
-					GST_PLUGIN_FEATURE_NAME (factory) );
-
-				continue;
-			}
-		}
 
 		/* NOTE : msl don't need to use image plugins.
 		 * So, those plugins should be skipped for error handling.
@@ -7997,9 +7881,6 @@ int __mmplayer_check_not_supported_codec(mm_player_t* player, gchar* mime)
 
 	debug_log("mimetype to check: %s\n", mime );
 
-	if ( MMPLAYER_IS_RTSP_STREAMING(player) )
-		goto DONE;
-
 	/* add missing plugin */
 	/* NOTE : msl should check missing plugin for image mime type.
 	 * Some motion jpeg clips can have playable audio track.
@@ -8077,7 +7958,6 @@ static void __mmplayer_pipeline_complete(GstElement *decodebin,  gpointer data) 
 	player->pipeline_is_constructed = TRUE;
 	
 	if ( ( PLAYER_INI()->async_start ) &&
-		( ! MMPLAYER_IS_RTSP_STREAMING ( player ) ) &&
 		( player->posted_msg == FALSE ) )
 	{
 		__mmplayer_post_missed_plugin( player );
@@ -10075,12 +9955,6 @@ __gst_seek(mm_player_t* player, GstElement * element, gdouble rate,
 		cur, stop_type, stop);
 
 	result = __gst_send_event_to_sink( player, event );
-
-	/* Note : After sending seek event, the sink elements receive flush event
-	 * Not only buffering state but after seeking, state_lost needs to be set to TRUE.
-	 */
-	if (  MMPLAYER_IS_RTSP_STREAMING ( player )  && result )
-		player->state_lost = TRUE;
 
 	debug_fleave();
 
