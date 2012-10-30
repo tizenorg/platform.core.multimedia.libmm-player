@@ -673,6 +673,15 @@ _mmplayer_construct_attribute(MMHandleType handle)
 			0
 		},
 		{
+			"display_overlay_user_data",
+			MM_ATTRS_TYPE_DATA,
+			MM_ATTRS_FLAG_RW,
+			(void *) NULL,
+			MM_ATTRS_VALID_TYPE_NONE,
+			0,
+			0
+		},
+		{
 			"display_zoom",
 			MM_ATTRS_TYPE_INT,
 			MM_ATTRS_FLAG_RW,
@@ -688,7 +697,7 @@ _mmplayer_construct_attribute(MMHandleType handle)
 			(void *) MM_DISPLAY_SURFACE_NULL,
 			MM_ATTRS_VALID_TYPE_INT_RANGE,
 			MM_DISPLAY_SURFACE_X,
-			MM_DISPLAY_SURFACE_NULL
+			MM_DISPLAY_SURFACE_X_EXT
 		},
 		{
 			"display_evas_surface_sink",

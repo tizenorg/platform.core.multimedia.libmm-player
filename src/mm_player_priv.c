@@ -2382,89 +2382,33 @@ _mmplayer_update_video_param(mm_player_t* player) // @
 	/* check video stream callback is used */
 	if( player->use_video_stream )
 	{
-		if (player->is_nv12_tiled)
-		{
-			gchar *ename = NULL;
-			int degree, width, height;
-			degree = width = height = 0;
-			
-			mm_attrs_get_int_by_name(attrs, "display_width", &width);
-			mm_attrs_get_int_by_name(attrs, "display_height", &height);
-			mm_attrs_get_int_by_name(attrs, "display_rotation", &degree);
+		int rotate, width, height, orientation;
 
-			/* resize video frame with requested values for fimcconvert */
-			ename = GST_PLUGIN_FEATURE_NAME(gst_element_get_factory(player->pipeline->videobin[MMPLAYER_V_CONV].gst));
+		rotate = width = height = orientation = 0;
 
-			if (g_strrstr(ename, "fimcconvert"))
-			{
-				if (width)
-					g_object_set(player->pipeline->videobin[MMPLAYER_V_CONV].gst, "src-width", width, NULL);
+		debug_log("using video stream callback with memsink. player handle : [%p]", player);
 
-				if (height)
-					g_object_set(player->pipeline->videobin[MMPLAYER_V_CONV].gst, "src-height", height, NULL);
+		mm_attrs_get_int_by_name(attrs, "display_width", &width);
+		mm_attrs_get_int_by_name(attrs, "display_height", &height);
+		mm_attrs_get_int_by_name(attrs, "display_rotation", &rotate);
+		mm_attrs_get_int_by_name(attrs, "display_orientation", &orientation);
 
-				switch (degree)
-				{
-					case MM_DISPLAY_ROTATION_NONE:
-						degree = 0;
-						break;
-						
-					case MM_DISPLAY_ROTATION_90:
-						degree = 90;
-						break;
-						
-					case MM_DISPLAY_ROTATION_180:
-						degree = 180;
-						break;
-						
-					case MM_DISPLAY_ROTATION_270:
-						degree = 270;
-						break;
-						
-					default:
-						degree = 0;
-						break;
-				}
-
-				g_object_set(player->pipeline->videobin[MMPLAYER_V_CONV].gst, "rotate", degree, NULL);
-
-				debug_log("updating fimcconvert - r[%d], w[%d], h[%d]", degree, width, height);
-			}
-			else
-			{
-				debug_error("no available video converter");
-			}
-		}
+		if (rotate < MM_DISPLAY_ROTATION_NONE || rotate > MM_DISPLAY_ROTATION_270)
+			rotate = 0;
 		else
-		{
-			int rotate, width, height, orientation, rotation;
+			rotate *= 90;
 
-			rotate = width = height = orientation = rotation = 0;
+		if(orientation == 1)        rotate = 90;
+		else if(orientation == 2)   rotate = 180;
+		else if(orientation == 3)   rotate = 270;
 
-			debug_log("using video stream callback with memsink. player handle : [%p]", player);
+		if (width)
+			g_object_set(player->pipeline->videobin[MMPLAYER_V_SINK].gst, "width", width, NULL);
 
-			mm_attrs_get_int_by_name(attrs, "display_width", &width);
-			mm_attrs_get_int_by_name(attrs, "display_height", &height);
-			mm_attrs_get_int_by_name(attrs, "display_rotation", &rotation);
-			mm_attrs_get_int_by_name(attrs, "display_orientation", &orientation);
+		if (height)
+			g_object_set(player->pipeline->videobin[MMPLAYER_V_SINK].gst, "height", height, NULL);
 
-			if(rotation == MM_DISPLAY_ROTATION_NONE)    rotate = 0;
-			else if(rotation ==MM_DISPLAY_ROTATION_90)   rotate = 90;
-			else if(rotation ==MM_DISPLAY_ROTATION_180)  rotate = 180;
-			else if(rotation ==MM_DISPLAY_ROTATION_270)  rotate = 270;
-
-			if(orientation == 1)        rotate = 90;
-			else if(orientation == 2)   rotate = 180;
-			else if(orientation == 3)   rotate = 270;
-			
-			if (width)
-				g_object_set(player->pipeline->videobin[MMPLAYER_V_SINK].gst, "width", width, NULL);
-
-			if (height)
-				g_object_set(player->pipeline->videobin[MMPLAYER_V_SINK].gst, "height", height, NULL);
-
-			g_object_set(player->pipeline->videobin[MMPLAYER_V_SINK].gst, "rotate", rotate,NULL);
-		}
+		g_object_set(player->pipeline->videobin[MMPLAYER_V_SINK].gst, "rotate", rotate,NULL);
 		
 		return MM_ERROR_NONE;
 	}
@@ -2562,40 +2506,6 @@ _mmplayer_update_video_param(mm_player_t* player) // @
 				return MM_ERROR_PLAYER_INTERNAL;
 			}
 
-			/* if evasimagesink */
-			if (!strcmp(PLAYER_INI()->videosink_element_evas,"evasimagesink") && player->is_nv12_tiled)
-			{
-				int width = 0;
-				int height = 0;
-				int no_scaling = !scaling;
-
-				mm_attrs_get_int_by_name(attrs, "display_width", &width);
-				mm_attrs_get_int_by_name(attrs, "display_height", &height);
-
-				if (no_scaling)
-				{
-					/* no-scaling order to fimcconvert, original width, height size of media src will be passed to sink plugin */
-					g_object_set(player->pipeline->videobin[MMPLAYER_V_CONV].gst,
-							"src-width", 0, /* setting 0, output video width will be media src's width */
-							"src-height", 0, /* setting 0, output video height will be media src's height */
-							NULL);
-				}
-				else
-				{
-					/* scaling order to fimcconvert */
-					if (width)
-					{
-						g_object_set(player->pipeline->videobin[MMPLAYER_V_CONV].gst, "src-width", width, NULL);
-					}
-					if (height)
-					{
-						g_object_set(player->pipeline->videobin[MMPLAYER_V_CONV].gst, "src-height", height, NULL);
-					}
-					debug_log("set video param : video frame scaling down to width(%d) height(%d)", width, height);
-				}
-				debug_log("set video param : display_evas_do_scaling %d", scaling);
-			}
-
 			/* if evaspixmapsink */
 			if (!strcmp(PLAYER_INI()->videosink_element_evas,"evaspixmapsink"))
 			{
@@ -2630,6 +2540,58 @@ _mmplayer_update_video_param(mm_player_t* player) // @
 				debug_log("set video param : force aspect ratio %d", force_aspect_ratio);
 				debug_log("set video param : display_evas_do_scaling %d (origin-size %d)", scaling, origin_size);
 			}
+		}
+		break;
+		case MM_DISPLAY_SURFACE_X_EXT:	/* NOTE : this surface type is for the video texture(canvas texture) */
+		{
+			void *pixmap_id_cb = NULL;
+			void *pixmap_id_cb_user_data = NULL;
+			int zoom = 0;
+			int degree = 0;
+			int display_method = 0;
+			int roi_x = 0;
+			int roi_y = 0;
+			int roi_w = 0;
+			int roi_h = 0;
+			int force_aspect_ratio = 0;
+			gboolean visible = TRUE;
+
+			/* if xvimagesink */
+			if (strcmp(PLAYER_INI()->videosink_element_x,"xvimagesink"))
+			{
+				debug_error("videosink is not xvimagesink");
+				return MM_ERROR_PLAYER_INTERNAL;
+			}
+
+			/* get information from attributes */
+			mm_attrs_get_data_by_name(attrs, "display_overlay", &pixmap_id_cb);
+			mm_attrs_get_data_by_name(attrs, "display_overlay_user_data", &pixmap_id_cb_user_data);
+			mm_attrs_get_int_by_name(attrs, "display_method", &display_method);
+
+			if ( pixmap_id_cb )
+			{
+				debug_log("set video param : display_overlay(0x%x)", pixmap_id_cb);
+				if (pixmap_id_cb_user_data)
+				{
+					debug_log("set video param : display_overlay_user_data(0x%x)", pixmap_id_cb_user_data);
+				}
+			}
+			else
+			{
+				debug_error("failed to set pixmap-id-callback");
+				return MM_ERROR_PLAYER_INTERNAL;
+			}
+			debug_log("set video param : method %d", display_method);
+			debug_log("set video param : visible %d", visible);
+
+			/* set properties of videosink plugin */
+			g_object_set(player->pipeline->videobin[MMPLAYER_V_SINK].gst,
+				"display-geometry-method", display_method,
+				"draw-borders", FALSE,
+				"visible", visible,
+				"pixmap-id-callback", pixmap_id_cb,
+				"pixmap-id-callback-userdata", pixmap_id_cb_user_data,
+				NULL );
 		}
 		break;
 		case MM_DISPLAY_SURFACE_NULL:
@@ -3120,8 +3082,7 @@ __mmplayer_ahs_appsrc_probe (GstPad *pad, GstBuffer *buffer, gpointer u_data)
 /**
   * VIDEO PIPELINE
   * - x surface (arm/x86) : xvimagesink
-  * - evas surface  (arm) : evaspixmapsink
-  *                         fimcconvert ! evasimagesink
+  * - evas surface  (arm) : ffmpegcolorspace ! evasimagesink
   * - evas surface  (x86) : videoconvertor ! evasimagesink
   */
 static int
@@ -3166,16 +3127,9 @@ __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps, MMDispl
 		debug_log("using memsink\n");
 
 		/* first, create colorspace convert */
-		if (player->is_nv12_tiled)
+		if (strlen(PLAYER_INI()->name_of_video_converter) > 0)
 		{
-			vconv_factory = "fimcconvert";
-		}
-		else // get video converter from player ini file
-		{
-			if (strlen(PLAYER_INI()->name_of_video_converter) > 0)
-			{
 				vconv_factory = PLAYER_INI()->name_of_video_converter;
-			}
 		}
 
 		if (vconv_factory)
@@ -3279,19 +3233,6 @@ __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps, MMDispl
 		if (strlen(PLAYER_INI()->name_of_video_converter) > 0)
 		{
 			vconv_factory = PLAYER_INI()->name_of_video_converter;
-			
-			if (player->is_nv12_tiled)
-			{
-				if ( ((surface_type == MM_DISPLAY_SURFACE_EVAS) && !strcmp(PLAYER_INI()->videosink_element_evas, "evasimagesink")) )
-				{
-					vconv_factory = "fimcconvert";
-				}
-				else
-				{
-					vconv_factory = NULL;
-				}
-			}
-
 			if (vconv_factory)
 			{
 				MMPLAYER_CREATE_ELEMENT(videobin, MMPLAYER_V_CONV, vconv_factory, "video converter", TRUE);
@@ -3307,27 +3248,43 @@ __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps, MMDispl
 		/* set video sink */
 		switch (surface_type)
 		{
-			case MM_DISPLAY_SURFACE_X:
-				if (strlen(PLAYER_INI()->videosink_element_x) > 0)
-					videosink_element = PLAYER_INI()->videosink_element_x;
-				else
-					goto ERROR;
-				break;
-			case MM_DISPLAY_SURFACE_EVAS:
-				if (strlen(PLAYER_INI()->videosink_element_evas) > 0)
-					videosink_element = PLAYER_INI()->videosink_element_evas;
-				else
-					goto ERROR;
-				break;
-			case MM_DISPLAY_SURFACE_NULL:
-				if (strlen(PLAYER_INI()->videosink_element_fake) > 0)
-					videosink_element = PLAYER_INI()->videosink_element_fake;
-				else
-					goto ERROR;
-				break;
-			default:
-				debug_error("unidentified surface type");
+		case MM_DISPLAY_SURFACE_X:
+			if (strlen(PLAYER_INI()->videosink_element_x) > 0)
+				videosink_element = PLAYER_INI()->videosink_element_x;
+			else
 				goto ERROR;
+			break;
+		case MM_DISPLAY_SURFACE_EVAS:
+			if (strlen(PLAYER_INI()->videosink_element_evas) > 0)
+				videosink_element = PLAYER_INI()->videosink_element_evas;
+			else
+				goto ERROR;
+			break;
+		case MM_DISPLAY_SURFACE_X_EXT:
+		{
+			void *pixmap_id_cb = NULL;
+			mm_attrs_get_data_by_name(attrs, "display_overlay", &pixmap_id_cb);
+			if (pixmap_id_cb) /* this is for the video textue(canvas texture) */
+			{
+				videosink_element = PLAYER_INI()->videosink_element_x;
+				debug_warning("video texture usage");
+			}
+			else
+			{
+				debug_error("something wrong.. callback function for getting pixmap id is null");
+				goto ERROR;
+			}
+			break;
+		}
+		case MM_DISPLAY_SURFACE_NULL:
+			if (strlen(PLAYER_INI()->videosink_element_fake) > 0)
+				videosink_element = PLAYER_INI()->videosink_element_fake;
+			else
+				goto ERROR;
+			break;
+		default:
+			debug_error("unidentified surface type");
+			goto ERROR;
 		}
 
 		MMPLAYER_CREATE_ELEMENT(videobin, MMPLAYER_V_SINK, videosink_element, videosink_element, TRUE);

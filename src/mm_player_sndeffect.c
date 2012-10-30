@@ -40,7 +40,7 @@ mm_player_get_foreach_present_supported_filter_type(MMHandleType player, MMAudio
 	/* get status if speaker is activated */
 	result = mm_sound_get_active_device(&device_in, &device_out);
 	if ( result ) {
-		debug_error("mm_sound_get_active_device() failed [%x]!!\n", result);
+		debug_error("mm_sound_get_active_device() failed [%x]!!", result);
 		return result;
 	}
 
@@ -84,14 +84,14 @@ mm_player_get_foreach_present_supported_filter_type(MMHandleType player, MMAudio
 	}
 	else
 	{
-		debug_error("invalid filter type(%d)\n", filter_type);
+		debug_error("invalid filter type(%d)", filter_type);
 		result = MM_ERROR_INVALID_ARGUMENT;
 	}
 
 	return result;
 
 CALLBACK_ERROR:
-	debug_error("foreach cb returned error\n");
+	debug_error("foreach cb returned error");
 	return MM_ERROR_PLAYER_INTERNAL;
 }
 
@@ -110,25 +110,25 @@ __mmplayer_set_harmony_filter(mm_player_t *player, GstElement *filter_element)
 	/* Custom EQ */
 	if( PLAYER_INI()->audio_filter_custom_eq_num )
 	{
-		debug_log("pass custom EQ level list to sound effect plugin\n");
+		debug_log("pass custom EQ level list to sound effect plugin");
 		/* set custom-equalizer level list */
 		g_object_set(filter_element, "custom-eq", player->audio_filter_info.custom_eq_level, NULL);
 	}
 	else
 	{
-		debug_warning("no custom EQ\n");
+		debug_warning("no custom EQ");
 	}
 
 	/* Custom Extension filters */
 	if( PLAYER_INI()->audio_filter_custom_ext_num )
 	{
-		debug_log("pass custom extension level list to sound effect plugin\n");
+		debug_log("pass custom extension level list to sound effect plugin");
 		ext_filter_level_list = player->audio_filter_info.custom_ext_level_for_plugin;
 		if (!ext_filter_level_list) {
 			ext_filter_level_list = (gint*) malloc (sizeof(gint)*PLAYER_INI()->audio_filter_custom_ext_num);
 			if (!ext_filter_level_list)
 			{
-				debug_error("memory allocation for extension filter list failed\n");
+				debug_error("memory allocation for extension filter list failed");
 				return MM_ERROR_OUT_OF_MEMORY;
 			}
 			else
@@ -156,12 +156,12 @@ __mmplayer_set_harmony_filter(mm_player_t *player, GstElement *filter_element)
 	}
 	else
 	{
-		debug_warning("no custom extension fliter\n");
+		debug_warning("no custom extension fliter");
 	}
 
 	/* order action to sound effect plugin */
 	g_object_set(filter_element, "filter-action", MM_AUDIO_FILTER_TYPE_CUSTOM, NULL);
-	debug_log("filter-action = %d\n", MM_AUDIO_FILTER_TYPE_CUSTOM);
+	debug_log("filter-action = %d", MM_AUDIO_FILTER_TYPE_CUSTOM);
 
 	debug_fleave();
 
@@ -183,7 +183,7 @@ __mmplayer_is_earphone_only_filter_type(mm_player_t *player, MMAudioFilterType f
 	{
 		if (PLAYER_INI()->audio_filter_preset_earphone_only_list[filter])
 		{
-			debug_msg("this preset filter(%d) is only available with earphone\n", filter);
+			debug_msg("this preset filter(%d) is only available with earphone", filter);
 			result = TRUE;
 		}
 	}
@@ -197,7 +197,7 @@ __mmplayer_is_earphone_only_filter_type(mm_player_t *player, MMAudioFilterType f
 				/* check if the earphone only custom filter was set */
 				if (player->audio_filter_info.custom_ext_level[i-1])
 				{
-					debug_msg("this custom filter(%d) is only available with earphone\n", i);
+					debug_msg("this custom filter(%d) is only available with earphone", i);
 					result = TRUE;
 				}
 			}
@@ -205,7 +205,7 @@ __mmplayer_is_earphone_only_filter_type(mm_player_t *player, MMAudioFilterType f
 	}
 	else
 	{
-		debug_error("invalid filter type(%d)\n", filter_type);
+		debug_error("invalid filter type(%d)", filter_type);
 	}
 
 	return result;
@@ -224,12 +224,12 @@ _mmplayer_is_supported_filter_type(MMAudioFilterType filter_type, int filter)
 	{
 		if ( filter < MM_AUDIO_FILTER_PRESET_AUTO || filter >= MM_AUDIO_FILTER_PRESET_NUM )
 		{
-			debug_error("out of range, preset filter(%d)\n", filter);
+			debug_error("out of range, preset filter(%d)", filter);
 			result = FALSE;
 		}
 		if (!PLAYER_INI()->audio_filter_preset_list[filter])
 		{
-			debug_error("this filter(%d) is not supported\n", filter);
+			debug_error("this filter(%d) is not supported", filter);
 			result = FALSE;
 		}
 	}
@@ -238,18 +238,18 @@ _mmplayer_is_supported_filter_type(MMAudioFilterType filter_type, int filter)
 	{
 		if ( filter < MM_AUDIO_FILTER_CUSTOM_EQ || filter >= MM_AUDIO_FILTER_CUSTOM_NUM )
 		{
-			debug_error("out of range, custom filter(%d)\n", filter);
+			debug_error("out of range, custom filter(%d)", filter);
 			result = FALSE;
 		}
 		if (!PLAYER_INI()->audio_filter_custom_list[filter])
 		{
-			debug_error("this custom filter(%d) is not supported\n", filter);
+			debug_error("this custom filter(%d) is not supported", filter);
 			result = FALSE;
 		}
 	}
 	else
 	{
-		debug_error("invalid filter type(%d)\n", filter_type);
+		debug_error("invalid filter type(%d)", filter_type);
 		result = FALSE;
 	}
 
@@ -273,7 +273,7 @@ _mmplayer_sound_filter_preset_apply(mm_player_t *player, MMAudioFilterPresetType
 	/* Music Player can set sound effect value before Audiobin is created. */
 	if ( !player->pipeline || !player->pipeline->audiobin )
 	{
-		debug_warning("filter element is not created yet.\n");
+		debug_warning("filter element is not created yet.");
 
 		player->bypass_sound_effect = FALSE;
 
@@ -290,7 +290,7 @@ _mmplayer_sound_filter_preset_apply(mm_player_t *player, MMAudioFilterPresetType
 		/* get status if speaker is activated */
 		result = mm_sound_get_active_device(&device_in, &device_out);
 		if ( result ) {
-			debug_error("mm_sound_get_active_device() failed [%x]!!\n", result);
+			debug_error("mm_sound_get_active_device() failed [%x]!!", result);
 			return result;
 		}
 
@@ -300,7 +300,7 @@ _mmplayer_sound_filter_preset_apply(mm_player_t *player, MMAudioFilterPresetType
 			output_type = MM_AUDIO_FILTER_OUTPUT_SPK;
 			if (__mmplayer_is_earphone_only_filter_type(player, MM_AUDIO_FILTER_TYPE_PRESET, filter_type))
 			{
-				debug_error("earphone is not equipped, this filter will not be applied\n");
+				debug_error("earphone is not equipped, this filter will not be applied");
 				return MM_ERROR_PLAYER_SOUND_EFFECT_INVALID_STATUS;
 			}
 		}
@@ -312,23 +312,23 @@ _mmplayer_sound_filter_preset_apply(mm_player_t *player, MMAudioFilterPresetType
 
 		/* set filter output mode as SPEAKER or EARPHONE */
 		g_object_set(filter_element, "filter-output-mode", output_type, NULL);
-		debug_log("filter-output-mode = %d (0:spk,1:ear)\n", output_type);
+		debug_log("filter-output-mode = %d (0:spk,1:ear)", output_type);
 
 		if (filter_type == MM_AUDIO_FILTER_PRESET_AUTO) {
 			/* TODO: Add codes about auto selecting preset mode according to ID3 tag */
 			/* set filter preset mode */
 			g_object_set(filter_element, "preset-mode", 0, NULL); /* forced set to 0(normal) temporarily */
-			debug_log("preset-mode = %d\n", filter_type);
+			debug_log("preset-mode = %d", filter_type);
 
 		} else {
 			/* set filter preset mode */
 			g_object_set(filter_element, "preset-mode", filter_type-1, NULL); /* filter_type-1, because of _PRESET_AUTO in MSL/CAPI which does not exist in soundAlive plugin */
-			debug_log("preset-mode = %d\n", filter_type);
+			debug_log("preset-mode = %d", filter_type);
 		}
 
 		/* order action to sound effect plugin */
 		g_object_set(filter_element, "filter-action", MM_AUDIO_FILTER_TYPE_PRESET, NULL);
-		debug_log("filter-action = %d\n", MM_AUDIO_FILTER_TYPE_PRESET);
+		debug_log("filter-action = %d", MM_AUDIO_FILTER_TYPE_PRESET);
 
 	}
 	debug_fleave();
@@ -350,7 +350,7 @@ _mmplayer_sound_filter_custom_apply(mm_player_t *player)
 	/* Music Player can set sound effect value before Audiobin is created. */
 	if ( !player->pipeline || !player->pipeline->audiobin )
 	{
-		debug_warning("filter element is not created yet.\n");
+		debug_warning("filter element is not created yet.");
 
 		player->bypass_sound_effect = FALSE;
 
@@ -370,7 +370,7 @@ _mmplayer_sound_filter_custom_apply(mm_player_t *player)
 		/* get status if speaker is activated */
 		result = mm_sound_get_active_device(&device_in, &device_out);
 		if ( result ) {
-			debug_error("mm_sound_get_active_device() failed [%x]!!\n", result);
+			debug_error("mm_sound_get_active_device() failed [%x]!!", result);
 			return result;
 		}
 
@@ -380,7 +380,7 @@ _mmplayer_sound_filter_custom_apply(mm_player_t *player)
 			output_type = MM_AUDIO_FILTER_OUTPUT_SPK;
 			if (__mmplayer_is_earphone_only_filter_type(player, MM_AUDIO_FILTER_TYPE_CUSTOM, NULL))
 			{
-				debug_error("earphone is not equipped, some custom filter should operate with earphone(%x)\n", result);
+				debug_error("earphone is not equipped, some custom filter should operate with earphone");
 				return MM_ERROR_PLAYER_SOUND_EFFECT_INVALID_STATUS;
 			}
 		}
@@ -392,12 +392,12 @@ _mmplayer_sound_filter_custom_apply(mm_player_t *player)
 
 		/* set filter output mode as SPEAKER or EARPHONE */
 		g_object_set(filter_element, "filter-output-mode", output_type, NULL);
-		debug_log("filter output mode = %d(0:spk,1:ear)\n", output_type);
+		debug_log("filter output mode = %d(0:spk,1:ear)", output_type);
 
 		result = __mmplayer_set_harmony_filter(player, filter_element);
 		if ( result )
 		{
-			debug_error("_set_harmony_filter() failed(%x)\n", result);
+			debug_error("_set_harmony_filter() failed(%x)", result);
 			return result;
 		}
 	}
@@ -419,7 +419,7 @@ mm_player_sound_filter_custom_clear_eq_all(MMHandleType hplayer)
 	/* clear EQ custom filter */
 	memset(player->audio_filter_info.custom_eq_level, MM_AUDIO_FILTER_CUSTOM_LEVEL_INIT, sizeof(int)*MM_AUDIO_FILTER_EQ_BAND_MAX);
 
-	debug_msg("All the EQ bands clearing success\n");
+	debug_msg("All the EQ bands clearing success");
 
 	return result;
 }
@@ -441,7 +441,7 @@ mm_player_sound_filter_custom_clear_ext_all(MMHandleType hplayer)
 		player->audio_filter_info.custom_ext_level[i] = MM_AUDIO_FILTER_CUSTOM_LEVEL_INIT;
 	}
 
-	debug_msg("All the extension filters clearing success\n");
+	debug_msg("All the extension filters clearing success");
 
 	return result;
 }
@@ -494,13 +494,13 @@ mm_player_sound_filter_preset_apply(MMHandleType hplayer, MMAudioFilterPresetTyp
 
 	if (!PLAYER_INI()->use_audio_filter_preset)
 	{
-		debug_error("sound filter(preset) is not suppported\n", type);
+		debug_error("sound filter(preset) is not suppported", type);
 		return MM_ERROR_NOT_SUPPORT_API;
 	}
 
 	if (type < MM_AUDIO_FILTER_PRESET_AUTO || type >= MM_AUDIO_FILTER_PRESET_NUM)
 	{
-		debug_error("out of range, type(%d)\n", type);
+		debug_error("out of range, type(%d)", type);
 		return MM_ERROR_INVALID_ARGUMENT;
 	}
 
@@ -527,7 +527,7 @@ mm_player_sound_filter_custom_apply(MMHandleType hplayer)
 
 	if (!PLAYER_INI()->use_audio_filter_custom)
 	{
-		debug_error("sound filter(custom) is not suppported\n");
+		debug_error("sound filter(custom) is not suppported");
 		return MM_ERROR_NOT_SUPPORT_API;
 	}
 
@@ -549,12 +549,12 @@ mm_player_sound_filter_bypass (MMHandleType hplayer)
 
 	if ( !PLAYER_INI()->use_audio_filter_preset && !PLAYER_INI()->use_audio_filter_custom )
 	{
-		debug_error("sound filter(preset/custom) is not suppported\n");
+		debug_error("sound filter(preset/custom) is not suppported");
 		return MM_ERROR_NOT_SUPPORT_API;
 	}
 	if ( !player->pipeline || !player->pipeline->audiobin )
 	{
-		debug_warning("filter element is not created yet.\n");
+		debug_warning("filter element is not created yet.");
 	}
 	else
 	{
@@ -563,7 +563,7 @@ mm_player_sound_filter_bypass (MMHandleType hplayer)
 
 		/* order action to sound effect plugin */
 		g_object_set(filter_element, "filter-action", MM_AUDIO_FILTER_TYPE_NONE, NULL);
-		debug_log("filter-action = %d\n", MM_AUDIO_FILTER_TYPE_NONE);
+		debug_log("filter-action = %d", MM_AUDIO_FILTER_TYPE_NONE);
 	}
 
 	debug_fleave();
@@ -598,13 +598,13 @@ _mmplayer_sound_filter_custom_set_level_ext(mm_player_t *player, MMAudioFilterCu
 			{
 				filter_level_min = PLAYER_INI()->audio_filter_custom_min_level_list[ext_level_index];
 				filter_level_max = PLAYER_INI()->audio_filter_custom_max_level_list[ext_level_index];
-				debug_msg("level min value(%d), level max value(%d)\n", filter_level_min, filter_level_max);
+				debug_msg("level min value(%d), level max value(%d)", filter_level_min, filter_level_max);
 				break;
 			}
 			ext_level_index++;
 			if (ext_level_index == PLAYER_INI()->audio_filter_custom_ext_num + 1)
 			{
-				debug_error("could not find min, max value. maybe filter information in ini file is not proper for sound effect plugin\n");
+				debug_error("could not find min, max value. maybe filter information in ini file is not proper for sound effect plugin");
 				break;
 			}
 		}
@@ -613,13 +613,13 @@ _mmplayer_sound_filter_custom_set_level_ext(mm_player_t *player, MMAudioFilterCu
 
 	if ( level < filter_level_min || level > filter_level_max )
 	{
-		debug_error("out of range, level(%d)\n", level);
+		debug_error("out of range, level(%d)", level);
 		result = MM_ERROR_INVALID_ARGUMENT;
 	}
 	else
 	{
 		player->audio_filter_info.custom_ext_level[custom_filter_type-1] = level;
-		debug_msg("set ext[%d] = %d\n", custom_filter_type-1, level);
+		debug_msg("set ext[%d] = %d", custom_filter_type-1, level);
 	}
 
 	debug_fleave();
@@ -645,24 +645,24 @@ _mmplayer_sound_filter_custom_set_level_eq(mm_player_t *player, int index, int l
 
 	if ( index < 0 || index > PLAYER_INI()->audio_filter_custom_eq_num - 1 )
 	{
-		debug_error("out of range, index(%d)\n", index);
+		debug_error("out of range, index(%d)", index);
 		result = MM_ERROR_INVALID_ARGUMENT;
 	}
 	else
 	{
 		eq_level_min = PLAYER_INI()->audio_filter_custom_min_level_list[MM_AUDIO_FILTER_CUSTOM_EQ];
 		eq_level_max = PLAYER_INI()->audio_filter_custom_max_level_list[MM_AUDIO_FILTER_CUSTOM_EQ];
-		debug_msg("EQ level min value(%d), EQ level max value(%d)\n", eq_level_min, eq_level_max);
+		debug_msg("EQ level min value(%d), EQ level max value(%d)", eq_level_min, eq_level_max);
 
 		if ( level < eq_level_min || level > eq_level_max )
 		{
-			debug_error("out of range, EQ level(%d)\n", level);
+			debug_error("out of range, EQ level(%d)", level);
 			result =  MM_ERROR_INVALID_ARGUMENT;
 		}
 		else
 		{
 			player->audio_filter_info.custom_eq_level[index] = level;
-			debug_msg("set EQ[%d] = %d\n", index, level);
+			debug_msg("set EQ[%d] = %d", index, level);
 		}
 	}
 	debug_fleave();
@@ -697,7 +697,7 @@ mm_player_sound_filter_custom_set_level(MMHandleType hplayer, MMAudioFilterCusto
 	}
 	else
 	{
-		debug_error("out of range, filter type(%d)\n", filter_custom_type);
+		debug_error("out of range, filter type(%d)", filter_custom_type);
 		result = MM_ERROR_INVALID_ARGUMENT;
 	}
 	return result;
@@ -720,7 +720,7 @@ mm_player_sound_filter_custom_get_eq_bands_number(MMHandleType hplayer, int *ban
 	}
 
 	*bands = PLAYER_INI()->audio_filter_custom_eq_num;
-	debug_log("number of custom eq band = %d\n", *bands);
+	debug_log("number of custom eq band = %d", *bands);
 
 	debug_fleave();
 
@@ -749,23 +749,23 @@ mm_player_sound_filter_custom_get_level(MMHandleType hplayer, MMAudioFilterCusto
 	{
 		if ( eq_index < 0 || eq_index > PLAYER_INI()->audio_filter_custom_eq_num - 1 )
 		{
-			debug_error("out of range, eq index(%d)\n", eq_index);
+			debug_error("out of range, eq index(%d)", eq_index);
 			result = MM_ERROR_INVALID_ARGUMENT;
 		}
 		else
 		{
 			*level = player->audio_filter_info.custom_eq_level[eq_index];
-			debug_log("EQ index = %d, level = %d\n", eq_index, *level);
+			debug_log("EQ index = %d, level = %d", eq_index, *level);
 		}
 	}
 	else if ( type > MM_AUDIO_FILTER_CUSTOM_EQ && type < MM_AUDIO_FILTER_CUSTOM_NUM )
 	{
 		*level = player->audio_filter_info.custom_ext_level[type-1];
-		debug_log("extention filter index = %d, level = %d\n", type, *level);
+		debug_log("extention filter index = %d, level = %d", type, *level);
 	}
 	else
 	{
-		debug_error("out of range, type(%d)\n", type);
+		debug_error("out of range, type(%d)", type);
 		result = MM_ERROR_INVALID_ARGUMENT;
 	}
 
@@ -799,7 +799,7 @@ mm_player_sound_filter_custom_get_level_range(MMHandleType hplayer, MMAudioFilte
 	{
 		*min = PLAYER_INI()->audio_filter_custom_min_level_list[MM_AUDIO_FILTER_CUSTOM_EQ];
 		*max = PLAYER_INI()->audio_filter_custom_max_level_list[MM_AUDIO_FILTER_CUSTOM_EQ];
-		debug_log("EQ min level = %d, max level = %d\n", *min, *max);
+		debug_log("EQ min level = %d, max level = %d", *min, *max);
 	}
 	else
 	{
@@ -811,13 +811,13 @@ mm_player_sound_filter_custom_get_level_range(MMHandleType hplayer, MMAudioFilte
 				{
 					*min = PLAYER_INI()->audio_filter_custom_min_level_list[ext_level_index];
 					*max = PLAYER_INI()->audio_filter_custom_max_level_list[ext_level_index];
-					debug_msg("Extension filter(%d) min level = %d, max level = %d\n", count, *min, *max);
+					debug_msg("Extension filter(%d) min level = %d, max level = %d", count, *min, *max);
 					break;
 				}
 				ext_level_index++;
 				if ( ext_level_index == PLAYER_INI()->audio_filter_custom_ext_num + 1 )
 				{
-					debug_error("could not find min, max value. maybe filter information in ini file is not proper for sound effect plugin\n");
+					debug_error("could not find min, max value. maybe filter information in ini file is not proper for sound effect plugin");
 					break;
 				}
 			}
@@ -852,7 +852,7 @@ mm_player_sound_filter_custom_set_level_eq_from_list(MMHandleType hplayer, int *
 
 	if ( size != PLAYER_INI()->audio_filter_custom_eq_num )
 	{
-		debug_error("input size variable(%d) does not match with number of eq band(%d)\n", size, PLAYER_INI()->audio_filter_custom_eq_num);
+		debug_error("input size variable(%d) does not match with number of eq band(%d)", size, PLAYER_INI()->audio_filter_custom_eq_num);
 		result = MM_ERROR_INVALID_ARGUMENT;
 	}
 	else
@@ -864,7 +864,7 @@ mm_player_sound_filter_custom_set_level_eq_from_list(MMHandleType hplayer, int *
 		{
 			if ( level_list[i] < eq_level_min || level_list[i] > eq_level_max)
 			{
-				debug_error("out of range, level[%d]=%d\n", i, level_list[i]);
+				debug_error("out of range, level[%d]=%d", i, level_list[i]);
 				result = MM_ERROR_INVALID_ARGUMENT;
 				break;
 			}
