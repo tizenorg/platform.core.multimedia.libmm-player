@@ -64,6 +64,7 @@ rm -rf %{buildroot}
 
 
 %files
+%manifest libmm-player.manifest
 %defattr(-,root,root,-)
 %{_libdir}/*.so.*
 
