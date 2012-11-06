@@ -271,10 +271,10 @@ _mmplayer_construct_attribute(MMHandleType handle)
 			MMPLAYER_MAX_INT
 		},
 		{
-			"profile_async_start",
+			"profile_prepare_async",
 			MM_ATTRS_TYPE_INT,
 			MM_ATTRS_FLAG_RW,
-			(void *) 1,
+			(void *) 0,
 			MM_ATTRS_VALID_TYPE_INT_RANGE,
 			0,
 			1
