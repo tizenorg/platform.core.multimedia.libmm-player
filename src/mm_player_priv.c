@@ -486,7 +486,6 @@ __mmplayer_gst_set_state (mm_player_t* player, GstElement * element,  GstState s
 	return MM_ERROR_NONE;
 }
 
-
 static void
 __mmplayer_videostream_cb(GstElement *element, void *stream,
 int width, int height, gpointer data) // @
@@ -496,11 +495,15 @@ int width, int height, gpointer data) // @
 
 	return_if_fail ( player );
 
+	debug_fenter();
+
    	if (player->video_stream_cb )
     	{
         	length = width * height * 4; // for rgb 32bit
         	player->video_stream_cb(stream, length, player->video_stream_cb_user_param, width, height);
     	}
+
+	debug_fleave();
 }
 
 gboolean
@@ -1223,6 +1226,9 @@ __mmplayer_handle_buffering_message ( mm_player_t* player )
 
 					case MM_PLAYER_STATE_PAUSED:
 					{
+						/* NOTE: It should be worked as asynchronously.
+						 * Because, buffering can be completed during autoplugging when pipeline would try to go playing state directly.
+						 */
 						__gst_resume ( player, TRUE );
 					}
 					break;
@@ -1594,6 +1600,12 @@ __mmplayer_gst_callback(GstBus *bus, GstMessage *msg, gpointer data) // @
 						player->doing_seek = FALSE;
 						async_done = FALSE;
 						MMPLAYER_POST_MSG ( player, MM_MESSAGE_SEEK_COMPLETED, NULL );
+					}
+
+					if ( MMPLAYER_IS_STREAMING(player) ) // managed prepare async case when buffering is completed
+					{
+						// pending state should be reset oyherwise, it's still playing even though it's resumed after bufferging.
+						MMPLAYER_SET_STATE ( player, MM_PLAYER_STATE_PLAYING);
 					}
 				}
 				break;
