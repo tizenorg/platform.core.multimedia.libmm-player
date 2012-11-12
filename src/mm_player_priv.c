@@ -4745,13 +4745,16 @@ static int __gst_start(mm_player_t* player) // @
 	/* !! create one more api to check if there is pending seek rather than checking variables */
 	if ( (player->pending_seek.is_pending || sound_extraction) && !MMPLAYER_IS_STREAMING(player))
 	{
+		MMPLAYER_TARGET_STATE(player) = MM_PLAYER_STATE_PAUSED;
 		ret = __gst_pause(player, FALSE);
 		if ( ret != MM_ERROR_NONE )
 		{
 			debug_error("failed to set state to PAUSED for pending seek\n");
 			return ret;
 		}
-			
+
+		MMPLAYER_TARGET_STATE(player) = MM_PLAYER_STATE_PLAYING;
+
 		if ( sound_extraction )
 		{
 			debug_log("setting pcm extraction\n");
