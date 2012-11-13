@@ -40,7 +40,6 @@
 #include "mm_message.h"
 #include "mm_player_utils.h"
 #include "mm_player_asm.h"
-#include "mm_player_ahs.h"
 #include "mm_player_pd.h"
 #include "mm_player_streaming.h"
 
@@ -417,9 +416,6 @@ typedef struct {
 
 	/* command lock */
 	GMutex* cmd_lock;
-
-	/* handle of adaptive http streaming */
-	mm_player_ahs_t *ahs_player;
 
 	/* repeat thread lock */
 	GCond* repeat_thread_cond;

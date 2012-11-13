@@ -92,14 +92,13 @@ void __mm_player_streaming_deinitialize (mm_player_streaming_t* streamer)
 	return;
 }
 
-
 void __mm_player_streaming_destroy (mm_player_streaming_t* streamer)
 {
 	debug_fenter();
 
 	if(streamer)
 	{
-		free (streamer);
+		g_free (streamer);
 		streamer = NULL;
 	}
 
@@ -107,7 +106,6 @@ void __mm_player_streaming_destroy (mm_player_streaming_t* streamer)
 
 	return;
 }
-
 
 void __mm_player_streaming_set_buffer(mm_player_streaming_t* streamer, GstElement * buffer,
 	gboolean use_buffering, guint buffer_size, gdouble low_percent, gdouble high_percent, gdouble buffering_time,
@@ -135,7 +133,6 @@ void __mm_player_streaming_set_buffer(mm_player_streaming_t* streamer, GstElemen
 
 	return;
 }
-
 
 void __mm_player_streaming_set_content_bitrate(mm_player_streaming_t* streamer, guint max_bitrate, guint avg_bitrate)
 {
@@ -295,7 +292,7 @@ streaming_set_buffer_type (mm_player_streaming_t* streamer, gboolean use_file, g
 	if (!file_path || strlen(file_path) <= 0)
 		file_path = g_strdup(DEFAULT_FILE_BUFFER_PATH);
 
-	sprintf( file_buffer_name, "%s/XXXXXX", file_path );
+	g_snprintf(file_buffer_name, MM_MAX_URL_LEN, "%s/XXXXXX", file_path);
 	debug_log("the buffering file name is %s.\n", file_buffer_name);
 
 	if (statfs((const char *)file_path, &buf) < 0)

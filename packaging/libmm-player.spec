@@ -19,7 +19,6 @@ BuildRequires:  pkgconfig(mm-session)
 BuildRequires:  pkgconfig(mmutil-imgp)
 BuildRequires:  pkgconfig(audio-session-mgr)
 BuildRequires:  pkgconfig(iniparser)
-BuildRequires:  pkgconfig(libcrypto)
 BuildRequires:  pkgconfig(vconf)
 
 

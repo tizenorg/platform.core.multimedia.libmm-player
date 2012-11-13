@@ -378,7 +378,7 @@ _mmplayer_sound_filter_custom_apply(mm_player_t *player)
 		if (device_out == MM_SOUND_DEVICE_OUT_SPEAKER)
 		{
 			output_type = MM_AUDIO_FILTER_OUTPUT_SPK;
-			if (__mmplayer_is_earphone_only_filter_type(player, MM_AUDIO_FILTER_TYPE_CUSTOM, NULL))
+			if (__mmplayer_is_earphone_only_filter_type(player, MM_AUDIO_FILTER_TYPE_CUSTOM, 0))
 			{
 				debug_error("earphone is not equipped, some custom filter should operate with earphone");
 				return MM_ERROR_PLAYER_SOUND_EFFECT_INVALID_STATUS;

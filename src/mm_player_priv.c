@@ -1094,17 +1094,21 @@ static gpointer __mmplayer_repeat_thread(gpointer data)
 			break;
 		}
 
-		/* lock */
-		MMPLAYER_CMD_LOCK( player );
+		if ( !player->cmd_lock )
+		{
+			debug_log("can't get cmd lock\n");
+			return NULL;
+		}
 
-		return_val_if_fail(	player, NULL );
+		/* lock */
+		g_mutex_lock(player->cmd_lock);	
 
 		attrs = MMPLAYER_GET_ATTRS(player);
 
 		if (mm_attrs_get_int_by_name(attrs, "profile_play_count", &count) != MM_ERROR_NONE)
 		{
 			debug_error("can not get play count\n");
-				break;
+			break;
 		}
 
 		if ( player->section_repeat )
@@ -1131,7 +1135,7 @@ static gpointer __mmplayer_repeat_thread(gpointer data)
 		if ( ! ret_value )
 		{
 			debug_error("failed to set position to zero for rewind\n");
-				continue;
+			continue;
 		}
 
 		/* decrease play count */
@@ -1150,7 +1154,7 @@ static gpointer __mmplayer_repeat_thread(gpointer data)
 		}
 
 		/* unlock */
-		MMPLAYER_CMD_UNLOCK( player );
+		g_mutex_unlock(player->cmd_lock);
 	}
 
 	return NULL;
@@ -2371,7 +2375,7 @@ int
 _mmplayer_update_video_param(mm_player_t* player) // @
 {
 	MMHandleType attrs = 0;
-	MMDisplaySurfaceType surface_type = 0;
+	int surface_type = 0;
 
 	debug_fenter();
 
@@ -3067,21 +3071,6 @@ __mmplayer_audio_stream_probe (GstPad *pad, GstBuffer *buffer, gpointer u_data)
 	return TRUE;
 }
 
-gboolean
-__mmplayer_ahs_appsrc_probe (GstPad *pad, GstBuffer *buffer, gpointer u_data)
-{	
-	mm_player_t* player = (mm_player_t*) u_data;
-
-	//g_print ("appsrc buf : timestamp = %"GST_TIME_FORMAT", duration = %"GST_TIME_FORMAT"\n", 
-	//	GST_TIME_ARGS (GST_BUFFER_TIMESTAMP (buffer)), GST_TIME_ARGS (GST_BUFFER_DURATION(buffer)));
-
-	if (ahs_check_allow_cache (player->ahs_player))
-	{
-		ahs_store_media_presentation (player->ahs_player, GST_BUFFER_DATA (buffer), GST_BUFFER_SIZE (buffer));
-	}
-	return TRUE;
-}
-
 /**
  * This function is to create video pipeline.
  *
@@ -3177,7 +3166,7 @@ __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps, MMDispl
 			gint framerate_n = 0;		//numerator of frame rate
 			gint framerate_d = 0;		//denominator of frame rate
 			GstCaps* video_caps = NULL;
-			GValue *fps = NULL;
+			const GValue *fps = NULL;
 
 			/* video scale  */
 			MMPLAYER_CREATE_ELEMENT(videobin, MMPLAYER_V_SCALE, "videoscale", "videoscale", TRUE);
@@ -3344,7 +3333,7 @@ __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps, MMDispl
 	}
 
 	/* create ghostpad */
-	if ( FALSE == gst_element_add_pad(videobin[MMPLAYER_V_BIN].gst, gst_ghost_pad_new("sink", pad)) )
+	if (FALSE == gst_element_add_pad(videobin[MMPLAYER_V_BIN].gst, gst_ghost_pad_new("sink", pad)))
 	{
 		debug_error("failed to add ghostpad to videobin\n");
 		goto ERROR;
@@ -3751,8 +3740,9 @@ static int 	__gst_adjust_subtitle_position(mm_player_t* player, int format, int 
 	{
 		case MM_PLAYER_POS_FORMAT_TIME:
 		{
+			GstFormat fmt = GST_FORMAT_TIME;
 			/* check current postion */
-			ret = gst_element_query_position( GST_ELEMENT(player->pipeline->subtitlebin[MMPLAYER_SUB_PIPE].gst), &format, &current_pos );
+			ret = gst_element_query_position( GST_ELEMENT(player->pipeline->subtitlebin[MMPLAYER_SUB_PIPE].gst), &fmt, &current_pos );
 			if ( !ret )
 			{
 				debug_warning("fail to query current postion.\n");
@@ -4210,26 +4200,6 @@ __mmplayer_gst_create_pipeline(mm_player_t* player) // @
 		}
 		break;
 
-#ifdef NO_USE_GST_HLSDEMUX
-		case MM_PLAYER_URI_TYPE_HLS:
-		{
-			guint64 stream_type = GST_APP_STREAM_TYPE_STREAM;
-
-			debug_log("hsl src is selected\n");
-
-			element = gst_element_factory_make("appsrc", "hls-source");
-			if ( !element )
-			{
-				debug_critical("failed to create appsrc element\n");
-				break;
-			}
-			g_object_set( element, "stream-type", stream_type, NULL );
-
-			// TODO: need to set time based limit instead of bytes (or) remove constraint.... need to investigate more 
-			g_object_set( element, "max-bytes", 500000, NULL ); // Naveen made queue as un-limited
-		}
-		break;
-#endif
 		/* appsrc */
 		case MM_PLAYER_URI_TYPE_BUFF:
 		{
@@ -5427,14 +5397,6 @@ static gboolean __mmfplayer_parse_profile(const char *uri, void *param, MMPlayer
 	{
 		if (strlen(path)) {
 			strcpy(data->uri, uri);
-			
-#ifdef NO_USE_GST_HLSDEMUX
-			if ((path = strstr(uri, "m3u")))
-			{
-				data->uri_type = MM_PLAYER_URI_TYPE_HLS;
-			}
-			else
-#endif
 			        data->uri_type = MM_PLAYER_URI_TYPE_URL_HTTP;
 
 			ret = TRUE;
@@ -5444,14 +5406,6 @@ static gboolean __mmfplayer_parse_profile(const char *uri, void *param, MMPlayer
 	{
 		if (strlen(path)) {
 			strcpy(data->uri, uri);
-
-#ifdef NO_USE_GST_HLSDEMUX
-			if ((path = strstr(uri, "m3u")))
-			{
-				data->uri_type = MM_PLAYER_URI_TYPE_HLS;
-			}
-			else
-#endif
 				data->uri_type = MM_PLAYER_URI_TYPE_URL_HTTP;
 			
 			ret = TRUE;
@@ -5545,8 +5499,7 @@ static gboolean __mmfplayer_parse_profile(const char *uri, void *param, MMPlayer
 		if (util_exist_file_path(uri))
 		{
 			debug_warning("uri has no protocol-prefix. giving 'file://' by default.\n");
-
-			sprintf( data->uri, "file://%s", uri );
+			g_snprintf(data->uri,  MM_MAX_URL_LEN, "file://%s", uri);
 
 			if ( util_is_sdp_file( (char*)uri ) )
 			{
@@ -5555,7 +5508,7 @@ static gboolean __mmfplayer_parse_profile(const char *uri, void *param, MMPlayer
 			}
 			else
 			{
-			data->uri_type = MM_PLAYER_URI_TYPE_FILE;
+				data->uri_type = MM_PLAYER_URI_TYPE_FILE;
 			}
 			ret = TRUE;
 		}
@@ -5569,7 +5522,6 @@ static gboolean __mmfplayer_parse_profile(const char *uri, void *param, MMPlayer
 	if (data->uri_type == MM_PLAYER_URI_TYPE_NONE) {
 		ret = FALSE;
 	}
-
 
 	/* dump parse result */
 	debug_log("profile parsing result ---\n");
@@ -6029,20 +5981,6 @@ __mmplayer_release_extended_streaming(mm_player_t* player)
 		_mmplayer_pd_destroy((MMHandleType)player);
 	}
 
-#ifdef NO_USE_GST_HLSDEMUX
-	/* destroy can called at anytime */
-       if (MMPLAYER_IS_HTTP_LIVE_STREAMING(player))
-       {
-		if (player->ahs_player)
-		{
-			__mm_player_ahs_stop (player->ahs_player);
-			__mm_player_ahs_deinitialize (player->ahs_player);
-			__mm_player_ahs_destroy(player->ahs_player);
-			player->ahs_player = NULL;
-		}
-       }
-#endif
-
        if (MMPLAYER_IS_STREAMING(player))
        {
 		if (player->streamer)
@@ -6135,29 +6073,6 @@ __mmplayer_init_extended_streaming(mm_player_t* player)
 	int ret = MM_ERROR_NONE;
 	
 	return_val_if_fail ( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
-
-#ifdef NO_USE_GST_HLSDEMUX
-	/* prepare adaptive http streaming */
-	if (player->profile.uri_type == MM_PLAYER_URI_TYPE_HLS)
-	{
-		player->ahs_player = __mm_player_ahs_create ();
-		
-		if (NULL == player->ahs_player)
-		{
-			debug_error ("Unable to create AHS player\n");
-			ret = MM_ERROR_PLAYER_NO_FREE_SPACE;
-		}
-		else
-		{
-			if ( !__mm_player_ahs_initialize (player->ahs_player, player->profile.uri_type, 
-				player->profile.uri, player->pipeline->mainbin[MMPLAYER_M_SRC].gst) )
-			{
-				debug_error ("failed to initialize ahs player\n");
-				ret = MM_ERROR_PLAYER_NO_FREE_SPACE;
-			}
-		}
-	}
-#endif
 
 	if (MMPLAYER_IS_HTTP_PD(player))
 	{
@@ -6294,18 +6209,9 @@ __mmplayer_deinit_extended_streaming(mm_player_t *player)
 	/* destroy can called at anytime */
 	if (player->pd_downloader && MMPLAYER_IS_HTTP_PD(player))
 	{
-		//__mmplayer_pd_deinitalize (player->ahs_player);
 		_mmplayer_pd_stop ((MMHandleType)player);
 	}
 
-#ifdef NO_USE_GST_HLSDEMUX
-	/* destroy can called at anytime */
-	if (MMPLAYER_IS_HTTP_LIVE_STREAMING(player))
-	{
-		__mm_player_ahs_stop (player->ahs_player);
-		//__mm_player_ahs_deinitalize (player->ahs_player);
-	}
-#endif
 	return MM_ERROR_NONE;
 
 }
@@ -6667,16 +6573,6 @@ int __mmplayer_start_extended_streaming(mm_player_t *player)
 		}
 	}
 
-#ifdef NO_USE_GST_HLSDEMUX
-	if (MMPLAYER_IS_HTTP_LIVE_STREAMING(player))
-	{		
-		if ( !__mm_player_ahs_start (player->ahs_player))
-		{
-			debug_error("failed to start ahs\n");
-			return MM_ERROR_PLAYER_INTERNAL;
-		}
-	}
-#endif
 	return MM_ERROR_NONE;
 }
 
@@ -8008,7 +7904,7 @@ static GstElement *__mmplayer_element_create_and_link(mm_player_t *player, GstPa
 		return NULL;
 	}
 
-	if ( ! gst_bin_add(player->pipeline->mainbin[MMPLAYER_M_PIPE].gst, element) )
+	if ( ! gst_bin_add(GST_BIN(player->pipeline->mainbin[MMPLAYER_M_PIPE].gst), element))
 	{
 		debug_error("failed to add %s\n", name);
 		return NULL;
@@ -8066,7 +7962,6 @@ const char *padname, const GList *templlist)
 	                GST_PAD_NAME( srcpad ),
 	                GST_ELEMENT_NAME( sinkelement ),
 	                padname);
-
 
 	factory = gst_element_get_factory(sinkelement);
 	klass = gst_element_factory_get_klass(factory);
@@ -8214,38 +8109,32 @@ const char *padname, const GList *templlist)
 			debug_error("failed to link (%s) to pad(%s)\n", GST_ELEMENT_NAME( sinkelement ), padname );
 
 			/* reconstitute supportable codec */
+			if (strstr(name, "video"))
 			{
-				if (strstr(name, "video"))
-				{
-					player->can_support_codec ^= FOUND_PLUGIN_VIDEO;
-				}
-
-				if (strstr(name, "audio"))
-				{
-					player->can_support_codec ^= FOUND_PLUGIN_AUDIO;
-				}
+				player->can_support_codec ^= FOUND_PLUGIN_VIDEO;
+			}
+			else if (strstr(name, "audio"))
+			{
+				player->can_support_codec ^= FOUND_PLUGIN_AUDIO;
 			}
 			goto ERROR;
 		}
 
-		gst_object_unref(GST_OBJECT(pad));
-
+		if (strstr(name, "video"))
 		{
-			if (strstr(name, "video"))
-			{
-				player->videodec_linked = 1;
-				debug_msg("player->videodec_linked set to 1\n");
+			player->videodec_linked = 1;
+			debug_msg("player->videodec_linked set to 1\n");
 
-			}
-			if (strstr(name, "audio"))
-			{
-				player->audiodec_linked = 1;
-				debug_msg("player->auddiodec_linked set to 1\n");
-			}
-
-			gst_caps_unref(GST_CAPS(srccaps));
-			srccaps = NULL;
 		}
+		else if (strstr(name, "audio"))
+		{
+			player->audiodec_linked = 1;
+			debug_msg("player->auddiodec_linked set to 1\n");
+		}
+
+		gst_object_unref(GST_OBJECT(pad));
+		gst_caps_unref(GST_CAPS(srccaps));
+		srccaps = NULL;
 	}
 
 	if ( !MMPLAYER_IS_HTTP_PD(player) )
@@ -8713,7 +8602,7 @@ static void __mmplayer_add_new_pad(GstElement *element, GstPad *pad, gpointer da
 		if (  mmf_attrs_commit ( player->attrs ) )
 		{
 			debug_error("failed to update attributes");
-			return FALSE;
+			return;
 		}
 	}
 	else if (g_strrstr(name, "video"))
@@ -10076,7 +9965,7 @@ __is_http_live_streaming( mm_player_t* player )
 {
 	return_val_if_fail( player, FALSE );
 
-	return ( (player->ahs_player) && (player->profile.uri_type == MM_PLAYER_URI_TYPE_HLS) ) ? TRUE : FALSE;
+	return ( player->profile.uri_type == MM_PLAYER_URI_TYPE_HLS ) ? TRUE : FALSE;
 }
 
 static gboolean

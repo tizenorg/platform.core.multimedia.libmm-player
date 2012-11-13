@@ -38,7 +38,7 @@
 ---------------------------------------------------------------------------*/
 static gboolean __mmplayer_video_capture_probe (GstPad *pad, GstBuffer *buffer, gpointer u_data);
 static int  __mmplayer_get_video_frame_from_buffer(mm_player_t* player, GstBuffer *buffer);
-static void __mmplayer_capture_thread(gpointer data);
+static gpointer __mmplayer_capture_thread(gpointer data);
 static void __csc_tiled_to_linear_crop(unsigned char *yuv420_dest, unsigned char *nv12t_src, int yuv420_width, int yuv420_height, int left, int top, int right, int buttom);
 static int __tile_4x2_read(int x_size, int y_size, int x_pos, int y_pos);
 static int __mm_player_convert_colorspace(mm_player_t* player, unsigned char* src_data, mm_util_img_format src_fmt, unsigned int src_w, unsigned int src_h, mm_util_img_format dst_fmt);
@@ -175,7 +175,7 @@ _mmplayer_do_video_capture(MMHandleType hplayer)
 	return ret;
 }
 
-static void
+static gpointer
 __mmplayer_capture_thread(gpointer data)
 {
 	mm_player_t* player = (mm_player_t*) data;
@@ -306,10 +306,10 @@ ERROR:
 		g_mutex_unlock(player->capture_thread_mutex);
 		MMPLAYER_POST_MSG( player, MM_MESSAGE_VIDEO_NOT_CAPTURED, &msg );
 	}
-	return;
+	return NULL;
 EXIT:
 	g_mutex_unlock(player->capture_thread_mutex);
-	return;
+	return NULL;
 }
 
 /**
