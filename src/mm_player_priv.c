@@ -1664,9 +1664,25 @@ __mmplayer_gst_callback(GstBus *bus, GstMessage *msg, gpointer data) // @
 		case GST_MESSAGE_DURATION:
 		{
 			debug_log("GST_MESSAGE_DURATION\n");
-			player->need_update_content_attrs = TRUE;
-			player->need_update_content_dur = TRUE;
-			_mmplayer_update_content_attrs(player);
+
+			if (MMPLAYER_IS_STREAMING(player))
+			{
+				GstFormat format;
+				gint64 bytes = 0;
+
+				gst_message_parse_duration (msg, &format, &bytes);
+				if (format == GST_FORMAT_BYTES)
+				{
+					debug_log("data total size of http content: %lld", bytes);
+					player->http_content_size = bytes;
+				}
+			}
+			else
+			{
+				player->need_update_content_attrs = TRUE;
+				player->need_update_content_dur = TRUE;
+				_mmplayer_update_content_attrs(player);
+			}
 		}
 		break;
 
