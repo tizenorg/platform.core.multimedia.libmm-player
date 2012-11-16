@@ -1677,12 +1677,10 @@ __mmplayer_gst_callback(GstBus *bus, GstMessage *msg, gpointer data) // @
 					player->http_content_size = bytes;
 				}
 			}
-			else
-			{
-				player->need_update_content_attrs = TRUE;
-				player->need_update_content_dur = TRUE;
-				_mmplayer_update_content_attrs(player);
-			}
+
+			player->need_update_content_attrs = TRUE;
+			player->need_update_content_dur = TRUE;
+			_mmplayer_update_content_attrs(player);
 		}
 		break;
 
