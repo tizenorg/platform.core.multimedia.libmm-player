@@ -4526,7 +4526,6 @@ __mmplayer_gst_destroy_pipeline(mm_player_t* player) // @
 	{
 		MMPlayerGstElement* mainbin = player->pipeline->mainbin;
 		GstTagList* tag_list = player->pipeline->tag_list;
-		GstBus *bus = gst_pipeline_get_bus (GST_PIPELINE (mainbin[MMPLAYER_M_PIPE].gst));
 
 		/* first we need to disconnect all signal hander */
 		__mmplayer_release_signal_connection( player );
@@ -4536,7 +4535,6 @@ __mmplayer_gst_destroy_pipeline(mm_player_t* player) // @
 			g_source_remove( player->bus_watcher );
 		player->bus_watcher = 0;
 
-		gst_bus_set_sync_handler (bus, NULL, NULL);
 
 		if ( mainbin )
 		{
@@ -4544,6 +4542,8 @@ __mmplayer_gst_destroy_pipeline(mm_player_t* player) // @
 			MMPlayerGstElement* videobin = player->pipeline->videobin;
 			MMPlayerGstElement* textbin = player->pipeline->textbin;
 			MMPlayerGstElement* subtitlebin = player->pipeline->subtitlebin;
+			GstBus *bus = gst_pipeline_get_bus (GST_PIPELINE (mainbin[MMPLAYER_M_PIPE].gst));
+			gst_bus_set_sync_handler (bus, NULL, NULL);
 
 			debug_log("pipeline status before set state to NULL\n");
 			__mmplayer_dump_pipeline_state( player );
