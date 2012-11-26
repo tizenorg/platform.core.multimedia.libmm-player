@@ -2712,6 +2712,14 @@ _mmplayer_update_video_param(mm_player_t* player) // @
 			mm_attrs_get_data_by_name(attrs, "display_overlay", &xid);
 			if ( xid )
 			{
+#define GST_VAAPI_DISPLAY_TYPE_X11 1
+                if (!strncmp(PLAYER_INI()->videosink_element_x,"vaapisink", strlen("vaapisink"))){
+                    debug_log("set video param: vaapisink display %d", GST_VAAPI_DISPLAY_TYPE_X11);
+                    g_object_set(player->pipeline->videobin[MMPLAYER_V_SINK].gst,
+                            "display", GST_VAAPI_DISPLAY_TYPE_X11,
+                            NULL);
+                }
+
 				debug_log("set video param : xid %d", *(int*)xid);
 				gst_x_overlay_set_xwindow_id( GST_X_OVERLAY( player->pipeline->videobin[MMPLAYER_V_SINK].gst ), *(int*)xid );
 			}
@@ -3562,6 +3570,7 @@ __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps, MMDispl
 			}
 		}
 
+        if (strncmp(PLAYER_INI()->videosink_element_x,"vaapisink", strlen("vaapisink"))){
 		/* set video rotator */
 		if ( !player->is_nv12_tiled )
 			MMPLAYER_CREATE_ELEMENT(videobin, MMPLAYER_V_FLIP, "videoflip", "video rotator", TRUE);
@@ -3570,6 +3579,7 @@ __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps, MMDispl
 		#if !defined(__arm__)
 		MMPLAYER_CREATE_ELEMENT(videobin, MMPLAYER_V_SCALE, "videoscale", "videoscaler", TRUE);
 		#endif
+        }
 
 		/* set video sink */
 		switch (surface_type)
@@ -7729,6 +7739,7 @@ __mmplayer_try_to_plug(mm_player_t* player, GstPad *pad, const GstCaps *caps) //
 
 	/* return if we got raw output */
 	if(g_str_has_prefix(mime, "video/x-raw") || g_str_has_prefix(mime, "audio/x-raw")
+		|| g_str_has_prefix(mime, "video/x-surface")
 		|| g_str_has_prefix(mime, "text/plain") ||g_str_has_prefix(mime, "text/x-pango-markup"))
     	{
 
