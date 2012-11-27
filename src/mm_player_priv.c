@@ -219,6 +219,12 @@ static gboolean __is_http_progressive_down(mm_player_t* player);
 static gboolean __mmplayer_warm_up_video_codec( mm_player_t* player,  GstElementFactory *factory);
 static GstBusSyncReply __mmplayer_bus_sync_callback (GstBus * bus, GstMessage * message, gpointer data);
 
+static int  __mmplayer_realize_streaming_ext(mm_player_t* player);
+static int __mmplayer_unrealize_streaming_ext(mm_player_t *player);
+static int __mmplayer_start_streaming_ext(mm_player_t *player);
+static int __mmplayer_destroy_streaming_ext(mm_player_t* player);
+
+
 /*===========================================================================================
 |																							|
 |  FUNCTION DEFINITIONS																		|
@@ -301,6 +307,9 @@ __mmplayer_check_state(mm_player_t* player, enum PlayerCommandState command)
 
 		case MMPLAYER_COMMAND_START:
 		{
+			if (MMPLAYER_IS_HTTP_PD(player))
+				goto INVALID_STATE;
+
 			MMPLAYER_TARGET_STATE(player) = MM_PLAYER_STATE_PLAYING;
 
 			if ( pending_state == MM_PLAYER_STATE_NONE )
@@ -1466,7 +1475,7 @@ __mmplayer_gst_callback(GstBus *bus, GstMessage *msg, gpointer data) // @
 
 			if (MMPLAYER_IS_HTTP_PD(player))
 			{	
-				_mmplayer_pd_stop ((MMHandleType)player);
+				_mmplayer_unrealize_pd_downloader ((MMHandleType)player);
 			}
 			
 			MMPLAYER_FREEIF( debug );
@@ -4166,13 +4175,13 @@ __mmplayer_gst_create_pipeline(mm_player_t* player) // @
 					
 					mm_attrs_get_string_by_name ( attrs, "pd_location", &path );
 					
-					MMPLAYER_FREEIF(player->pd_file_location);
+					MMPLAYER_FREEIF(player->pd_file_save_path);
 
 					debug_log("PD Location : %s\n", path);
 
 					if ( path )
 					{
-						player->pd_file_location = g_strdup(path);
+						player->pd_file_save_path = g_strdup(path);
 					}
 					else
 					{
@@ -4188,7 +4197,7 @@ __mmplayer_gst_create_pipeline(mm_player_t* player) // @
 					break;
 				}
 
-				g_object_set(G_OBJECT(element), "location", player->pd_file_location, NULL);
+				g_object_set(G_OBJECT(element), "location", player->pd_file_save_path, NULL);
 			}
 			
 			player->streaming_type = STREAMING_SERVICE_NONE;
@@ -5822,7 +5831,7 @@ _mmplayer_create_player(MMHandleType handle) // @
 	if (MMPLAYER_IS_HTTP_PD(player))
 	{
 		player->pd_downloader = NULL;
-		player->pd_file_location = NULL;
+		player->pd_file_save_path = NULL;
 	}
 
 	/* give default value of sound effect setting */
@@ -5984,16 +5993,15 @@ ERROR:
 }
 
 int 
-__mmplayer_release_extended_streaming(mm_player_t* player)
+__mmplayer_destroy_streaming_ext(mm_player_t* player)
 {
 	return_val_if_fail ( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
 
-	if (player->pd_downloader && MMPLAYER_IS_HTTP_PD(player))
-	{
-		_mmplayer_pd_stop ((MMHandleType)player);
-		_mmplayer_pd_deinitialize ((MMHandleType)player);
-		_mmplayer_pd_destroy((MMHandleType)player);
-	}
+	if (player->pd_downloader)
+		_mmplayer_unrealize_pd_downloader((MMHandleType)player);
+
+	if (MMPLAYER_IS_HTTP_PD(player))
+		_mmplayer_destroy_pd_downloader((MMHandleType)player);
 
        if (MMPLAYER_IS_STREAMING(player))
        {
@@ -6019,7 +6027,7 @@ _mmplayer_destroy(MMHandleType handle) // @
 	/* destroy can called at anytime */
 	MMPLAYER_CHECK_STATE_RETURN_IF_FAIL ( player, MMPLAYER_COMMAND_DESTROY );
 
-	__mmplayer_release_extended_streaming(player);
+	__mmplayer_destroy_streaming_ext(player);
 
 	/* release repeat thread */
 	if ( player->repeat_thread_cond &&
@@ -6080,31 +6088,26 @@ _mmplayer_destroy(MMHandleType handle) // @
 	return MM_ERROR_NONE;
 }
 
-
 int 
-__mmplayer_init_extended_streaming(mm_player_t* player)
+__mmplayer_realize_streaming_ext(mm_player_t* player)
 {
 	int ret = MM_ERROR_NONE;
-	
+
+	debug_fenter();
 	return_val_if_fail ( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
 
 	if (MMPLAYER_IS_HTTP_PD(player))
 	{
 		gboolean bret = FALSE;
-		gchar *src_uri = NULL;
 
-		player->pd_downloader = _mmplayer_pd_create ();
-
+		player->pd_downloader = _mmplayer_create_pd_downloader();
 		if ( !player->pd_downloader )
 		{
 			debug_error ("Unable to create PD Downloader...");
 			ret = MM_ERROR_PLAYER_NO_FREE_SPACE;
 		}
-		
-		if (player->pd_mode == MM_PLAYER_PD_MODE_URI)
-			src_uri = player->profile.uri;
-		
-		bret = _mmplayer_pd_initialize ((MMHandleType)player, src_uri, player->pd_file_location, player->pipeline->mainbin[MMPLAYER_M_SRC].gst);
+
+		bret = _mmplayer_realize_pd_downloader((MMHandleType)player, player->profile.uri, player->pd_file_save_path, player->pipeline->mainbin[MMPLAYER_M_SRC].gst);
 		
 		if (FALSE == bret)
 		{
@@ -6113,6 +6116,7 @@ __mmplayer_init_extended_streaming(mm_player_t* player)
 		}
 	}
 
+	debug_fleave();
 	return ret;
 }
 
@@ -6207,7 +6211,7 @@ _mmplayer_realize(MMHandleType hplayer) // @
 	}
 	else
 	{
-		__mmplayer_init_extended_streaming(player);
+		__mmplayer_realize_streaming_ext(player);
 	}
 
 	debug_fleave();
@@ -6216,18 +6220,20 @@ _mmplayer_realize(MMHandleType hplayer) // @
 }
 
 int
-__mmplayer_deinit_extended_streaming(mm_player_t *player)
+__mmplayer_unrealize_streaming_ext(mm_player_t *player)
 {
+	debug_fenter();
 	return_val_if_fail ( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
 	
 	/* destroy can called at anytime */
 	if (player->pd_downloader && MMPLAYER_IS_HTTP_PD(player))
 	{
-		_mmplayer_pd_stop ((MMHandleType)player);
+		_mmplayer_unrealize_pd_downloader ((MMHandleType)player);
+		player->pd_downloader = NULL;
 	}
 
+	debug_fleave();
 	return MM_ERROR_NONE;
-
 }
 
 int
@@ -6243,7 +6249,7 @@ _mmplayer_unrealize(MMHandleType hplayer) // @
 	/* check current state */
 	MMPLAYER_CHECK_STATE_RETURN_IF_FAIL( player, MMPLAYER_COMMAND_UNREALIZE );
 
-	__mmplayer_deinit_extended_streaming(player);
+	__mmplayer_unrealize_streaming_ext(player);
 
 	/* unrealize pipeline */
 	ret = __gst_unrealize( player );
@@ -6568,26 +6574,40 @@ _mmplayer_set_buffer_seek_data_cb(MMHandleType hplayer, mm_player_buffer_seek_da
     	return MM_ERROR_NONE;
 }
 
-int __mmplayer_start_extended_streaming(mm_player_t *player)
-{	
+int __mmplayer_start_streaming_ext(mm_player_t *player)
+{
+	gint ret = MM_ERROR_NONE;
+
+	debug_fenter();
 	return_val_if_fail ( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
 
-	if (MMPLAYER_IS_HTTP_PD(player) && player->pd_downloader)
+	if (MMPLAYER_IS_HTTP_PD(player))
 	{
-		if (player->pd_mode == MM_PLAYER_PD_MODE_URI)
+		if ( !player->pd_downloader )
 		{
-			gboolean bret = FALSE;
-			
-			bret = _mmplayer_pd_start ((MMHandleType)player);
-			if (FALSE == bret)
+			ret = __mmplayer_realize_streaming_ext(player);
+
+			if ( ret != MM_ERROR_NONE)
+			{
+				debug_error ("failed to realize streaming ext\n");
+				return ret;
+			}
+		}
+
+		if (player->pd_downloader && player->pd_mode == MM_PLAYER_PD_MODE_URI)
+		{
+			ret = _mmplayer_start_pd_downloader ((MMHandleType)player);
+			if ( !ret )
 			{
 				debug_error ("ERROR while starting PD...\n");
 				return MM_ERROR_PLAYER_NOT_INITIALIZED;
 			}
+			ret = MM_ERROR_NONE;
 		}
 	}
 
-	return MM_ERROR_NONE;
+	debug_fleave();
+	return ret;
 }
 
 int
@@ -6623,8 +6643,11 @@ _mmplayer_start(MMHandleType hplayer) // @
 		}
 	}
 
-	if (__mmplayer_start_extended_streaming(player) != MM_ERROR_NONE)
-		return MM_ERROR_PLAYER_INTERNAL;
+	ret = __mmplayer_start_streaming_ext(player);
+	if ( ret != MM_ERROR_NONE )
+	{
+		debug_error("failed to start streaming ext \n");
+	}
 	
 	/* start pipeline */
 	ret = __gst_start( player );
@@ -6750,6 +6773,8 @@ _mmplayer_stop(MMHandleType hplayer) // @
 	/* NOTE : application should not wait for EOS after calling STOP */
 	__mmplayer_cancel_delayed_eos( player );
 
+	__mmplayer_unrealize_streaming_ext(player);
+
 	/* stop pipeline */
 	ret = __gst_stop( player );
 
@@ -6788,6 +6813,9 @@ _mmplayer_pause(MMHandleType hplayer) // @
 			 */
 			mm_attrs_get_int_by_name(player->attrs, "profile_prepare_async", &async);
 			debug_log("prepare mode : %s", (async ? "async" : "sync"));
+
+			if (__mmplayer_start_streaming_ext(player) != MM_ERROR_NONE)
+				return MM_ERROR_PLAYER_INTERNAL;
 		}
 		break;
 

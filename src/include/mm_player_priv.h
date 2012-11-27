@@ -445,7 +445,7 @@ typedef struct {
 
 	/* progressive download */
 	mm_player_pd_t *pd_downloader;
-	gchar *pd_file_location;
+	gchar *pd_file_save_path;
 	MMPlayerPDMode pd_mode;
 
 	/* streaming player */

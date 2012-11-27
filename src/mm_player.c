@@ -207,7 +207,7 @@ int mm_player_set_pd_message_callback(MMHandleType player, MMMessageCallback cal
 
 	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
-	result = _mm_player_set_pd_message_callback(player, callback, user_param);
+	result = _mm_player_set_pd_downloader_message_cb(player, callback, user_param);
 
 	return result;
 }
@@ -774,7 +774,7 @@ int mm_player_get_pd_status(MMHandleType player, guint64 *current_pos, guint64 *
 	return_val_if_fail(current_pos, MM_ERROR_COMMON_INVALID_ARGUMENT);
 	return_val_if_fail(total_size, MM_ERROR_COMMON_INVALID_ARGUMENT);
 
-	result = _mmplayer_pd_get_status(player, current_pos, total_size);
+	result = _mmplayer_get_pd_downloader_status(player, current_pos, total_size);
 
 	return result;
 }

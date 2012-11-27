@@ -35,15 +35,15 @@
 
 typedef struct
 {
-	gchar *uri_to_download;		// path for download and playback
-	gchar *uri_to_save; 			// path for saving to local 
+	gchar *path_read_from;		// path for download and playback
+	gchar *location_to_save; 		// path for saving to local
 	gint64 total_size;				// size of file to download (bytes)
 
-	GstElement *pushsrc; 			// src element of playback pipeline
-	GstElement *download_pipe;
-	GstElement *download_src;
-	GstElement *download_queue;
-	GstElement *download_sink;
+	GstElement *playback_pipeline_src;  // src element of playback pipeline
+	GstElement *downloader_pipeline;
+	GstElement *downloader_src;
+	GstElement *downloader_queue;
+	GstElement *downloader_sink;
 }mm_player_pd_t;
 
 /**
@@ -51,22 +51,22 @@ typedef struct
  *
  * @return	This function returns allocated handle.
  * @remarks
- * @see		_mmplayer_pd_destroy()
+ * @see		_mmplayer_destroy_pd_downloader()
  *
  */
-mm_player_pd_t * _mmplayer_pd_create ();
+mm_player_pd_t * _mmplayer_create_pd_downloader ();
 /**
- * This function release handle of progressive download.
+ * This function destroy progressive download.
  *
  * @param[in]	handle	Handle of player.
  * @return	This function returns true on success, or false on failure.
  * @remarks
- * @see		_mmplayer_pd_create()
+ * @see		_mmplayer_create_pd_downloader()
  *
  */
-gboolean _mmplayer_pd_destroy (MMHandleType handle);
+gboolean _mmplayer_destroy_pd_downloader  (MMHandleType handle);
 /**
- * This function initialize progressive download.
+ * This function realize progressive download.
  *
  * @param[in]	handle	Handle of player.
  * @param[in]	src_uri	path to download.
@@ -74,40 +74,30 @@ gboolean _mmplayer_pd_destroy (MMHandleType handle);
  * @param[in]	pushsrc	source element of playback pipeline
  * @return	This function returns true on success, or false on failure.
  * @remarks
- * @see		_mmplayer_pd_deinitialize()
+ * @see
  *
  */
-gboolean _mmplayer_pd_initialize (MMHandleType handle, gchar *src_uri, gchar *dst_uri, GstElement *pushsrc);
+gboolean _mmplayer_realize_pd_downloader (MMHandleType handle, gchar *src_uri, gchar *dst_uri, GstElement *pushsrc);
 /**
- * This function deinitialize progressive download.
+ * This function unrealize progressive download.
  *
  * @param[in]	handle	Handle of player.
  * @return	This function returns true on success, or false on failure.
  * @remarks
- * @see		_mmplayer_pd_initialize()
+ * @see		_mmplayer_realize_pd_downloader()
  *
  */
-gboolean _mmplayer_pd_deinitialize (MMHandleType handle);
+gboolean _mmplayer_unrealize_pd_downloader (MMHandleType handle);
 /**
  * This function start progressive download.
  *
  * @param[in]	handle	Handle of player.
  * @return	This function returns true on success, or false on failure.
  * @remarks
- * @see		_mmplayer_pd_stop()
+ * @see
  *
  */
-gboolean _mmplayer_pd_start (MMHandleType handle);
-/**
- * This function stop progressive download.
- *
- * @param[in]	handle	Handle of player.
- * @return	This function returns true on success, or false on failure.
- * @remarks
- * @see		_mmplayer_pd_start()
- *
- */
-gboolean _mmplayer_pd_stop (MMHandleType handle);
+gboolean _mmplayer_start_pd_downloader (MMHandleType handle);
 /**
  * This function get pd current status.
  *
@@ -119,7 +109,7 @@ gboolean _mmplayer_pd_stop (MMHandleType handle);
  * @see
  *
  */
-gboolean _mmplayer_pd_get_status(MMHandleType handle, guint64 *current_pos, guint64 *total_size);
+gboolean _mmplayer_get_pd_downloader_status(MMHandleType handle, guint64 *current_pos, guint64 *total_size);
 /**
  * This function set message callback of PD downloader.
  *
@@ -131,7 +121,7 @@ gboolean _mmplayer_pd_get_status(MMHandleType handle, guint64 *current_pos, guin
  * @see
  *
  */
-gint _mm_player_set_pd_message_callback(MMHandleType player, MMMessageCallback callback, gpointer user_param);
+gint _mm_player_set_pd_downloader_message_cb(MMHandleType player, MMMessageCallback callback, gpointer user_param);
 
 #ifdef __cplusplus
 	}
