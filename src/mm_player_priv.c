@@ -2037,7 +2037,6 @@ __mmplayer_gst_rtp_dynamic_pad (GstElement *element, GstPad *pad, gpointer data)
 	GstPad *sinkpad = NULL;
 	GstCaps* caps = NULL;
 	GstElement* new_element = NULL;
-	enum MainElementID element_id = MMPLAYER_M_NUM;
 
 	mm_player_t* player = (mm_player_t*) data;
 
@@ -2140,10 +2139,6 @@ __mmplayer_gst_rtp_dynamic_pad (GstElement *element, GstPad *pad, gpointer data)
 		/* run. setting PLAYING here since streamming source is live source */
 		MMPLAYER_ELEMENT_SET_STATE( new_element, GST_STATE_PLAYING );
 	}
-
-	/* store handle to futher manipulation */
-	player->pipeline->mainbin[element_id].id = element_id;
-	player->pipeline->mainbin[element_id].gst = new_element;
 
 	debug_fleave();
 
