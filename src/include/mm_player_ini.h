@@ -24,7 +24,7 @@
 
 #include <glib.h>
 #include <mm_types.h>
-#include "mm_player_sndeffect.h"
+#include "mm_player_audioeffect.h"
 
 #ifdef __cplusplus
 	extern "C" {
@@ -32,6 +32,7 @@
 
 
 #define MM_PLAYER_INI_DEFAULT_PATH	"/usr/etc/mmfw_player.ini"
+#define MM_PLAYER_INI_DEFAULT_AUDIOEFFECT_PATH	"/usr/etc/mmfw_player_audio_effect.ini"
 
 #define PLAYER_INI() mm_player_ini_get_structure()
 
@@ -71,18 +72,22 @@ typedef struct __mm_player_ini
 	gboolean async_start;
 	gboolean disable_segtrap;
 
-	/* audio filter */
-	gboolean use_audio_filter_preset;
-	gboolean audio_filter_preset_list[MM_AUDIO_FILTER_PRESET_NUM];
-	gboolean audio_filter_preset_earphone_only_list[MM_AUDIO_FILTER_PRESET_NUM];
+	/* audio effect */
+	gchar name_of_audio_effect[PLAYER_INI_MAX_STRLEN];
 
-	gboolean use_audio_filter_custom;
-	gboolean audio_filter_custom_list[MM_AUDIO_FILTER_CUSTOM_NUM];
-	gboolean audio_filter_custom_earphone_only_list[MM_AUDIO_FILTER_CUSTOM_NUM];
-	gint audio_filter_custom_eq_num;
-	gint audio_filter_custom_ext_num;
-	gint audio_filter_custom_min_level_list[MM_AUDIO_FILTER_CUSTOM_NUM];
-	gint audio_filter_custom_max_level_list[MM_AUDIO_FILTER_CUSTOM_NUM];
+	gboolean use_audio_effect_preset;
+	gboolean audio_effect_preset_list[MM_AUDIO_EFFECT_PRESET_NUM];
+	gboolean audio_effect_preset_earphone_only_list[MM_AUDIO_EFFECT_PRESET_NUM];
+
+	gboolean use_audio_effect_custom;
+	gboolean audio_effect_custom_list[MM_AUDIO_EFFECT_CUSTOM_NUM];
+	gboolean audio_effect_custom_earphone_only_list[MM_AUDIO_EFFECT_CUSTOM_NUM];
+	gint audio_effect_custom_eq_band_num;
+	gint audio_effect_custom_eq_band_width[MM_AUDIO_EFFECT_EQ_BAND_NUM_MAX];
+	gint audio_effect_custom_eq_band_freq[MM_AUDIO_EFFECT_EQ_BAND_NUM_MAX];
+	gint audio_effect_custom_ext_num;
+	gint audio_effect_custom_min_level_list[MM_AUDIO_EFFECT_CUSTOM_NUM];
+	gint audio_effect_custom_max_level_list[MM_AUDIO_EFFECT_CUSTOM_NUM];
 
 	/* http streaming */
 	gchar name_of_httpsrc[PLAYER_INI_MAX_STRLEN]; // @
@@ -103,16 +108,19 @@ typedef struct __mm_player_ini
 /* default values if each values are not specified in inifile */
 /* general */
 #define DEFAULT_USE_DECODEBIN									FALSE
-#define DEFAULT_USE_AUDIO_FILTER_PRESET						FALSE
-#define DEFAULT_AUDIO_FILTER_PRESET_LIST						""
-#define DEFAULT_AUDIO_FILTER_PRESET_LIST_EARPHONE_ONLY		""
-#define DEFAULT_USE_AUDIO_FILTER_CUSTOM						FALSE
-#define DEFAULT_AUDIO_FILTER_CUSTOM_LIST						""
-#define DEFAULT_AUDIO_FILTER_CUSTOM_LIST_EARPHONE_ONLY	""
-#define DEFAULT_AUDIO_FILTER_CUSTOM_EQ_NUM					0
-#define DEFAULT_AUDIO_FILTER_CUSTOM_EQ_MIN					0
-#define DEFAULT_AUDIO_FILTER_CUSTOM_EQ_MAX					0
-#define DEFAULT_AUDIO_FILTER_CUSTOM_EXT_NUM				0
+#define DEFAULT_AUDIO_EFFECT_ELEMENT			""
+#define DEFAULT_USE_AUDIO_EFFECT_PRESET			FALSE
+#define DEFAULT_AUDIO_EFFECT_PRESET_LIST		""
+#define DEFAULT_AUDIO_EFFECT_PRESET_LIST_EARPHONE_ONLY	""
+#define DEFAULT_USE_AUDIO_EFFECT_CUSTOM			FALSE
+#define DEFAULT_AUDIO_EFFECT_CUSTOM_LIST		""
+#define DEFAULT_AUDIO_EFFECT_CUSTOM_LIST_EARPHONE_ONLY	""
+#define DEFAULT_AUDIO_EFFECT_CUSTOM_EQ_BAND_NUM		0
+#define DEFAULT_AUDIO_EFFECT_CUSTOM_EQ_BAND_WIDTH		""
+#define DEFAULT_AUDIO_EFFECT_CUSTOM_EQ_BAND_FREQ		""
+#define DEFAULT_AUDIO_EFFECT_CUSTOM_EQ_MIN		0
+#define DEFAULT_AUDIO_EFFECT_CUSTOM_EQ_MAX		0
+#define DEFAULT_AUDIO_EFFECT_CUSTOM_EXT_NUM		0
 #define DEFAULT_USE_SINK_HANDLER								TRUE
 #define DEFAULT_SKIP_RESCAN									TRUE
 #define DEFAULT_GENERATE_DOT									FALSE

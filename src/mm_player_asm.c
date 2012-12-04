@@ -233,7 +233,7 @@ __mmplayer_asm_get_event_type(gint type)
 				event_type = ASM_EVENT_ALARM;
 			break;
 
-			case MM_SOUND_VOLUME_TYPE_EMERGENCY:
+			case MM_SESSION_TYPE_EMERGENCY:
 				event_type = ASM_EVENT_EMERGENCY;
 			break;
 

@@ -36,7 +36,7 @@
 
 #include "mm_player.h"
 #include "mm_player_internal.h"
-#include "mm_player_sndeffect.h"
+#include "mm_player_audioeffect.h"
 #include "mm_message.h"
 #include "mm_player_utils.h"
 #include "mm_player_asm.h"
@@ -487,9 +487,9 @@ typedef struct {
 	/* video stream caps parsed by demuxer */
 	GstCaps* v_stream_caps;
 
-	/* audio filter infomation */
-	MMAudioFilterInfo audio_filter_info;
-	gboolean bypass_sound_effect;
+	/* audio effect infomation */
+	MMAudioEffectInfo audio_effect_info;
+	gboolean bypass_audio_effect;
 
 	gulong audio_cb_probe_id;
 

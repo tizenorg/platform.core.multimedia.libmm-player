@@ -2583,14 +2583,7 @@ _mmplayer_update_video_param(mm_player_t* player) // @
 		{
 			void *pixmap_id_cb = NULL;
 			void *pixmap_id_cb_user_data = NULL;
-			int zoom = 0;
-			int degree = 0;
 			int display_method = 0;
-			int roi_x = 0;
-			int roi_y = 0;
-			int roi_w = 0;
-			int roi_h = 0;
-			int force_aspect_ratio = 0;
 			gboolean visible = TRUE;
 
 			/* if xvimagesink */
@@ -2760,7 +2753,7 @@ do \
 
 /**
   * AUDIO PIPELINE 
-  * - Local playback 	: audioconvert !volume ! capsfilter ! dnse ! audiosink
+  * - Local playback 	: audioconvert !volume ! capsfilter ! audioeq ! audiosink
   * - Streaming 		: audioconvert !volume ! audiosink
   * - PCM extraction 	: audioconvert ! audioresample ! capsfilter ! fakesink 
   */
@@ -2839,10 +2832,10 @@ __mmplayer_gst_create_audio_pipeline(mm_player_t* player)
 
 		gst_caps_unref( caps );
 
-		/* audio filter. if enabled */
-		if ( PLAYER_INI()->use_audio_filter_preset || PLAYER_INI()->use_audio_filter_custom )
+		/* audio effect element. if audio effect is enabled */
+		if ( PLAYER_INI()->use_audio_effect_preset || PLAYER_INI()->use_audio_effect_custom )
 		{
-			MMPLAYER_CREATE_ELEMENT(audiobin, MMPLAYER_A_FILTER, "soundalive", "audiofilter", TRUE);
+			MMPLAYER_CREATE_ELEMENT(audiobin, MMPLAYER_A_FILTER, PLAYER_INI()->name_of_audio_effect, "audiofilter", TRUE);
 		}
 
 		/* create audio sink */
@@ -2995,20 +2988,20 @@ __mmplayer_gst_create_audio_pipeline(mm_player_t* player)
 
 	gst_object_unref(pad);
 
-	if ( !player->bypass_sound_effect && (PLAYER_INI()->use_audio_filter_preset || PLAYER_INI()->use_audio_filter_custom) )
+	if ( !player->bypass_audio_effect && (PLAYER_INI()->use_audio_effect_preset || PLAYER_INI()->use_audio_effect_custom) )
 	{
-		if ( player->audio_filter_info.filter_type == MM_AUDIO_FILTER_TYPE_PRESET )
+		if ( player->audio_effect_info.effect_type == MM_AUDIO_EFFECT_TYPE_PRESET )
 		{
-			if (!_mmplayer_sound_filter_preset_apply(player, player->audio_filter_info.preset))
+			if (!_mmplayer_audio_effect_preset_apply(player, player->audio_effect_info.preset))
 			{
-				debug_msg("apply sound effect(preset:%d) setting success\n",player->audio_filter_info.preset);
+				debug_msg("apply audio effect(preset:%d) setting success\n",player->audio_effect_info.preset);
 			}
 		}
-		else if ( player->audio_filter_info.filter_type == MM_AUDIO_FILTER_TYPE_CUSTOM )
+		else if ( player->audio_effect_info.effect_type == MM_AUDIO_EFFECT_TYPE_CUSTOM )
 		{
-			if (!_mmplayer_sound_filter_custom_apply(player))
+			if (!_mmplayer_audio_effect_custom_apply(player))
 			{
-				debug_msg("apply sound effect(custom) setting success\n");
+				debug_msg("apply audio effect(custom) setting success\n");
 			}
 		}
 	}
@@ -5829,8 +5822,8 @@ _mmplayer_create_player(MMHandleType handle) // @
 		player->pd_file_save_path = NULL;
 	}
 
-	/* give default value of sound effect setting */
-	player->bypass_sound_effect = TRUE;
+	/* give default value of audio effect setting */
+	player->bypass_audio_effect = TRUE;
 	player->sound.volume = MM_VOLUME_FACTOR_DEFAULT;
 	player->playback_rate = DEFAULT_PLAYBACK_RATE;
 	player->no_more_pad = TRUE;
@@ -7235,28 +7228,28 @@ GstCaps *caps, gpointer data)
 	if (player->type)
 		debug_log("meida type %s found, probability %d%% / %d\n", player->type, probability, gst_caps_get_size(caps));
 
-	/* midi type should be stored because it will be used to set audio gain in avsysauiosink */
+	/* midi type should be stored because it will be used to set audio gain in avsysaudiosink */
 	if ( __mmplayer_is_midi_type(player->type))
 	{
 		player->profile.play_mode = MM_PLAYER_MODE_MIDI;
 	}
 	else if (__mmplayer_is_amr_type(player->type))
 	{
-		player->bypass_sound_effect = FALSE;
-		if ( (PLAYER_INI()->use_audio_filter_preset || PLAYER_INI()->use_audio_filter_custom) )
+		player->bypass_audio_effect = FALSE;
+		if ( (PLAYER_INI()->use_audio_effect_preset || PLAYER_INI()->use_audio_effect_custom) )
 		{
-			if ( player->audio_filter_info.filter_type == MM_AUDIO_FILTER_TYPE_PRESET )
+			if ( player->audio_effect_info.effect_type == MM_AUDIO_EFFECT_TYPE_PRESET )
 			{
-				if (!_mmplayer_sound_filter_preset_apply(player, player->audio_filter_info.preset))
+				if (!_mmplayer_audio_effect_preset_apply(player, player->audio_effect_info.preset))
 				{
-					debug_msg("apply sound effect(preset:%d) setting success\n",player->audio_filter_info.preset);
+					debug_msg("apply audio effect(preset:%d) setting success\n",player->audio_effect_info.preset);
 				}
 			}
-			else if ( player->audio_filter_info.filter_type == MM_AUDIO_FILTER_TYPE_CUSTOM )
+			else if ( player->audio_effect_info.effect_type == MM_AUDIO_EFFECT_TYPE_CUSTOM )
 			{
-				if (!_mmplayer_sound_filter_custom_apply(player))
+				if (!_mmplayer_audio_effect_custom_apply(player))
 				{
-					debug_msg("apply sound effect(custom) setting success\n");
+					debug_msg("apply audio effect(custom) setting success\n");
 				}
 			}
 		}
@@ -7912,10 +7905,10 @@ __mmplayer_release_misc(mm_player_t* player)
 
 	MMPLAYER_FREEIF(player->album_art);
 
-	/* free memory related to sound effect */
-	if(player->audio_filter_info.custom_ext_level_for_plugin)
+	/* free memory related to audio effect */
+	if(player->audio_effect_info.custom_ext_level_for_plugin)
 	{
-		free(player->audio_filter_info.custom_ext_level_for_plugin);
+		free(player->audio_effect_info.custom_ext_level_for_plugin);
 	}
 
 	debug_fleave();

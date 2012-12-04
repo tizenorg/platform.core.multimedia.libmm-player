@@ -50,9 +50,14 @@ int mm_player_create(MMHandleType *player)
 	__ta__("mm_player_ini_load",
 	result = mm_player_ini_load();
 	)
-
 	if(result != MM_ERROR_NONE)
-		return MM_ERROR_PLAYER_INTERNAL;
+		return result;
+
+	__ta__("mm_player_audio_effect_ini_load",
+	result = mm_player_audio_effect_ini_load();
+	)
+	if(result != MM_ERROR_NONE)
+		return result;
 
 	/* alloc player structure */
 	new_player = g_malloc(sizeof(mm_player_t));

@@ -38,13 +38,12 @@ static mm_player_ini_t g_player_ini;
 static gboolean	__generate_default_ini(void);
 static void	__get_string_list(gchar** out_list, gchar* str);
 static void __mm_player_ini_check_ini_status(void);
-//static void __mm_player_ini_force_setting(void);
 
 /* macro */
-#define MMPLAYER_INI_GET_STRING( x_item, x_ini, x_default ) \
+#define MMPLAYER_INI_GET_STRING( x_dict, x_item, x_ini, x_default ) \
 do \
 { \
-	gchar* str = iniparser_getstring(dict, x_ini, x_default); \
+	gchar* str = iniparser_getstring(x_dict, x_ini, x_default); \
  \
 	if ( str &&  \
 		( strlen( str ) > 0 ) && \
@@ -59,7 +58,7 @@ do \
 }while(0)
 
 /* x_ini is the list of index to set TRUE at x_list[index] */
-#define MMPLAYER_INI_GET_BOOLEAN_FROM_LIST( x_list, x_list_max, x_ini, x_default ) \
+#define MMPLAYER_INI_GET_BOOLEAN_FROM_LIST( x_dict, x_list, x_list_max, x_ini, x_default ) \
 do \
 { \
 		int index = 0; \
@@ -67,7 +66,7 @@ do \
 		char *usr_ptr = NULL; \
 		char *token = NULL; \
 		gchar temp_arr[PLAYER_INI_MAX_STRLEN] = {0}; \
-		MMPLAYER_INI_GET_STRING(temp_arr, x_ini, x_default); \
+		MMPLAYER_INI_GET_STRING( x_dict, temp_arr, x_ini, x_default); \
 		token = strtok_r( temp_arr, delimiters, &usr_ptr ); \
 		while (token) \
 		{ \
@@ -85,7 +84,7 @@ do \
 }while(0)
 
 /* x_ini is the list of value to be set at x_list[index] */
-#define MMPLAYER_INI_GET_INT_FROM_LIST( x_list, x_list_max, x_ini, x_default ) \
+#define MMPLAYER_INI_GET_INT_FROM_LIST( x_dict, x_list, x_list_max, x_ini, x_default ) \
 do \
 { \
 		int index = 0; \
@@ -94,7 +93,7 @@ do \
 		char *usr_ptr = NULL; \
 		char *token = NULL; \
 		gchar temp_arr[PLAYER_INI_MAX_STRLEN] = {0}; \
-		MMPLAYER_INI_GET_STRING(temp_arr, x_ini, x_default); \
+		MMPLAYER_INI_GET_STRING(x_dict, temp_arr, x_ini, x_default); \
 		token = strtok_r( temp_arr, delimiters, &usr_ptr ); \
 		while (token) \
 		{ \
@@ -122,8 +121,6 @@ mm_player_ini_load(void)
 
 	if ( loaded )
 		return MM_ERROR_NONE;
-
-	dict = NULL;
 
 	/* disabling ini parsing for launching */
 #if 1 //debianize
@@ -177,89 +174,32 @@ mm_player_ini_load(void)
 
 		g_player_ini.delay_before_repeat = iniparser_getint(dict, "general:delay before repeat", DEFAULT_DELAY_BEFORE_REPEAT);
 
-		MMPLAYER_INI_GET_STRING( g_player_ini.videosink_element_x, "general:videosink element x", DEFAULT_VIDEOSINK_X);
-		MMPLAYER_INI_GET_STRING( g_player_ini.videosink_element_evas, "general:videosink element evas", DEFAULT_VIDEOSINK_EVAS);
-		MMPLAYER_INI_GET_STRING( g_player_ini.videosink_element_fake, "general:videosink element fake", DEFAULT_VIDEOSINK_FAKE);
-		MMPLAYER_INI_GET_STRING( g_player_ini.name_of_drmsrc, "general:drmsrc element", DEFAULT_DRMSRC );
-		MMPLAYER_INI_GET_STRING( g_player_ini.name_of_audiosink, "general:audiosink element", DEFAULT_AUDIOSINK );
-		MMPLAYER_INI_GET_STRING( g_player_ini.name_of_video_converter, "general:video converter element", DEFAULT_VIDEO_CONVERTER );
+		MMPLAYER_INI_GET_STRING(dict, g_player_ini.videosink_element_x, "general:videosink element x", DEFAULT_VIDEOSINK_X);
+		MMPLAYER_INI_GET_STRING(dict, g_player_ini.videosink_element_evas, "general:videosink element evas", DEFAULT_VIDEOSINK_EVAS);
+		MMPLAYER_INI_GET_STRING(dict, g_player_ini.videosink_element_fake, "general:videosink element fake", DEFAULT_VIDEOSINK_FAKE);
+		MMPLAYER_INI_GET_STRING(dict, g_player_ini.name_of_drmsrc, "general:drmsrc element", DEFAULT_DRMSRC );
+		MMPLAYER_INI_GET_STRING(dict, g_player_ini.name_of_audiosink, "general:audiosink element", DEFAULT_AUDIOSINK );
+		MMPLAYER_INI_GET_STRING(dict, g_player_ini.name_of_video_converter, "general:video converter element", DEFAULT_VIDEO_CONVERTER );
 
 		__get_string_list( (gchar**) g_player_ini.exclude_element_keyword, 
 			iniparser_getstring(dict, "general:element exclude keyword", DEFAULT_EXCLUDE_KEYWORD));
 
-		MMPLAYER_INI_GET_STRING( g_player_ini.gst_param[0], "general:gstparam1", DEFAULT_GST_PARAM );
-		MMPLAYER_INI_GET_STRING( g_player_ini.gst_param[1], "general:gstparam2", DEFAULT_GST_PARAM );
-		MMPLAYER_INI_GET_STRING( g_player_ini.gst_param[2], "general:gstparam3", DEFAULT_GST_PARAM );
-		MMPLAYER_INI_GET_STRING( g_player_ini.gst_param[3], "general:gstparam4", DEFAULT_GST_PARAM );
-		MMPLAYER_INI_GET_STRING( g_player_ini.gst_param[4], "general:gstparam5", DEFAULT_GST_PARAM );
-
-		/* audio filter (Preset)*/
-		g_player_ini.use_audio_filter_preset = iniparser_getboolean(dict, "sound effect:audio filter preset", DEFAULT_USE_AUDIO_FILTER_PRESET);
-		if (g_player_ini.use_audio_filter_preset)
-		{
-			MMPLAYER_INI_GET_BOOLEAN_FROM_LIST( g_player_ini.audio_filter_preset_list, MM_AUDIO_FILTER_PRESET_NUM,
-					"sound effect:audio filter preset list", DEFAULT_AUDIO_FILTER_PRESET_LIST );
-			MMPLAYER_INI_GET_BOOLEAN_FROM_LIST( g_player_ini.audio_filter_preset_earphone_only_list, MM_AUDIO_FILTER_PRESET_NUM,
-					"sound effect:audio filter preset earphone only", DEFAULT_AUDIO_FILTER_PRESET_LIST_EARPHONE_ONLY );
-		}
-		/* for audio filter custom (EQ / Extension filters) */
-		g_player_ini.use_audio_filter_custom = iniparser_getboolean(dict, "sound effect:audio filter custom", DEFAULT_USE_AUDIO_FILTER_CUSTOM);
-		if (g_player_ini.use_audio_filter_custom)
-		{
-			MMPLAYER_INI_GET_BOOLEAN_FROM_LIST( g_player_ini.audio_filter_custom_list, MM_AUDIO_FILTER_CUSTOM_NUM,
-					"sound effect:audio filter custom list", DEFAULT_AUDIO_FILTER_CUSTOM_LIST );
-			MMPLAYER_INI_GET_BOOLEAN_FROM_LIST( g_player_ini.audio_filter_custom_earphone_only_list, MM_AUDIO_FILTER_CUSTOM_NUM,
-					"sound effect:audio filter custom earphone only", DEFAULT_AUDIO_FILTER_CUSTOM_LIST_EARPHONE_ONLY );
-			/* for audio filter custom : EQ */
-			if (g_player_ini.audio_filter_custom_list[MM_AUDIO_FILTER_CUSTOM_EQ])
-			{
-				g_player_ini.audio_filter_custom_eq_num = iniparser_getint(dict, "sound effect:audio filter eq num",
-						DEFAULT_AUDIO_FILTER_CUSTOM_EQ_NUM);
-				if (g_player_ini.audio_filter_custom_eq_num < DEFAULT_AUDIO_FILTER_CUSTOM_EQ_NUM || g_player_ini.audio_filter_custom_eq_num > MM_AUDIO_FILTER_EQ_BAND_MAX)
-				{
-					debug_error("audio_filter_custom_eq_num(%d) is not valid range(%d - %d), set the value %d",
-						g_player_ini.audio_filter_custom_eq_num, DEFAULT_AUDIO_FILTER_CUSTOM_EQ_NUM, MM_AUDIO_FILTER_EQ_BAND_MAX, DEFAULT_AUDIO_FILTER_CUSTOM_EQ_NUM);
-					g_player_ini.audio_filter_custom_eq_num = DEFAULT_AUDIO_FILTER_CUSTOM_EQ_NUM;
-				}
-			}
-			/* for audio filter custom : extension filters */
-			g_player_ini.audio_filter_custom_ext_num = iniparser_getint(dict, "sound effect:audio filter ext num",
-					DEFAULT_AUDIO_FILTER_CUSTOM_EXT_NUM);
-			if (g_player_ini.audio_filter_custom_ext_num > 0)
-			{
-				MMPLAYER_INI_GET_INT_FROM_LIST( g_player_ini.audio_filter_custom_min_level_list, MM_AUDIO_FILTER_CUSTOM_NUM,
-						"sound effect:audio filter custom min list", DEFAULT_AUDIO_FILTER_CUSTOM_LIST );
-				MMPLAYER_INI_GET_INT_FROM_LIST( g_player_ini.audio_filter_custom_max_level_list, MM_AUDIO_FILTER_CUSTOM_NUM,
-						"sound effect:audio filter custom max list", DEFAULT_AUDIO_FILTER_CUSTOM_LIST );
-			}
-		}
-#if 0
-		int i;
-		for (i=0; i<MM_AUDIO_FILTER_PRESET_NUM; i++)
-		{
-			debug_log("audio_filter_preset_list: %d (is it for earphone only?(%d))\n", g_player_ini.audio_filter_preset_list[i], g_player_ini.audio_filter_preset_earphone_only_list[i]);
-		}
-		for (i=0; i<MM_AUDIO_FILTER_CUSTOM_NUM; i++)
-		{
-			debug_log("audio_filter_custom_list : %d (is it for earphone only?(%d))\n", g_player_ini.audio_filter_custom_list[i], g_player_ini.audio_filter_custom_earphone_only_list[i]);
-		}
-		debug_log("audio_filter_custom : eq_num(%d), ext_num(%d)\n", g_player_ini.audio_filter_custom_eq_num, g_player_ini.audio_filter_custom_ext_num )
-		for (i=0; i<MM_AUDIO_FILTER_CUSTOM_NUM; i++)
-		{
-			debug_log("aaudio_filter_custom_level_min_max_list : min(%d), max(%d)\n", g_player_ini.audio_filter_custom_min_level_list[i], g_player_ini.audio_filter_custom_max_level_list[i]);
-		}
-#endif
+		MMPLAYER_INI_GET_STRING(dict, g_player_ini.gst_param[0], "general:gstparam1", DEFAULT_GST_PARAM );
+		MMPLAYER_INI_GET_STRING(dict, g_player_ini.gst_param[1], "general:gstparam2", DEFAULT_GST_PARAM );
+		MMPLAYER_INI_GET_STRING(dict, g_player_ini.gst_param[2], "general:gstparam3", DEFAULT_GST_PARAM );
+		MMPLAYER_INI_GET_STRING(dict, g_player_ini.gst_param[3], "general:gstparam4", DEFAULT_GST_PARAM );
+		MMPLAYER_INI_GET_STRING(dict, g_player_ini.gst_param[4], "general:gstparam5", DEFAULT_GST_PARAM );
 
 		/* http streaming */
-		MMPLAYER_INI_GET_STRING( g_player_ini.name_of_httpsrc, "http streaming:httpsrc element", DEFAULT_HTTPSRC );
-		MMPLAYER_INI_GET_STRING( g_player_ini.http_file_buffer_path, "http streaming:http file buffer path", DEFAULT_HTTP_FILE_BUFFER_PATH );
+		MMPLAYER_INI_GET_STRING( dict, g_player_ini.name_of_httpsrc, "http streaming:httpsrc element", DEFAULT_HTTPSRC );
+		MMPLAYER_INI_GET_STRING( dict, g_player_ini.http_file_buffer_path, "http streaming:http file buffer path", DEFAULT_HTTP_FILE_BUFFER_PATH );
 		g_player_ini.http_buffering_limit = iniparser_getdouble(dict, "http streaming:http buffering high limit", DEFAULT_HTTP_BUFFERING_LIMIT);
 		g_player_ini.http_max_size_bytes = iniparser_getint(dict, "http streaming:http max size bytes", DEFAULT_HTTP_MAX_SIZE_BYTES);
 		g_player_ini.http_buffering_time = iniparser_getdouble(dict, "http streaming:http buffering time", DEFAULT_HTTP_BUFFERING_TIME);		
 		g_player_ini.http_timeout = iniparser_getint(dict, "http streaming:http timeout", DEFAULT_HTTP_TIMEOUT);
 
 		/* rtsp streaming */
-		MMPLAYER_INI_GET_STRING( g_player_ini.name_of_rtspsrc, "rtsp streaming:rtspsrc element", DEFAULT_RTSPSRC );
+		MMPLAYER_INI_GET_STRING( dict, g_player_ini.name_of_rtspsrc, "rtsp streaming:rtspsrc element", DEFAULT_RTSPSRC );
 		g_player_ini.rtsp_buffering_time = iniparser_getint(dict, "rtsp streaming:rtsp buffering time", DEFAULT_RTSP_BUFFERING);
 		g_player_ini.rtsp_rebuffering_time = iniparser_getint(dict, "rtsp streaming:rtsp rebuffering time", DEFAULT_RTSP_REBUFFERING);
 		g_player_ini.rtsp_do_typefinding = iniparser_getboolean(dict, "rtsp streaming:rtsp do typefinding", DEFAULT_RTSP_DO_TYPEFINDING);
@@ -272,8 +212,6 @@ mm_player_ini_load(void)
 		/* general */
 		g_player_ini.use_decodebin = DEFAULT_USE_DECODEBIN;
 		g_player_ini.disable_segtrap = DEFAULT_DISABLE_SEGTRAP;
-		g_player_ini.use_audio_filter_preset = DEFAULT_USE_AUDIO_FILTER_PRESET;
-		g_player_ini.use_audio_filter_custom = DEFAULT_USE_AUDIO_FILTER_CUSTOM;
 		g_player_ini.skip_rescan = DEFAULT_SKIP_RESCAN;
 		strncpy( g_player_ini.videosink_element_x, DEFAULT_VIDEOSINK_X, PLAYER_INI_MAX_STRLEN - 1 );
 		strncpy( g_player_ini.videosink_element_evas, DEFAULT_VIDEOSINK_EVAS, PLAYER_INI_MAX_STRLEN - 1 );
@@ -324,17 +262,11 @@ mm_player_ini_load(void)
 
 	loaded = TRUE;
 
-	/* The simulator uses a separate ini file. */
-	//__mm_player_ini_force_setting();
-
-
 	/* dump structure */
 	debug_log("player settings -----------------------------------\n");
 
 	/* general */
 	debug_log("use_decodebin : %d\n", g_player_ini.use_decodebin);
-	debug_log("use_audio_filter_preset : %d\n", g_player_ini.use_audio_filter_preset);
-	debug_log("use_audio_filter_custom : %d\n", g_player_ini.use_audio_filter_custom);
 	debug_log("disable_segtrap : %d\n", g_player_ini.disable_segtrap);
 	debug_log("skip rescan : %d\n", g_player_ini.skip_rescan);
 	debug_log("videosink element x: %s\n", g_player_ini.videosink_element_x);
@@ -384,6 +316,129 @@ mm_player_ini_load(void)
 }
 
 
+int
+mm_player_audio_effect_ini_load(void)
+{
+	static gboolean loaded_audioeffect = FALSE;
+	dictionary * dict_audioeffect = NULL;
+
+	if ( loaded_audioeffect )
+		return MM_ERROR_NONE;
+
+	dict_audioeffect = iniparser_load(MM_PLAYER_INI_DEFAULT_AUDIOEFFECT_PATH);
+	if ( !dict_audioeffect )
+	{
+		debug_warning("No audio effect ini file found. \n");
+		//return MM_ERROR_FILE_NOT_FOUND;
+	}
+
+	/* audio effect element name */
+	MMPLAYER_INI_GET_STRING( dict_audioeffect, g_player_ini.name_of_audio_effect, "audio effect:audio effect element", DEFAULT_AUDIO_EFFECT_ELEMENT );
+	if (!g_player_ini.name_of_audio_effect)
+	{
+		debug_error("could not parse name of audio effect. \n");
+		iniparser_freedict (dict_audioeffect);
+		return MM_ERROR_PLAYER_INTERNAL;
+	}
+
+	/* audio effect (Preset)*/
+	g_player_ini.use_audio_effect_preset = iniparser_getboolean(dict_audioeffect, "audio effect:audio effect preset", DEFAULT_USE_AUDIO_EFFECT_PRESET);
+	if (g_player_ini.use_audio_effect_preset)
+	{
+		MMPLAYER_INI_GET_BOOLEAN_FROM_LIST( dict_audioeffect, g_player_ini.audio_effect_preset_list, MM_AUDIO_EFFECT_PRESET_NUM,
+				"audio effect:audio effect preset list", DEFAULT_AUDIO_EFFECT_PRESET_LIST );
+		MMPLAYER_INI_GET_BOOLEAN_FROM_LIST( dict_audioeffect, g_player_ini.audio_effect_preset_earphone_only_list, MM_AUDIO_EFFECT_PRESET_NUM,
+				"audio effect:audio effect preset earphone only", DEFAULT_AUDIO_EFFECT_PRESET_LIST_EARPHONE_ONLY );
+	}
+
+	/* audio effect custom (EQ / Extension effects) */
+	g_player_ini.use_audio_effect_custom = iniparser_getboolean(dict_audioeffect, "audio effect:audio effect custom", DEFAULT_USE_AUDIO_EFFECT_CUSTOM);
+	if (g_player_ini.use_audio_effect_custom)
+	{
+		MMPLAYER_INI_GET_BOOLEAN_FROM_LIST( dict_audioeffect, g_player_ini.audio_effect_custom_list, MM_AUDIO_EFFECT_CUSTOM_NUM,
+				"audio effect:audio effect custom list", DEFAULT_AUDIO_EFFECT_CUSTOM_LIST );
+		MMPLAYER_INI_GET_BOOLEAN_FROM_LIST( dict_audioeffect, g_player_ini.audio_effect_custom_earphone_only_list, MM_AUDIO_EFFECT_CUSTOM_NUM,
+				"audio effect:audio effect custom earphone only", DEFAULT_AUDIO_EFFECT_CUSTOM_LIST_EARPHONE_ONLY );
+
+		/* audio effect custom : EQ */
+		if (g_player_ini.audio_effect_custom_list[MM_AUDIO_EFFECT_CUSTOM_EQ])
+		{
+			g_player_ini.audio_effect_custom_eq_band_num = iniparser_getint(dict_audioeffect, "audio effect:audio effect custom eq band num",
+					DEFAULT_AUDIO_EFFECT_CUSTOM_EQ_BAND_NUM);
+			if (g_player_ini.audio_effect_custom_eq_band_num < DEFAULT_AUDIO_EFFECT_CUSTOM_EQ_BAND_NUM ||
+					g_player_ini.audio_effect_custom_eq_band_num > MM_AUDIO_EFFECT_EQ_BAND_NUM_MAX)
+			{
+				debug_error("audio_effect_custom_eq_band_num(%d) is not valid range(%d - %d), set the value %d",
+					g_player_ini.audio_effect_custom_eq_band_num, DEFAULT_AUDIO_EFFECT_CUSTOM_EQ_BAND_NUM, MM_AUDIO_EFFECT_EQ_BAND_NUM_MAX, DEFAULT_AUDIO_EFFECT_CUSTOM_EQ_BAND_NUM);
+				g_player_ini.audio_effect_custom_eq_band_num = DEFAULT_AUDIO_EFFECT_CUSTOM_EQ_BAND_NUM;
+
+				iniparser_freedict (dict_audioeffect);
+				return MM_ERROR_PLAYER_INTERNAL;
+			}
+			else
+			{
+				if (g_player_ini.audio_effect_custom_eq_band_num)
+				{
+					MMPLAYER_INI_GET_INT_FROM_LIST( dict_audioeffect, g_player_ini.audio_effect_custom_eq_band_width, MM_AUDIO_EFFECT_EQ_BAND_NUM_MAX,
+							"audio effect:audio effect custom eq band width", DEFAULT_AUDIO_EFFECT_CUSTOM_EQ_BAND_WIDTH );
+					MMPLAYER_INI_GET_INT_FROM_LIST( dict_audioeffect, g_player_ini.audio_effect_custom_eq_band_freq, MM_AUDIO_EFFECT_EQ_BAND_NUM_MAX,
+							"audio effect:audio effect custom eq band freq", DEFAULT_AUDIO_EFFECT_CUSTOM_EQ_BAND_FREQ );
+				}
+			}
+		}
+
+		/* audio effect custom : Extension effects */
+		g_player_ini.audio_effect_custom_ext_num = iniparser_getint(dict_audioeffect, "audio effect:audio effect custom ext num",
+				DEFAULT_AUDIO_EFFECT_CUSTOM_EXT_NUM);
+
+		/* Min/Max value list of EQ / Extension effects */
+		if (g_player_ini.audio_effect_custom_eq_band_num || g_player_ini.audio_effect_custom_ext_num)
+		{
+
+			MMPLAYER_INI_GET_INT_FROM_LIST( dict_audioeffect, g_player_ini.audio_effect_custom_min_level_list, MM_AUDIO_EFFECT_CUSTOM_NUM,
+					"audio effect:audio effect custom min list", DEFAULT_AUDIO_EFFECT_CUSTOM_LIST );
+			MMPLAYER_INI_GET_INT_FROM_LIST( dict_audioeffect, g_player_ini.audio_effect_custom_max_level_list, MM_AUDIO_EFFECT_CUSTOM_NUM,
+					"audio effect:audio effect custom max list", DEFAULT_AUDIO_EFFECT_CUSTOM_LIST );
+		}
+	}
+
+	/* dump structure */
+	debug_log("player audio-effect settings ----------------------\n");
+	debug_log("name_of_audio_effect : %s\n", g_player_ini.name_of_audio_effect);
+	debug_log("use_audio_effect_preset : %d\n", g_player_ini.use_audio_effect_preset);
+	debug_log("use_audio_effect_custom : %d\n", g_player_ini.use_audio_effect_custom);
+#if 0
+	int i;
+	for (i=0; i<MM_AUDIO_EFFECT_PRESET_NUM; i++)
+	{
+		debug_log("audio_effect_preset_list: %d (is it for earphone only?(%d))\n", g_player_ini.audio_effect_preset_list[i], g_player_ini.audio_effect_preset_earphone_only_list[i]);
+	}
+	for (i=0; i<MM_AUDIO_EFFECT_CUSTOM_NUM; i++)
+	{
+		debug_log("audio_effect_custom_list : %d (is it for earphone only?(%d))\n", g_player_ini.audio_effect_custom_list[i], g_player_ini.audio_effect_custom_earphone_only_list[i]);
+	}
+	debug_log("audio_effect_custom : eq_band_num(%d), ext_num(%d)\n", g_player_ini.audio_effect_custom_eq_band_num, g_player_ini.audio_effect_custom_ext_num );
+	debug_log("audio_effect_custom_EQ : width(Hz) / central frequency(Hz)");
+	for (i=0; i<g_player_ini.audio_effect_custom_eq_band_num; i++)
+	{
+		debug_log("     EQ band index(%d) :  %8d / %8d", i, g_player_ini.audio_effect_custom_eq_band_width[i], g_player_ini.audio_effect_custom_eq_band_freq[i]);
+	}
+	for (i=0; i<MM_AUDIO_EFFECT_CUSTOM_NUM; i++)
+	{
+		debug_log("audio_effect_custom_level_min_max(idx:%d) : Min(%d), Max(%d)\n", i, g_player_ini.audio_effect_custom_min_level_list[i], g_player_ini.audio_effect_custom_max_level_list[i]);
+	}
+#endif
+	debug_log("---------------------------------------------------\n");
+
+	iniparser_freedict (dict_audioeffect);
+
+	loaded_audioeffect = TRUE;
+
+	return MM_ERROR_NONE;
+
+}
+
+
 static
 void __mm_player_ini_check_ini_status(void)
 {
@@ -403,14 +458,6 @@ void __mm_player_ini_check_ini_status(void)
 		}
 	}
 }
-
-#if 0
-static 
-void __mm_player_ini_force_setting(void)
-{
-	//TODO:IF NEEDED
-}
-#endif
 
 mm_player_ini_t* 
 mm_player_ini_get_structure(void)

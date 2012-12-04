@@ -4,7 +4,7 @@ includelibmmfplayerdir = $(includedir)/mmf
 
 includelibmmfplayer_HEADERS = include/mm_player.h \
 			      include/mm_player_internal.h \
-			      include/mm_player_sndeffect.h
+			      include/mm_player_audioeffect.h
 
 libmmfplayer_la_SOURCES = mm_player.c \
 			  mm_player_priv.c \
@@ -15,7 +15,7 @@ libmmfplayer_la_SOURCES = mm_player.c \
 			  mm_player_capture.c \
 			  mm_player_pd.c \
 			  mm_player_streaming.c \
-			  mm_player_sndeffect.c
+			  mm_player_audioeffect.c
 
 libmmfplayer_la_CFLAGS =  -I$(srcdir)/include \
 			  $(MMCOMMON_CFLAGS) \
