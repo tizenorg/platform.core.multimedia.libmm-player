@@ -2252,7 +2252,7 @@ __mmplayer_gst_decode_callback(GstElement *decodebin, GstPad *pad, gboolean last
 			/* get video surface type */
 			int surface_type = 0;
 			mm_attrs_get_int_by_name (player->attrs, "display_surface_type", &surface_type);
-			debug_log("check display surface type attribute: %d", surface_type);
+
 			if (surface_type == MM_DISPLAY_SURFACE_NULL)
 			{
 				debug_log("not make videobin because it dose not want\n");
@@ -2389,11 +2389,93 @@ ERROR:
 	return;
 }
 
+static gboolean
+__mmplayer_get_property_value_for_rotation(mm_player_t* player, int rotation_angle, int *value)
+{
+	int pro_value = 0; // in the case of expection, default will be returned.
+	int dest_angle = rotation_angle;
+	char *element_name = NULL;
+	int rotation_using_type = -1;
+	#define ROTATION_USING_X		0
+	#define ROTATION_USING_FLIP	1
+
+	return_val_if_fail(player, FALSE);
+	return_val_if_fail(value, FALSE);
+	return_val_if_fail(rotation_angle >= 0, FALSE);
+
+	if (rotation_angle >= 360)
+	{
+		dest_angle = rotation_angle - 360;
+	}
+
+	/* chech if supported or not */
+	if ( dest_angle % 90 )
+	{
+		debug_log("not supported rotation angle = %d", rotation_angle);
+		return FALSE;
+	}
+
+	rotation_using_type = ROTATION_USING_FLIP;
+	debug_log("using %d type for rotation", rotation_using_type);
+
+	/* get property value for setting */
+	switch(rotation_using_type)
+	{
+		case ROTATION_USING_X: // xvimagesink
+			{
+				switch (dest_angle)
+				{
+					case 0:
+						break;
+					case 90:
+						pro_value = 3; // clockwise 90
+						break;
+					case 180:
+						pro_value = 2;
+						break;
+					case 270:
+						pro_value = 1; // counter-clockwise 90
+						break;
+				}
+			}
+			break;
+		case ROTATION_USING_FLIP: // videoflip
+			{
+					switch (dest_angle)
+					{
+
+						case 0:
+							break;
+						case 90:
+							pro_value = 1; // clockwise 90
+							break;
+						case 180:
+							pro_value = 2;
+							break;
+						case 270:
+							pro_value = 3; // counter-clockwise 90
+							break;
+					}
+			}
+			break;
+	}
+
+	debug_log("setting rotation property value : %d", pro_value);
+
+	*value = pro_value;
+
+	return TRUE;
+}
+
 int
 _mmplayer_update_video_param(mm_player_t* player) // @
 {
 	MMHandleType attrs = 0;
 	int surface_type = 0;
+	int org_angle = 0; // current supported angle values are 0, 90, 180, 270
+	int user_angle = 0;
+	int user_angle_type= 0;
+	int rotation_value = 0;
 
 	debug_fenter();
 
@@ -2412,60 +2494,87 @@ _mmplayer_update_video_param(mm_player_t* player) // @
 		return MM_ERROR_PLAYER_INTERNAL;
 	}
 
-	/* update display surface */
-	mm_attrs_get_int_by_name (player->attrs, "display_surface_type", &surface_type);
-	debug_log("check display surface type attribute: %d", surface_type);
+	/* update user roation */
+	mm_attrs_get_int_by_name(attrs, "display_rotation", &user_angle_type);
+
+	/* get angle with user type */
+	switch(user_angle_type)
+	{
+		case MM_DISPLAY_ROTATION_NONE:
+			user_angle = 0;
+			break;
+		case MM_DISPLAY_ROTATION_90:
+			user_angle = 90;
+			break;
+		case MM_DISPLAY_ROTATION_180:
+			user_angle = 180;
+			break;
+		case MM_DISPLAY_ROTATION_270:
+			user_angle = 270;
+			break;
+	}
+
+	/* get original orientation */
+	if (player->v_stream_caps)
+	{
+		GstStructure *str = NULL;
+
+		str = gst_caps_get_structure (player->v_stream_caps, 0);
+		if ( !gst_structure_get_int (str, "orientation", &org_angle))
+		{
+			debug_log ("missing 'orientation' field in video caps");
+		}
+		else
+		{
+			debug_log("origianl video orientation = %d", org_angle);
+		}
+	}
+
+	debug_log("check user angle: %d, org angle: %d", user_angle, org_angle);
 
 	/* check video stream callback is used */
 	if( player->use_video_stream )
 	{
-		int rotate, width, height, orientation;
+			int width = 0;
+			int height = 0;
 
-		rotate = width = height = orientation = 0;
+			debug_log("using video stream callback with memsink. player handle : [%p]", player);
 
-		debug_log("using video stream callback with memsink. player handle : [%p]", player);
+			mm_attrs_get_int_by_name(attrs, "display_width", &width);
+			mm_attrs_get_int_by_name(attrs, "display_height", &height);
 
-		mm_attrs_get_int_by_name(attrs, "display_width", &width);
-		mm_attrs_get_int_by_name(attrs, "display_height", &height);
-		mm_attrs_get_int_by_name(attrs, "display_rotation", &rotate);
-		mm_attrs_get_int_by_name(attrs, "display_orientation", &orientation);
+			if (width)
+				g_object_set(player->pipeline->videobin[MMPLAYER_V_SINK].gst, "width", width, NULL);
 
-		if (rotate < MM_DISPLAY_ROTATION_NONE || rotate > MM_DISPLAY_ROTATION_270)
-			rotate = 0;
-		else
-			rotate *= 90;
+			if (height)
+				g_object_set(player->pipeline->videobin[MMPLAYER_V_SINK].gst, "height", height, NULL);
 
-		if(orientation == 1)        rotate = 90;
-		else if(orientation == 2)   rotate = 180;
-		else if(orientation == 3)   rotate = 270;
+			/* get rotation value to set */
+			__mmplayer_get_property_value_for_rotation(player, org_angle+user_angle, &rotation_value);
 
-		if (width)
-			g_object_set(player->pipeline->videobin[MMPLAYER_V_SINK].gst, "width", width, NULL);
-
-		if (height)
-			g_object_set(player->pipeline->videobin[MMPLAYER_V_SINK].gst, "height", height, NULL);
-
-		g_object_set(player->pipeline->videobin[MMPLAYER_V_SINK].gst, "rotate", rotate,NULL);
+			g_object_set(player->pipeline->videobin[MMPLAYER_V_FLIP].gst, "method", rotation_value, NULL);
 		
 		return MM_ERROR_NONE;
 	}
+
+	/* update display surface */
+	mm_attrs_get_int_by_name(attrs, "display_surface_type", &surface_type);
+	debug_log("check display surface type attribute: %d", surface_type);
 
 	/* configuring display */
 	switch ( surface_type )
 	{
 		case MM_DISPLAY_SURFACE_X:
 		{
-		/* ximagesink or xvimagesink */
+			/* ximagesink or xvimagesink */
 			void *xid = NULL;
 			int zoom = 0;
-			int degree = 0;
 			int display_method = 0;
 			int roi_x = 0;
 			int roi_y = 0;
 			int roi_w = 0;
 			int roi_h = 0;
 			int force_aspect_ratio = 0;
-
 			gboolean visible = TRUE;
 
 			/* common case if using x surface */
@@ -2486,7 +2595,6 @@ _mmplayer_update_video_param(mm_player_t* player) // @
 			{
 				mm_attrs_get_int_by_name(attrs, "display_force_aspect_ration", &force_aspect_ratio);
 				mm_attrs_get_int_by_name(attrs, "display_zoom", &zoom);
-				mm_attrs_get_int_by_name(attrs, "display_rotation", &degree);
 				mm_attrs_get_int_by_name(attrs, "display_method", &display_method);
 				mm_attrs_get_int_by_name(attrs, "display_roi_x", &roi_x);
 				mm_attrs_get_int_by_name(attrs, "display_roi_y", &roi_y);
@@ -2494,10 +2602,13 @@ _mmplayer_update_video_param(mm_player_t* player) // @
 				mm_attrs_get_int_by_name(attrs, "display_roi_height", &roi_h);
 				mm_attrs_get_int_by_name(attrs, "display_visible", &visible);
 
+				/* get rotation value to set */
+				__mmplayer_get_property_value_for_rotation(player, org_angle+user_angle, &rotation_value);
+
 				g_object_set(player->pipeline->videobin[MMPLAYER_V_SINK].gst,
 					"force-aspect-ratio", force_aspect_ratio,
 					"zoom", zoom,
-					"rotate", degree,
+					"rotate", rotation_value,
 					"handle-events", TRUE,
 					"display-geometry-method", display_method,
 					"draw-borders", FALSE,
@@ -2509,7 +2620,7 @@ _mmplayer_update_video_param(mm_player_t* player) // @
 					NULL );
 
 				debug_log("set video param : zoom %d", zoom);
-				debug_log("set video param : rotate %d", degree);
+				debug_log("set video param : rotate %d", rotation_value);
 				debug_log("set video param : method %d", display_method);
 				debug_log("set video param : dst-roi-x: %d, dst-roi-y: %d, dst-roi-w: %d, dst-roi-h: %d",
 								roi_x, roi_y, roi_w, roi_h );
@@ -2776,7 +2887,7 @@ __mmplayer_gst_create_audio_pipeline(mm_player_t* player)
 
 	/* alloc handles */
 	audiobin = (MMPlayerGstElement*)g_malloc0(sizeof(MMPlayerGstElement) * MMPLAYER_A_NUM);
-	audiobin = (MMPlayerGstElement*)g_malloc0(sizeof(MMPlayerGstElement) * MMPLAYER_A_NUM);
+
 	if ( ! audiobin )
 	{
 		debug_error("failed to allocate memory for audiobin\n");
@@ -3095,9 +3206,9 @@ __mmplayer_audio_stream_probe (GstPad *pad, GstBuffer *buffer, gpointer u_data)
  */
 /**
   * VIDEO PIPELINE
-  * - x surface (arm/x86) : xvimagesink
-  * - evas surface  (arm) : ffmpegcolorspace ! evasimagesink
-  * - evas surface  (x86) : videoconvertor ! evasimagesink
+  * - x surface (arm/x86) : videoflip ! xvimagesink
+  * - evas surface  (arm) : ffmpegcolorspace ! videoflip ! evasimagesink
+  * - evas surface  (x86) : videoconvertor ! videoflip ! evasimagesink
   */
 static int
 __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps, MMDisplaySurfaceType surface_type)
@@ -3150,10 +3261,13 @@ __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps, MMDispl
 		{
 			MMPLAYER_CREATE_ELEMENT(videobin, MMPLAYER_V_CONV, vconv_factory, "video converter", TRUE);
 		}
-		
+
+		/* rotator */
+		MMPLAYER_CREATE_ELEMENT(videobin, MMPLAYER_V_FLIP, "videoflip", "video rotator", TRUE);
+
+		#if 0
 		/* then, create video scale to resize if needed */
 		str = gst_caps_get_structure (caps, 0);
-
 		if ( ! str )
 		{
 			debug_error("cannot get structure\n");
@@ -3161,11 +3275,10 @@ __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps, MMDispl
 		}
 
 		MMPLAYER_LOG_GST_CAPS_TYPE(caps);
-
-		ret = gst_structure_get_fourcc (str, "format", &fourcc);
-
-		if ( !ret )
-			debug_log("not fixed format at this point, and not consider this case\n")
+		if ( !gst_structure_get_fourcc (str, "format", &fourcc) )
+		{
+			debug_log("not fixed format at this point, and not consider this case\n");
+		}
 
 		/* NOTE :  if the width of I420 format is not multiple of 8, it should be resize before colorspace conversion.
 		  * so, video scale is required for this case only.
@@ -3229,8 +3342,9 @@ __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps, MMDispl
 
 			gst_caps_unref( video_caps );
 		}
+		#endif
 
-		/* finally, create video sink. its oupput should be BGRX8888 for application like cario surface. */
+		/* finally, create video sink. oupput will be BGRA8888. */
 		MMPLAYER_CREATE_ELEMENT(videobin, MMPLAYER_V_SINK, "avsysmemsink", "videosink", TRUE);
 
 		MMPLAYER_SIGNAL_CONNECT( player,
@@ -3243,7 +3357,7 @@ __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps, MMDispl
 	{
 		debug_log("using videosink");
 		
-		/*set video converter */
+		/* set video converter */
 		if (strlen(PLAYER_INI()->name_of_video_converter) > 0)
 		{
 			vconv_factory = PLAYER_INI()->name_of_video_converter;
@@ -3254,7 +3368,10 @@ __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps, MMDispl
 			}
 		}
 
-		/* videoscaler */ /* NOTE : ini parsing method seems to be more suitable rather than define method */
+		/* set video rotator */
+		MMPLAYER_CREATE_ELEMENT(videobin, MMPLAYER_V_FLIP, "videoflip", "video rotator", TRUE);
+
+		/* videoscaler */
 		#if !defined(__arm__)
 		MMPLAYER_CREATE_ELEMENT(videobin, MMPLAYER_V_SCALE, "videoscale", "videoscaler", TRUE);
 		#endif
@@ -3963,8 +4080,6 @@ static GstBusSyncReply
 __mmplayer_bus_sync_callback (GstBus * bus, GstMessage * message, gpointer data)
 {
 	mm_player_t *player = (mm_player_t *)data;
-	GstElement *sender = (GstElement *) GST_MESSAGE_SRC (message);
-	const gchar *name = gst_element_get_name (sender);
 
 	switch (GST_MESSAGE_TYPE (message))
 	{
@@ -4531,7 +4646,6 @@ __mmplayer_gst_destroy_pipeline(mm_player_t* player) // @
 		if ( player->bus_watcher )
 			g_source_remove( player->bus_watcher );
 		player->bus_watcher = 0;
-
 
 		if ( mainbin )
 		{
