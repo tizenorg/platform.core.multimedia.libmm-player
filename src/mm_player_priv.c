@@ -2503,14 +2503,14 @@ _mmplayer_update_video_param(mm_player_t* player) // @
 		case MM_DISPLAY_ROTATION_NONE:
 			user_angle = 0;
 			break;
-		case MM_DISPLAY_ROTATION_90:
-			user_angle = 90;
+		case MM_DISPLAY_ROTATION_90: // counter-clockwise 90
+			user_angle = 270;
 			break;
 		case MM_DISPLAY_ROTATION_180:
 			user_angle = 180;
 			break;
-		case MM_DISPLAY_ROTATION_270:
-			user_angle = 270;
+		case MM_DISPLAY_ROTATION_270: // clockwise 90
+			user_angle = 90;
 			break;
 	}
 
