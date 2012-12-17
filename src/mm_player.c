@@ -136,6 +136,8 @@ int  mm_player_destroy(MMHandleType player)
 		((mm_player_t*)player)->cmd_lock = NULL;
 	}
 
+	memset( (mm_player_t*)player, 0x00, sizeof(mm_player_t) );
+
 	/* free player */
 	g_free( (void*)player );
 

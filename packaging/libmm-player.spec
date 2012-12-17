@@ -4,7 +4,7 @@ Summary:    Multimedia Framework Player Library
 Version:    0.2.7
 Release:    0
 Group:      System/Libraries
-License:    Apache v2.0
+License:    Apache License, Version 2.0
 URL:        http://source.tizen.org
 Source0:    %{name}-%{version}.tar.gz
 Requires(post):  /sbin/ldconfig

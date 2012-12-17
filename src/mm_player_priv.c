@@ -307,9 +307,6 @@ __mmplayer_check_state(mm_player_t* player, enum PlayerCommandState command)
 
 		case MMPLAYER_COMMAND_START:
 		{
-			if (MMPLAYER_IS_HTTP_PD(player))
-				goto INVALID_STATE;
-
 			MMPLAYER_TARGET_STATE(player) = MM_PLAYER_STATE_PLAYING;
 
 			if ( pending_state == MM_PLAYER_STATE_NONE )
@@ -887,8 +884,9 @@ __mmplayer_set_state(mm_player_t* player, int state) // @
 			 * note that this is only happening pause command has come before the state of pipeline
 			 * reach to the PLAYING.
 			 */
-			 if ( ! player->sent_bos ) // managed prepare sync case
+			 if ( ! player->sent_bos )
 			 {
+				player->need_update_content_attrs = TRUE;
 				player->need_update_content_dur = TRUE;
 				_mmplayer_update_content_attrs( player );
 			 }
@@ -912,6 +910,12 @@ __mmplayer_set_state(mm_player_t* player, int state) // @
 			if ( ! player->need_update_content_dur)
 			{
 				player->need_update_content_dur = TRUE;
+				_mmplayer_update_content_attrs ( player );
+			}
+			if (MMPLAYER_IS_STREAMING(player))
+			{
+				/* force setting value to TRUE for streaming */
+				player->need_update_content_attrs = TRUE;
 				_mmplayer_update_content_attrs ( player );
 			}
 
@@ -6915,9 +6919,6 @@ _mmplayer_pause(MMHandleType hplayer) // @
 			 */
 			mm_attrs_get_int_by_name(player->attrs, "profile_prepare_async", &async);
 			debug_log("prepare mode : %s", (async ? "async" : "sync"));
-
-			if (__mmplayer_start_streaming_ext(player) != MM_ERROR_NONE)
-				return MM_ERROR_PLAYER_INTERNAL;
 		}
 		break;
 
@@ -7878,7 +7879,7 @@ static void __mmplayer_pipeline_complete(GstElement *decodebin,  gpointer data) 
 		__mmplayer_post_missed_plugin( player );
 	}
 	
-	MMPLAYER_GENERATE_DOT_IF_ENABLED ( player, "pipeline-status-complate" );
+	MMPLAYER_GENERATE_DOT_IF_ENABLED ( player, "pipeline-status-complete" );
 }
 
 static gboolean __mmplayer_configure_audio_callback(mm_player_t* player)
@@ -8887,7 +8888,7 @@ __mmplayer_dump_pipeline_state( mm_player_t* player )
 			   	gst_element_get_state(GST_ELEMENT (item),&state, &pending,time);
 
 			   	factory = gst_element_get_factory (item) ;
-				 debug_log("%s:%s : From:%s To:%s   refcount : %d\n", GST_OBJECT_NAME(factory) , GST_ELEMENT_NAME(item) ,
+				 debug_error("%s:%s : From:%s To:%s   refcount : %d\n", GST_OBJECT_NAME(factory) , GST_ELEMENT_NAME(item) ,
 				 	gst_element_state_get_name(state), gst_element_state_get_name(pending) , GST_OBJECT_REFCOUNT_VALUE(item));
 
 
@@ -8912,7 +8913,7 @@ __mmplayer_dump_pipeline_state( mm_player_t* player )
 
 	factory = gst_element_get_factory (item) ;
 
-	debug_log("%s:%s : From:%s To:%s  refcount : %d\n",
+	debug_error("%s:%s : From:%s To:%s  refcount : %d\n",
 		GST_OBJECT_NAME(factory),
 		GST_ELEMENT_NAME(item),
 		gst_element_state_get_name(state),
