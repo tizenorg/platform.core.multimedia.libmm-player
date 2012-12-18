@@ -1524,6 +1524,9 @@ __mmplayer_gst_callback(GstBus *bus, GstMessage *msg, gpointer data) // @
 			if ( !MMPLAYER_IS_STREAMING(player) || (player->profile.uri_type == MM_PLAYER_URI_TYPE_HLS) ) // pure hlsdemux case, don't consider buffering of msl currently
 				break;
 
+			if (MMPLAYER_IS_STREAMING(player) && player->cmd != MMPLAYER_COMMAND_START)
+				break;
+
 			__mm_player_streaming_buffering (player->streamer, msg);
 
 			__mmplayer_handle_buffering_message ( player );
