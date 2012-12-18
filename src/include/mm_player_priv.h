@@ -396,6 +396,16 @@ typedef struct
 	int	__dummy2;
 	/* arbitrary data */
 	int	data[16];
+
+    /* dmabuf fd */
+    int fd[MM_PLAYER_IMGB_MPLANE_MAX];
+
+    /* flag for buffer share */
+    int buf_share_method;
+
+   /*y, cbcr size for bookmark */
+    int y_size;
+    int uv_size;
 } MMPlayerMPlaneImage;
 
 typedef struct {
