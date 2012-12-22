@@ -2923,6 +2923,7 @@ __mmplayer_gst_create_audio_pipeline(mm_player_t* player)
 	if ( ! player->is_sound_extraction )
 	{
 		GstCaps* caps = NULL;
+		guint channels = 0;
 
 		/* for logical volume control */
 		MMPLAYER_CREATE_ELEMENT(audiobin, MMPLAYER_A_VOL, "volume", "volume", TRUE);
@@ -2942,13 +2943,29 @@ __mmplayer_gst_create_audio_pipeline(mm_player_t* player)
 										"signed = (boolean) true, "
 										"width = (int) 16, "
 										"depth = (int) 16" 	);
-
 		g_object_set (GST_ELEMENT(audiobin[MMPLAYER_A_CAPS_DEFAULT].gst), "caps", caps, NULL );
 
 		gst_caps_unref( caps );
 
+		/* chech if multi-chennels */
+		if (player->pipeline->mainbin && player->pipeline->mainbin[MMPLAYER_M_DEMUX].gst)
+		{
+			GstPad *srcpad = NULL;
+			GstCaps *caps = NULL;
+
+			if (srcpad = gst_element_get_static_pad(player->pipeline->mainbin[MMPLAYER_M_DEMUX].gst, "src"))
+			{
+				if (caps = gst_pad_get_caps(srcpad))
+				{
+					MMPLAYER_LOG_GST_CAPS_TYPE(caps);
+					GstStructure *str = gst_caps_get_structure(caps, 0);
+					gst_structure_get_int (str, "channels", &channels);
+				}
+			}
+		}
+
 		/* audio effect element. if audio effect is enabled */
-		if ( PLAYER_INI()->use_audio_effect_preset || PLAYER_INI()->use_audio_effect_custom )
+		if ( channels <= 2 && (PLAYER_INI()->use_audio_effect_preset || PLAYER_INI()->use_audio_effect_custom) )
 		{
 			MMPLAYER_CREATE_ELEMENT(audiobin, MMPLAYER_A_FILTER, PLAYER_INI()->name_of_audio_effect, "audiofilter", TRUE);
 		}
@@ -8699,7 +8716,7 @@ static void __mmplayer_add_new_pad(GstElement *element, GstPad *pad, gpointer da
 		if ( !caps ) return;
 	}
 
-	MMPLAYER_LOG_GST_CAPS_TYPE(caps);
+	//MMPLAYER_LOG_GST_CAPS_TYPE(caps);
 	
 	str = gst_caps_get_structure(caps, 0);
 	if ( !str )
