@@ -2959,8 +2959,11 @@ __mmplayer_gst_create_audio_pipeline(mm_player_t* player)
 				{
 					MMPLAYER_LOG_GST_CAPS_TYPE(caps);
 					GstStructure *str = gst_caps_get_structure(caps, 0);
-					gst_structure_get_int (str, "channels", &channels);
+					if (str)
+						gst_structure_get_int (str, "channels", &channels);
+					gst_caps_unref(caps);
 				}
+				gst_object_unref(srcpad);
 			}
 		}
 
