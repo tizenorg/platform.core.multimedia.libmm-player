@@ -425,7 +425,7 @@ gboolean _mmplayer_unrealize_pd_downloader (MMHandleType handle)
 
 	pd = MM_PLAYER_GET_PD(handle);
 
-	return_val_if_fail ( pd->downloader_pipeline, FALSE );
+	return_val_if_fail ( pd && pd->downloader_pipeline, FALSE );
 
 	gst_element_set_state (pd->downloader_pipeline, GST_STATE_NULL);
 	gst_element_get_state (pd->downloader_pipeline, NULL, NULL, GST_CLOCK_TIME_NONE);

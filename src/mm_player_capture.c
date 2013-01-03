@@ -260,7 +260,7 @@ __mmplayer_capture_thread(gpointer data)
 				msg.code = MM_ERROR_PLAYER_NO_FREE_SPACE;
 				goto ERROR;
 			}
-			memset(src_buffer, 0x00, sizeof(linear_y_plane_size+linear_uv_plane_size));
+			memset(src_buffer, 0x00, linear_y_plane_size+linear_uv_plane_size);
 			memcpy(src_buffer, linear_y_plane, linear_y_plane_size);
 			memcpy(src_buffer+linear_y_plane_size, linear_uv_plane, linear_uv_plane_size);
 

@@ -239,7 +239,7 @@ _mmplayer_construct_attribute(MMHandleType handle)
 
 	debug_fenter();
 
-	return_if_fail(handle);
+	return_val_if_fail (handle, 0);
 
 	MMPlayerAttrsSpec player_attrs[] =
 	{
@@ -932,8 +932,8 @@ _mmplayer_construct_attribute(MMHandleType handle)
 
 	if ( !base )
 	{
-		debug_error("Cannot create mmplayer attribute\n");
-		goto ERROR;
+		debug_error("failed to alloc attrs constructor");
+		return 0;
 	}
 
 	/* initialize values of attributes */
@@ -957,8 +957,8 @@ _mmplayer_construct_attribute(MMHandleType handle)
 
 	if ( !attrs )
 	{
-		debug_error("Cannot create mmplayer attribute\n");
-		goto ERROR;
+		debug_error("failed to create player attrs");
+		return 0;
 	}
 
 	/* set validity type and range */
@@ -1006,11 +1006,6 @@ _mmplayer_construct_attribute(MMHandleType handle)
 	debug_fleave();
 
 	return attrs;
-
-ERROR:
-	_mmplayer_deconstruct_attribute(handle);
-
-	return FALSE;
 }
 
 bool
@@ -1020,7 +1015,7 @@ _mmplayer_deconstruct_attribute(MMHandleType handle) // @
 
 	mm_player_t *player = MM_PLAYER_CAST(handle);
 
-	return_if_fail( player );
+	return_val_if_fail ( player, FALSE );
 
 	if (player->attrs)
 	{
@@ -1029,4 +1024,6 @@ _mmplayer_deconstruct_attribute(MMHandleType handle) // @
 	}
 
 	debug_fleave();
+
+	return TRUE;
 }

@@ -454,7 +454,10 @@ void __mm_player_ini_check_ini_status(void)
 		{
 			debug_warning("player.ini file size=%d, Corrupted! So, Removed\n", (int)ini_buff.st_size);
 			
-			g_remove( MM_PLAYER_INI_DEFAULT_PATH );
+			if ( g_remove( MM_PLAYER_INI_DEFAULT_PATH ) == -1)
+			{
+				debug_error("failed to delete corrupted ini");
+			}
 		}
 	}
 }

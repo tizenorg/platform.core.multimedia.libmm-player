@@ -756,7 +756,7 @@ gboolean __mmplayer_update_stream_service_type( mm_player_t* player )
 	}
 	else if (MMPLAYER_IS_HTTP_STREAMING(player))
 	{
-		if ( player->duration <= 0)
+		if ( player->duration == 0)
 			streaming_type = STREAMING_SERVICE_LIVE;
 		else
 			streaming_type = STREAMING_SERVICE_VOD;			
@@ -1944,6 +1944,14 @@ __mmplayer_gst_rtp_no_more_pads (GstElement *element,  gpointer data)  // @
 
 		if ( ! __mmplayer_gst_remove_fakesink( player,
 			&player->pipeline->mainbin[MMPLAYER_M_SRC_FAKESINK]) );
+		{
+			/* NOTE : __mmplayer_pipeline_complete() can be called several time. because
+			 * signaling mechanism ( pad-added, no-more-pad, new-decoded-pad ) from various
+			 * source element are not same. To overcome this situation, this function will called
+			 * several places and several times. Therefore, this is not an error case.
+			 */
+			return;
+		}
 	}
 
 	/* create dot before error-return. for debugging */
@@ -5273,9 +5281,6 @@ __gst_set_position(mm_player_t* player, int format, unsigned long position, gboo
 
 		case MM_PLAYER_POS_FORMAT_PERCENT:
 		{
-			if ( position < 0 && position > 100 )
-				goto INVALID_ARGS;
-
 			debug_log("seeking to (%lu)%% \n", position);
 
 			if (player->doing_seek)
@@ -5818,8 +5823,25 @@ __mmplayer_asm_callback(int handle, ASM_event_sources_t event_src, ASM_sound_com
 	switch(command)
 	{
 		case ASM_COMMAND_PLAY:
-		case ASM_COMMAND_STOP:
 			debug_warning ("Got unexpected asm command (%d)", command);
+		break;
+
+		case ASM_COMMAND_STOP: // notification case
+		{
+			debug_log("Got msg from asm to stop");
+
+			result = _mmplayer_stop((MMHandleType)player);
+			if (result != MM_ERROR_NONE)
+			{
+				debug_warning("fail to set stop state by asm");
+				cb_res = ASM_CB_RES_IGNORE;
+			}
+			else
+			{
+				cb_res = ASM_CB_RES_STOP;
+			}
+			player->sm.by_asm_cb = 0; // reset because no message any more from asm
+		}
 		break;
 			
 		case ASM_COMMAND_PAUSE:
@@ -6144,7 +6166,7 @@ ERROR:
 	return FALSE;
 }
 
-int 
+int
 __mmplayer_destroy_streaming_ext(mm_player_t* player)
 {
 	return_val_if_fail ( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
@@ -6155,15 +6177,16 @@ __mmplayer_destroy_streaming_ext(mm_player_t* player)
 	if (MMPLAYER_IS_HTTP_PD(player))
 		_mmplayer_destroy_pd_downloader((MMHandleType)player);
 
-       if (MMPLAYER_IS_STREAMING(player))
-       {
+	if (MMPLAYER_IS_STREAMING(player))
+	{
 		if (player->streamer)
 		{
 			__mm_player_streaming_deinitialize (player->streamer);
 			__mm_player_streaming_destroy(player->streamer);
 			player->streamer = NULL;
 		}
-       }
+	}
+	return MM_ERROR_NONE;
 }
 
 int
@@ -7918,7 +7941,8 @@ static void __mmplayer_pipeline_complete(GstElement *decodebin,  gpointer data) 
 	player->pipeline_is_constructed = TRUE;
 	
 	if ( ( PLAYER_INI()->async_start ) &&
-		( player->posted_msg == FALSE ) )
+		( player->posted_msg == FALSE ) &&
+		( player->cmd >= MMPLAYER_COMMAND_START ))
 	{
 		__mmplayer_post_missed_plugin( player );
 	}
@@ -8046,7 +8070,7 @@ __mmplayer_release_misc(mm_player_t* player)
 	player->pending_seek.is_pending = FALSE;
 	player->pending_seek.format = MM_PLAYER_POS_FORMAT_TIME;
 	player->pending_seek.pos = 0;
-	player->posted_msg == FALSE;
+	player->posted_msg = FALSE;
 	player->has_many_types = FALSE;
 
 	for (i = 0; i < MM_PLAYER_STREAM_COUNT_MAX; i++)

@@ -428,11 +428,7 @@ int mm_player_get_state(MMHandleType player, MMPlayerStateType *state)
 
 	*state = MM_PLAYER_STATE_NULL;
 
-	MMPLAYER_CMD_LOCK( player );
-
-	result = _mmplayer_get_state(player, (int*)state); /* FIXIT : why int* ? */
-
-	MMPLAYER_CMD_UNLOCK( player );
+	result = _mmplayer_get_state(player, (int*)state);
 
 	return result;
 }
