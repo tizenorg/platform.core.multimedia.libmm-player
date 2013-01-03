@@ -21,7 +21,7 @@ BuildRequires:  pkgconfig(mmutil-imgp)
 BuildRequires:  pkgconfig(audio-session-mgr)
 BuildRequires:  pkgconfig(iniparser)
 BuildRequires:  pkgconfig(vconf)
-
+BuildRequires:  pkgconfig(icu-i18n)
 
 BuildRoot:  %{_tmppath}/%{name}-%{version}-build
 

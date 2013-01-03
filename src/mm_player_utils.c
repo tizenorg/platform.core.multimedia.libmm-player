@@ -26,6 +26,8 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <unicode/ucsdet.h>
+
 #include <mm_debug.h>
 #include "mm_player_utils.h"
 
@@ -378,3 +380,67 @@ util_factory_rank_compare(GstPluginFeature *f1, GstPluginFeature *f2) // @
 
     	return (gst_plugin_feature_get_rank(f2)+f2_rank_inc) - (gst_plugin_feature_get_rank(f1)+f1_rank_inc );
 }
+
+char*
+util_get_charset(const char *file_path)
+{
+	UCharsetDetector* ucsd;
+	const UCharsetMatch* ucm;
+	UErrorCode status = U_ZERO_ERROR;
+
+	const char* charset = NULL;
+	char *buf = NULL;
+	FILE* fin;
+
+	fin = fopen(file_path, "r");
+	if (!fin)
+	{
+		debug_error("fail to open file %s\n", file_path);
+		return NULL;
+	}
+
+	ucsd = ucsdet_open( &status );
+	if( U_FAILURE(status) ) {
+		debug_error("fail to ucsdet_open\n");
+		return NULL;
+	}
+
+	ucsdet_enableInputFilter( ucsd, TRUE );
+
+	buf = g_malloc(1024*1024);
+	if (!buf)
+	{
+		debug_error("fail to alloc\n");
+		goto done;
+	}
+
+	fread( buf, 1, 1024*1024, fin );
+	fclose(fin);
+
+	ucsdet_setText( ucsd, buf, strlen(buf), &status );
+	if( U_FAILURE(status) ) {
+		debug_error("fail to ucsdet_setText\n");
+		goto done;
+	}
+
+	ucm = ucsdet_detect( ucsd, &status );
+	if( U_FAILURE(status) ) {
+		debug_error("fail to ucsdet_detect\n");
+		goto done;
+	}
+
+	charset = ucsdet_getName( ucm, &status );
+	if( U_FAILURE(status) ) {
+		debug_error("fail to ucsdet_getName\n");
+		goto done;
+	}
+
+done:
+	ucsdet_close( ucsd );
+
+	if (buf)
+		g_free(buf);
+
+	return charset;
+}
+
