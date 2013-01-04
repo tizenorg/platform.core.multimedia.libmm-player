@@ -27,7 +27,8 @@ libmmfplayer_la_CFLAGS =  -I$(srcdir)/include \
 			  $(MMSESSION_CFLAGS) \
 			  $(MMSOUND_CFLAGS) \
 			  $(AUDIOSESSIONMGR_CFLAGS) \
-			  $(VCONF_CFLAGS) 
+			  $(VCONF_CFLAGS) \
+                          $(ICU_CFLAGS)
 
 noinst_HEADERS = include/mm_player_utils.h \
 		 include/mm_player_ini.h \
@@ -48,7 +49,8 @@ libmmfplayer_la_LIBADD = $(GST_LIBS) \
 			 $(MMSESSION_LIBS) \
 			 $(MMSOUND_LIBS) \
 			 $(AUDIOSESSIONMGR_LIBS) \
-			 $(VCONF_LIBS)
+			 $(VCONF_LIBS) \
+                         $(ICU_LIBS)
 
 libmmfplayer_la_CFLAGS += $(MMLOG_CFLAGS) -DMMF_LOG_OWNER=0x008 -DMMF_DEBUG_PREFIX=\"MMF-PLAYER\" -D_INTERNAL_SESSION_MANAGER_
 libmmfplayer_la_LIBADD += $(MMLOG_LIBS)

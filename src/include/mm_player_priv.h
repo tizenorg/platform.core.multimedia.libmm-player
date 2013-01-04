@@ -141,6 +141,7 @@ enum MainElementID
 {
 	MMPLAYER_M_PIPE = 0, /* NOTE : MMPLAYER_M_PIPE should be zero */
 	MMPLAYER_M_SRC,
+	MMPLAYER_M_SUBSRC,
 
 	/* it could be a decodebin or could be a typefind. depends on player ini */
 	MMPLAYER_M_AUTOPLUG,
@@ -164,6 +165,7 @@ enum MainElementID
 	MMPLAYER_M_Q1,
 	MMPLAYER_M_Q2,
 	MMPLAYER_M_DEMUX,
+	MMPLAYER_M_SUBPARSE,
 	MMPLAYER_M_NUM
 };
 
@@ -197,26 +199,12 @@ enum VideoElementID
 enum TextElementID
 {
 	MMPLAYER_T_BIN = 0, /* NOTE : MMPLAYER_V_BIN should be zero */
-	MMPLAYER_T_QUEUE,
+	MMPLAYER_T_TEXT_QUEUE,
+	MMPLAYER_T_VIDEO_QUEUE,
+	MMPLAYER_T_VIDEO_CONVERTER,
 	MMPLAYER_T_OVERLAY,
 	MMPLAYER_T_SINK,
 	MMPLAYER_T_NUM
-};
-
-/* subtitle pipeline's element id */
-enum SubtitleElementID
-{
-	MMPLAYER_SUB_PIPE = 0, /* NOTE : MMPLAYER_SUB_PIPE should be zero */
-	MMPLAYER_SUB_SRC,
-	MMPLAYER_SUB_QUEUE,
-	MMPLAYER_SUB_SUBPARSE,
-	MMPLAYER_SUB_TEXTRENDER,
-	MMPLAYER_SUB_FLIP,
-	MMPLAYER_SUB_CONV1,
-	MMPLAYER_SUB_CONV2,
-	MMPLAYER_SUB_SCALE,
-	MMPLAYER_SUB_SINK,
-	MMPLAYER_SUB_NUM
 };
 
 /* midi main pipeline's element id */
@@ -232,9 +220,9 @@ enum PlayerCommandState
 	MMPLAYER_COMMAND_NONE,
 	MMPLAYER_COMMAND_CREATE,
 	MMPLAYER_COMMAND_DESTROY,
-	MMPLAYER_COMMAND_REALIZE,
 	MMPLAYER_COMMAND_UNREALIZE,
 	MMPLAYER_COMMAND_START,
+	MMPLAYER_COMMAND_REALIZE,
 	MMPLAYER_COMMAND_STOP,
 	MMPLAYER_COMMAND_PAUSE,
 	MMPLAYER_COMMAND_RESUME,
@@ -310,7 +298,6 @@ typedef struct
 {
 	GstTagList			*tag_list;
 	MMPlayerGstElement 	*mainbin;
-	MMPlayerGstElement 	*subtitlebin;
 	MMPlayerGstElement 	*audiobin;
 	MMPlayerGstElement 	*videobin;
 	MMPlayerGstElement 	*textbin;
@@ -396,6 +383,16 @@ typedef struct
 	int	__dummy2;
 	/* arbitrary data */
 	int	data[16];
+
+    /* dmabuf fd */
+    int fd[MM_PLAYER_IMGB_MPLANE_MAX];
+
+    /* flag for buffer share */
+    int buf_share_method;
+
+   /*y, cbcr size for bookmark */
+    int y_size;
+    int uv_size;
 } MMPlayerMPlaneImage;
 
 typedef struct {
@@ -607,6 +604,7 @@ typedef struct {
 	gboolean keep_detecting_vcodec;
 
 	gboolean play_subtitle;
+	gboolean use_textoverlay;
 
 	/* PD downloader message callback and param */
 	MMMessageCallback pd_msg_cb;

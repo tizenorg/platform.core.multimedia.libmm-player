@@ -268,6 +268,8 @@ int util_is_midi_type_by_file(const char *file_path);
 char** util_get_cookie_list ( const char *cookies );
 bool util_check_valid_url ( const char *proxy );
 
+char* util_get_charset(const char *file_path);
+
 #ifdef __cplusplus
 	}
 #endif

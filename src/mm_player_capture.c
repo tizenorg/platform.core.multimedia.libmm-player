@@ -216,6 +216,7 @@ __mmplayer_capture_thread(gpointer data)
 			debug_log("e[0]=%d, e[1]=%d", player->captured.e[0], player->captured.e[1]);
 			debug_log("a[0]=%p, a[1]=%p", player->captured.a[0], player->captured.a[1]);
 
+			#if 0
 			if (mm_attrs_get_int_by_name(player->attrs, "content_video_width", &(player->captured.w[0])) != MM_ERROR_NONE)
 			{
 				debug_error("failed to get content width attribute");
@@ -227,6 +228,7 @@ __mmplayer_capture_thread(gpointer data)
 				debug_error("failed to get content height attribute");
 				goto ERROR;
 			}
+			#endif
 
 			linear_y_plane_size = (player->captured.w[0] * player->captured.h[0]);
 			linear_uv_plane_size = (player->captured.w[0] * player->captured.h[0]/2);
@@ -258,7 +260,7 @@ __mmplayer_capture_thread(gpointer data)
 				msg.code = MM_ERROR_PLAYER_NO_FREE_SPACE;
 				goto ERROR;
 			}
-			memset(src_buffer, 0x00, sizeof(linear_y_plane_size+linear_uv_plane_size));
+			memset(src_buffer, 0x00, linear_y_plane_size+linear_uv_plane_size);
 			memcpy(src_buffer, linear_y_plane, linear_y_plane_size);
 			memcpy(src_buffer+linear_y_plane_size, linear_uv_plane, linear_uv_plane_size);
 
@@ -370,9 +372,10 @@ __mmplayer_get_video_frame_from_buffer(mm_player_t* player, GstBuffer *buffer)
 				if ( !proved || !proved->a[0] || !proved->a[1] )
 					return MM_ERROR_PLAYER_INTERNAL;
 
-				yplane_size = (proved->s[0] * proved->e[0]);
-				uvplane_size = (proved->s[1] * proved->e[1]);
+				yplane_size = proved->y_size;
+				uvplane_size = proved->uv_size;
 
+				debug_msg ("yplane_size=%d, uvplane_size=%d\n",yplane_size,uvplane_size);
 				memset(&player->captured, 0x00, sizeof(MMPlayerMPlaneImage));
 				memcpy(&player->captured, proved, sizeof(MMPlayerMPlaneImage));
 

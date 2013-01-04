@@ -136,6 +136,8 @@ int  mm_player_destroy(MMHandleType player)
 		((mm_player_t*)player)->cmd_lock = NULL;
 	}
 
+	memset( (mm_player_t*)player, 0x00, sizeof(mm_player_t) );
+
 	/* free player */
 	g_free( (void*)player );
 
@@ -426,11 +428,7 @@ int mm_player_get_state(MMHandleType player, MMPlayerStateType *state)
 
 	*state = MM_PLAYER_STATE_NULL;
 
-	MMPLAYER_CMD_LOCK( player );
-
-	result = _mmplayer_get_state(player, (int*)state); /* FIXIT : why int* ? */
-
-	MMPLAYER_CMD_UNLOCK( player );
+	result = _mmplayer_get_state(player, (int*)state);
 
 	return result;
 }

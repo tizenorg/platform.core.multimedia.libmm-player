@@ -4,7 +4,8 @@ Summary:    Multimedia Framework Player Library
 Version:    0.2.7
 Release:    0
 Group:      System/Libraries
-License:    TBD
+License:    Apache License, Version 2.0
+URL:        http://source.tizen.org
 Source0:    %{name}-%{version}.tar.gz
 Requires(post):  /sbin/ldconfig
 Requires(postun):  /sbin/ldconfig
@@ -20,7 +21,7 @@ BuildRequires:  pkgconfig(mmutil-imgp)
 BuildRequires:  pkgconfig(audio-session-mgr)
 BuildRequires:  pkgconfig(iniparser)
 BuildRequires:  pkgconfig(vconf)
-
+BuildRequires:  pkgconfig(icu-i18n)
 
 BuildRoot:  %{_tmppath}/%{name}-%{version}-build
 
