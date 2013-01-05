@@ -817,6 +817,15 @@ _mmplayer_construct_attribute(MMHandleType handle)
 			2
 		},
 		{
+			"audio_latency_mode",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) 1,			// 0: low latency, 1: middle latency 2: high latency
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			0,
+			2
+		},
+		{
 			"pcm_extraction",		// enable pcm extraction
 			MM_ATTRS_TYPE_INT,
 			MM_ATTRS_FLAG_RW,

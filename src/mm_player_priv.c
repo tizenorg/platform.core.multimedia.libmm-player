@@ -3036,6 +3036,7 @@ __mmplayer_gst_create_audio_pipeline(mm_player_t* player)
 			gint audio_route = 0;
 			gint sound_priority = FALSE;
 			gint is_spk_out_only = 0;
+			gint latency_mode = 0;
 
 			/* set volume table
 			 * It should be set after player creation through attribute.
@@ -3045,6 +3046,7 @@ __mmplayer_gst_create_audio_pipeline(mm_player_t* player)
 			mm_attrs_get_int_by_name(attrs, "sound_route", &audio_route);
 			mm_attrs_get_int_by_name(attrs, "sound_priority", &sound_priority);
 			mm_attrs_get_int_by_name(attrs, "sound_spk_out_only", &is_spk_out_only);
+			mm_attrs_get_int_by_name(attrs, "audio_latency_mode", &latency_mode);
 
 			/* hook sound_type if emergency case */
 			if ( player->sm.event == ASM_EVENT_EMERGENCY)
@@ -3058,10 +3060,11 @@ __mmplayer_gst_create_audio_pipeline(mm_player_t* player)
 								"audio-route", audio_route,
 								"priority", sound_priority,
 								"user-route", is_spk_out_only,
+								"latency", latency_mode,
 								NULL);
 
-			debug_log("audiosink property status...volume type:%d, route:%d, priority=%d, user-route=%d\n",
-				volume_type, audio_route, sound_priority, is_spk_out_only);
+			debug_log("audiosink property status...volume type:%d, route:%d, priority=%d, user-route=%d, latency=%d\n",
+				volume_type, audio_route, sound_priority, is_spk_out_only, latency_mode);
 		}
 
 		/* Antishock can be enabled when player is resumed by soundCM.
