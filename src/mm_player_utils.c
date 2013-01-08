@@ -81,7 +81,10 @@ bool util_remove_file_backup(const char *backup_path)
 
 	int res = access(backup_path, R_OK);
 	if (!res)
-		remove(backup_path);
+	{
+		if (remove(backup_path) == -1)
+			return FALSE;
+	}
 
 	return TRUE;
 }

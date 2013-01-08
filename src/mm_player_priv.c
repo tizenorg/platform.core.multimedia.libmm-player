@@ -1943,7 +1943,7 @@ __mmplayer_gst_rtp_no_more_pads (GstElement *element,  gpointer data)  // @
 		debug_log("it seems pad caps is directely used for autoplugging. removing fakesink now\n");
 
 		if ( ! __mmplayer_gst_remove_fakesink( player,
-			&player->pipeline->mainbin[MMPLAYER_M_SRC_FAKESINK]) );
+			&player->pipeline->mainbin[MMPLAYER_M_SRC_FAKESINK]) )
 		{
 			/* NOTE : __mmplayer_pipeline_complete() can be called several time. because
 			 * signaling mechanism ( pad-added, no-more-pad, new-decoded-pad ) from various
