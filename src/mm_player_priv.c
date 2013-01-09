@@ -1943,7 +1943,7 @@ __mmplayer_gst_rtp_no_more_pads (GstElement *element,  gpointer data)  // @
 		debug_log("it seems pad caps is directely used for autoplugging. removing fakesink now\n");
 
 		if ( ! __mmplayer_gst_remove_fakesink( player,
-			&player->pipeline->mainbin[MMPLAYER_M_SRC_FAKESINK]) );
+			&player->pipeline->mainbin[MMPLAYER_M_SRC_FAKESINK]) )
 		{
 			/* NOTE : __mmplayer_pipeline_complete() can be called several time. because
 			 * signaling mechanism ( pad-added, no-more-pad, new-decoded-pad ) from various
@@ -5704,7 +5704,7 @@ static gboolean __mmfplayer_parse_profile(const char *uri, void *param, MMPlayer
 
 	/* dump parse result */
 	debug_log("profile parsing result ---\n");
-	debug_log("incomming uri : %s\n", uri);
+	debug_warning("incomming uri : %s\n", uri);
 	debug_log("uri : %s\n", data->uri);
 	debug_log("uri_type : %d\n", data->uri_type);
 	debug_log("play_mode : %d\n", data->play_mode);
@@ -9457,6 +9457,7 @@ __gst_handle_stream_error( mm_player_t* player, GError* error, GstMessage * mess
 		case GST_STREAM_ERROR_DECODE:
 		case GST_STREAM_ERROR_WRONG_TYPE:
 		case GST_STREAM_ERROR_DECRYPT:
+		case GST_STREAM_ERROR_DECRYPT_NOKEY:
 			 trans_err = __gst_transform_gsterror( player, message, error );
 		break;
 
@@ -9467,7 +9468,6 @@ __gst_handle_stream_error( mm_player_t* player, GError* error, GstMessage * mess
 		case GST_STREAM_ERROR_DEMUX:
 		case GST_STREAM_ERROR_MUX:
 		case GST_STREAM_ERROR_FORMAT:
-		case GST_STREAM_ERROR_DECRYPT_NOKEY:
 		default:
 			trans_err = MM_ERROR_PLAYER_INVALID_STREAM;
 		break;
@@ -9595,7 +9595,7 @@ __gst_transform_gsterror( mm_player_t* player, GstMessage * message, GError* err
 					}
 				}
 			}
-	return MM_ERROR_PLAYER_INVALID_STREAM;
+			return MM_ERROR_PLAYER_INVALID_STREAM;
 		}
 		break;
 
@@ -9606,8 +9606,9 @@ __gst_transform_gsterror( mm_player_t* player, GstMessage * message, GError* err
 		break;
 
 		case GST_STREAM_ERROR_DECRYPT:
-		{				
-			debug_log("%s failed reason : %s\n", src_element_name, error->message);
+		case GST_STREAM_ERROR_DECRYPT_NOKEY:
+		{
+			debug_error("decryption error, %s failed reason : %s\n", src_element_name, error->message);
 			return MM_MESSAGE_DRM_NOT_AUTHORIZED;
 		}
 		break;
