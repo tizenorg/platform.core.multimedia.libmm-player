@@ -5704,7 +5704,7 @@ static gboolean __mmfplayer_parse_profile(const char *uri, void *param, MMPlayer
 
 	/* dump parse result */
 	debug_log("profile parsing result ---\n");
-	debug_log("incomming uri : %s\n", uri);
+	debug_warning("incomming uri : %s\n", uri);
 	debug_log("uri : %s\n", data->uri);
 	debug_log("uri_type : %d\n", data->uri_type);
 	debug_log("play_mode : %d\n", data->play_mode);
@@ -5789,11 +5789,7 @@ __mmplayer_asm_callback(int handle, ASM_event_sources_t event_src, ASM_sound_com
 	player->sm.by_asm_cb = 1; // it should be enabled for player state transition with called application command
 	player->sm.event_src = event_src;
 
-	if(event_src == ASM_EVENT_SOURCE_OTHER_PLAYER_APP)
-	{
-		player->sm.event_src = ASM_EVENT_SOURCE_OTHER_APP;
-	}
-	else if(event_src == ASM_EVENT_SOURCE_EARJACK_UNPLUG )
+	if(event_src == ASM_EVENT_SOURCE_EARJACK_UNPLUG )
 	{
 		int stop_by_asm = 0;
 
@@ -5853,7 +5849,7 @@ __mmplayer_asm_callback(int handle, ASM_event_sources_t event_src, ASM_sound_com
 			
 			if(event_src == ASM_EVENT_SOURCE_CALL_START
 				|| event_src == ASM_EVENT_SOURCE_ALARM_START
-				|| event_src == ASM_EVENT_SOURCE_OTHER_APP)
+				|| event_src == ASM_EVENT_SOURCE_MEDIA)
 			{
 				//hold 0.7 second to excute "fadedown mute" effect
 				debug_log ("do fade down->pause->undo fade down");
@@ -9457,6 +9453,7 @@ __gst_handle_stream_error( mm_player_t* player, GError* error, GstMessage * mess
 		case GST_STREAM_ERROR_DECODE:
 		case GST_STREAM_ERROR_WRONG_TYPE:
 		case GST_STREAM_ERROR_DECRYPT:
+		case GST_STREAM_ERROR_DECRYPT_NOKEY:
 			 trans_err = __gst_transform_gsterror( player, message, error );
 		break;
 
@@ -9467,7 +9464,6 @@ __gst_handle_stream_error( mm_player_t* player, GError* error, GstMessage * mess
 		case GST_STREAM_ERROR_DEMUX:
 		case GST_STREAM_ERROR_MUX:
 		case GST_STREAM_ERROR_FORMAT:
-		case GST_STREAM_ERROR_DECRYPT_NOKEY:
 		default:
 			trans_err = MM_ERROR_PLAYER_INVALID_STREAM;
 		break;
@@ -9595,7 +9591,7 @@ __gst_transform_gsterror( mm_player_t* player, GstMessage * message, GError* err
 					}
 				}
 			}
-	return MM_ERROR_PLAYER_INVALID_STREAM;
+			return MM_ERROR_PLAYER_INVALID_STREAM;
 		}
 		break;
 
@@ -9606,8 +9602,9 @@ __gst_transform_gsterror( mm_player_t* player, GstMessage * message, GError* err
 		break;
 
 		case GST_STREAM_ERROR_DECRYPT:
-		{				
-			debug_log("%s failed reason : %s\n", src_element_name, error->message);
+		case GST_STREAM_ERROR_DECRYPT_NOKEY:
+		{
+			debug_error("decryption error, %s failed reason : %s\n", src_element_name, error->message);
 			return MM_MESSAGE_DRM_NOT_AUTHORIZED;
 		}
 		break;
