@@ -5789,11 +5789,7 @@ __mmplayer_asm_callback(int handle, ASM_event_sources_t event_src, ASM_sound_com
 	player->sm.by_asm_cb = 1; // it should be enabled for player state transition with called application command
 	player->sm.event_src = event_src;
 
-	if(event_src == ASM_EVENT_SOURCE_OTHER_PLAYER_APP)
-	{
-		player->sm.event_src = ASM_EVENT_SOURCE_OTHER_APP;
-	}
-	else if(event_src == ASM_EVENT_SOURCE_EARJACK_UNPLUG )
+	if(event_src == ASM_EVENT_SOURCE_EARJACK_UNPLUG )
 	{
 		int stop_by_asm = 0;
 
@@ -5853,7 +5849,7 @@ __mmplayer_asm_callback(int handle, ASM_event_sources_t event_src, ASM_sound_com
 			
 			if(event_src == ASM_EVENT_SOURCE_CALL_START
 				|| event_src == ASM_EVENT_SOURCE_ALARM_START
-				|| event_src == ASM_EVENT_SOURCE_OTHER_APP)
+				|| event_src == ASM_EVENT_SOURCE_MEDIA)
 			{
 				//hold 0.7 second to excute "fadedown mute" effect
 				debug_log ("do fade down->pause->undo fade down");
