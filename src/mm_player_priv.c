@@ -2417,7 +2417,7 @@ __mmplayer_get_property_value_for_rotation(mm_player_t* player, int rotation_ang
 	int dest_angle = rotation_angle;
 	char *element_name = NULL;
 	int rotation_using_type = -1;
-	#define ROTATION_USING_X		0
+	#define ROTATION_USING_X	0
 	#define ROTATION_USING_FLIP	1
 
 	return_val_if_fail(player, FALSE);
@@ -2436,7 +2436,28 @@ __mmplayer_get_property_value_for_rotation(mm_player_t* player, int rotation_ang
 		return FALSE;
 	}
 
-	rotation_using_type = ROTATION_USING_FLIP;
+	if (player->use_video_stream)
+	{
+		rotation_using_type = ROTATION_USING_FLIP;
+	}
+	else
+	{
+		int surface_type = 0;
+		mm_attrs_get_int_by_name(player->attrs, "display_surface_type", &surface_type);
+		debug_log("check display surface type for rotation: %d", surface_type);
+
+		switch (surface_type)
+		{
+			case MM_DISPLAY_SURFACE_X:
+				rotation_using_type = ROTATION_USING_X;
+				break;
+			case MM_DISPLAY_SURFACE_EVAS:
+			default:
+				rotation_using_type = ROTATION_USING_FLIP;
+				break;
+		}
+	}
+
 	debug_log("using %d type for rotation", rotation_using_type);
 
 	/* get property value for setting */
@@ -9109,9 +9130,12 @@ __mmplayer_handle_gst_error ( mm_player_t* player, GstMessage * message, GError*
 	/* post error to application */
 	if ( ! player->posted_msg )
 	{
-		if (msg_param.code == MM_MESSAGE_DRM_NOT_AUTHORIZED)
+		if (msg_param.code == MM_MESSAGE_DRM_NOT_AUTHORIZED ||
+			msg_param.code == MM_MESSAGE_DRM_NO_LICENSE ||
+			msg_param.code == MM_MESSAGE_DRM_FUTURE_USE ||
+			msg_param.code == MM_MESSAGE_DRM_EXPIRED )
 		{
-			MMPLAYER_POST_MSG( player, MM_MESSAGE_DRM_NOT_AUTHORIZED, NULL );
+			MMPLAYER_POST_MSG( player, msg_param.code, NULL );
 		}
 		else
 		{
@@ -9604,7 +9628,21 @@ __gst_transform_gsterror( mm_player_t* player, GstMessage * message, GError* err
 		case GST_STREAM_ERROR_DECRYPT:
 		case GST_STREAM_ERROR_DECRYPT_NOKEY:
 		{
-			debug_error("decryption error, %s failed reason : %s\n", src_element_name, error->message);
+			debug_error("decryption error, [%s] failed, reason : [%s]\n", src_element_name, error->message);
+
+			if ( strstr(error->message, "rights expired") )
+			{
+				return MM_MESSAGE_DRM_EXPIRED;
+			}
+			else if ( strstr(error->message, "no rights") )
+			{
+				return MM_MESSAGE_DRM_NO_LICENSE;
+			}
+			else if ( strstr(error->message, "has future rights") )
+			{
+				return MM_MESSAGE_DRM_FUTURE_USE;
+			}
+
 			return MM_MESSAGE_DRM_NOT_AUTHORIZED;
 		}
 		break;
