@@ -2577,19 +2577,7 @@ _mmplayer_update_video_param(mm_player_t* player) // @
 	/* check video stream callback is used */
 	if( player->use_video_stream )
 	{
-			int width = 0;
-			int height = 0;
-
 			debug_log("using video stream callback with memsink. player handle : [%p]", player);
-
-			mm_attrs_get_int_by_name(attrs, "display_width", &width);
-			mm_attrs_get_int_by_name(attrs, "display_height", &height);
-
-			if (width)
-				g_object_set(player->pipeline->videobin[MMPLAYER_V_SINK].gst, "width", width, NULL);
-
-			if (height)
-				g_object_set(player->pipeline->videobin[MMPLAYER_V_SINK].gst, "height", height, NULL);
 
 			/* get rotation value to set */
 			__mmplayer_get_property_value_for_rotation(player, org_angle+user_angle, &rotation_value);
@@ -3307,13 +3295,20 @@ __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps, MMDispl
 	return_val_if_fail(player && player->pipeline, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	/* alloc handles */
-    	videobin = (MMPlayerGstElement*)g_malloc0(sizeof(MMPlayerGstElement) * MMPLAYER_V_NUM);
-    	if ( !videobin )
-    		return MM_ERROR_PLAYER_NO_FREE_SPACE;
+	videobin = (MMPlayerGstElement*)g_malloc0(sizeof(MMPlayerGstElement) * MMPLAYER_V_NUM);
+	if ( !videobin )
+	{
+		return MM_ERROR_PLAYER_NO_FREE_SPACE;
+	}
 
 	player->pipeline->videobin = videobin;
 
-   	attrs = MMPLAYER_GET_ATTRS(player);
+	attrs = MMPLAYER_GET_ATTRS(player);
+	if ( !attrs )
+	{
+		debug_error("cannot get content attribute");
+		return MM_ERROR_PLAYER_INTERNAL;
+	}
 
 	/* create bin */
 	videobin[MMPLAYER_V_BIN].id = MMPLAYER_V_BIN;
@@ -3324,11 +3319,14 @@ __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps, MMDispl
 		goto ERROR;
 	}
 
-    	if( player->use_video_stream ) // video stream callack, so send raw video data to application
-    	{
+	if( player->use_video_stream ) // video stream callback, so send raw video data to application
+	{
 		GstStructure *str = NULL;
 		guint32 fourcc = 0;
 		gint ret = 0;
+		gint width = 0;		//width of video
+		gint height = 0;		//height of video
+		GstCaps* video_caps = NULL;
 
 		debug_log("using memsink\n");
 
@@ -3343,89 +3341,49 @@ __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps, MMDispl
 			MMPLAYER_CREATE_ELEMENT(videobin, MMPLAYER_V_CONV, vconv_factory, "video converter", TRUE);
 		}
 
-		/* rotator */
+		/* rotator, scaler and capsfilter */
 		MMPLAYER_CREATE_ELEMENT(videobin, MMPLAYER_V_FLIP, "videoflip", "video rotator", TRUE);
+		MMPLAYER_CREATE_ELEMENT(videobin, MMPLAYER_V_SCALE, "videoscale", "video scaler", TRUE);
+		MMPLAYER_CREATE_ELEMENT(videobin, MMPLAYER_V_CAPS, "capsfilter", "videocapsfilter", TRUE);
 
-		#if 0
-		/* then, create video scale to resize if needed */
-		str = gst_caps_get_structure (caps, 0);
-		if ( ! str )
+		/* get video stream caps parsed by demuxer */
+		str = gst_caps_get_structure (player->v_stream_caps, 0);
+		if ( !str )
 		{
-			debug_error("cannot get structure\n");
+			debug_error("cannot get structure");
 			goto ERROR;
 		}
 
-		MMPLAYER_LOG_GST_CAPS_TYPE(caps);
-		if ( !gst_structure_get_fourcc (str, "format", &fourcc) )
+		mm_attrs_get_int_by_name(attrs, "display_width", &width);
+		mm_attrs_get_int_by_name(attrs, "display_height", &height);
+		if (!width || !height)
 		{
-			debug_log("not fixed format at this point, and not consider this case\n");
-		}
-
-		/* NOTE :  if the width of I420 format is not multiple of 8, it should be resize before colorspace conversion.
-		  * so, video scale is required for this case only.
-		  */
-		if ( GST_MAKE_FOURCC ('I', '4', '2', '0') == fourcc )
-		{
-			gint width = 0; 			//width of video
-			gint height = 0;			//height of video
-			gint framerate_n = 0;		//numerator of frame rate
-			gint framerate_d = 0;		//denominator of frame rate
-			GstCaps* video_caps = NULL;
-			const GValue *fps = NULL;
-
-			/* video scale  */
-			MMPLAYER_CREATE_ELEMENT(videobin, MMPLAYER_V_SCALE, "videoscale", "videoscale", TRUE);
-
-			/*to limit width as multiple of 8 */
-			MMPLAYER_CREATE_ELEMENT(videobin, MMPLAYER_V_CAPS, "capsfilter", "videocapsfilter", TRUE);
-
-			/* get video stream caps parsed by demuxer */
-			str = gst_caps_get_structure (player->v_stream_caps, 0);
-			if ( ! str )
-			{
-				debug_error("cannot get structure\n");
-				goto ERROR;
-			}
-
-			/* check the width if it's a multiple of 8 or not */
+			/* we set width/height of original media's size  to capsfilter for scaling video */
 			ret = gst_structure_get_int (str, "width", &width);
-			if ( ! ret )
+			if ( !ret )
 			{
-				debug_error("cannot get width\n");
+				debug_error("cannot get width");
 				goto ERROR;
 			}
-			width = GST_ROUND_UP_8(width);
 
 			ret = gst_structure_get_int(str, "height", &height);
-			if ( ! ret )
+			if ( !ret )
 			{
-				debug_error("cannot get height\n");
+				debug_error("cannot get height");
 				goto ERROR;
 			}
-
-			fps = gst_structure_get_value (str, "framerate");
-			if ( ! fps )
-			{
-				debug_error("cannot get fps\n");
-				goto ERROR;
-			}
-			framerate_n = gst_value_get_fraction_numerator (fps);
-			framerate_d = gst_value_get_fraction_denominator (fps);
-
-			video_caps = gst_caps_new_simple( "video/x-raw-yuv",
-											"format", GST_TYPE_FOURCC, GST_MAKE_FOURCC ('I', '4', '2', '0'),
-											"width", G_TYPE_INT, width,
-											"height", G_TYPE_INT, height,
-											"framerate", GST_TYPE_FRACTION, framerate_n, framerate_d,
-											NULL);
-
-			g_object_set (GST_ELEMENT(videobin[MMPLAYER_V_CAPS].gst), "caps", video_caps, NULL );
-
-			gst_caps_unref( video_caps );
 		}
-		#endif
 
-		/* finally, create video sink. oupput will be BGRA8888. */
+		video_caps = gst_caps_new_simple( "video/x-raw-rgb",
+										"width", G_TYPE_INT, width,
+										"height", G_TYPE_INT, height,
+										NULL);
+
+		g_object_set (GST_ELEMENT(videobin[MMPLAYER_V_CAPS].gst), "caps", video_caps, NULL );
+
+		gst_caps_unref( video_caps );
+
+		/* finally, create video sink. output will be BGRA8888. */
 		MMPLAYER_CREATE_ELEMENT(videobin, MMPLAYER_V_SINK, "avsysmemsink", "videosink", TRUE);
 
 		MMPLAYER_SIGNAL_CONNECT( player,
@@ -3434,7 +3392,7 @@ __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps, MMDispl
 									 G_CALLBACK(__mmplayer_videostream_cb),
 									 player );
 	}
-    	else // render video data using sink pugin like xvimagesink
+	else // render video data using sink plugin like xvimagesink
 	{
 		debug_log("using videosink");
 		
