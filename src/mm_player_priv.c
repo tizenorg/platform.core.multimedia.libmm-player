@@ -9130,12 +9130,9 @@ __mmplayer_handle_gst_error ( mm_player_t* player, GstMessage * message, GError*
 	/* post error to application */
 	if ( ! player->posted_msg )
 	{
-		if (msg_param.code == MM_MESSAGE_DRM_NOT_AUTHORIZED ||
-			msg_param.code == MM_MESSAGE_DRM_NO_LICENSE ||
-			msg_param.code == MM_MESSAGE_DRM_FUTURE_USE ||
-			msg_param.code == MM_MESSAGE_DRM_EXPIRED )
+		if (msg_param.code == MM_MESSAGE_DRM_NOT_AUTHORIZED )
 		{
-			MMPLAYER_POST_MSG( player, msg_param.code, NULL );
+			MMPLAYER_POST_MSG( player, MM_MESSAGE_DRM_NOT_AUTHORIZED, NULL );
 		}
 		else
 		{
@@ -9629,20 +9626,6 @@ __gst_transform_gsterror( mm_player_t* player, GstMessage * message, GError* err
 		case GST_STREAM_ERROR_DECRYPT_NOKEY:
 		{
 			debug_error("decryption error, [%s] failed, reason : [%s]\n", src_element_name, error->message);
-
-			if ( strstr(error->message, "rights expired") )
-			{
-				return MM_MESSAGE_DRM_EXPIRED;
-			}
-			else if ( strstr(error->message, "no rights") )
-			{
-				return MM_MESSAGE_DRM_NO_LICENSE;
-			}
-			else if ( strstr(error->message, "has future rights") )
-			{
-				return MM_MESSAGE_DRM_FUTURE_USE;
-			}
-
 			return MM_MESSAGE_DRM_NOT_AUTHORIZED;
 		}
 		break;
