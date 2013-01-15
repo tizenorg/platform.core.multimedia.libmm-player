@@ -2417,7 +2417,7 @@ __mmplayer_get_property_value_for_rotation(mm_player_t* player, int rotation_ang
 	int dest_angle = rotation_angle;
 	char *element_name = NULL;
 	int rotation_using_type = -1;
-	#define ROTATION_USING_X		0
+	#define ROTATION_USING_X	0
 	#define ROTATION_USING_FLIP	1
 
 	return_val_if_fail(player, FALSE);
@@ -2436,7 +2436,28 @@ __mmplayer_get_property_value_for_rotation(mm_player_t* player, int rotation_ang
 		return FALSE;
 	}
 
-	rotation_using_type = ROTATION_USING_FLIP;
+	if (player->use_video_stream)
+	{
+		rotation_using_type = ROTATION_USING_FLIP;
+	}
+	else
+	{
+		int surface_type = 0;
+		mm_attrs_get_int_by_name(player->attrs, "display_surface_type", &surface_type);
+		debug_log("check display surface type for rotation: %d", surface_type);
+
+		switch (surface_type)
+		{
+			case MM_DISPLAY_SURFACE_X:
+				rotation_using_type = ROTATION_USING_X;
+				break;
+			case MM_DISPLAY_SURFACE_EVAS:
+			default:
+				rotation_using_type = ROTATION_USING_FLIP;
+				break;
+		}
+	}
+
 	debug_log("using %d type for rotation", rotation_using_type);
 
 	/* get property value for setting */
