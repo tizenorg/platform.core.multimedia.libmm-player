@@ -271,6 +271,23 @@ int mm_player_set_video_stream_callback(MMHandleType player, mm_player_video_str
 	return result;
 }
 
+int mm_player_set_video_frame_render_error_callback(MMHandleType player, mm_player_video_frame_render_error_callback callback, void *user_param)
+{
+	int result = MM_ERROR_NONE;
+
+	debug_log("\n");
+
+	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+
+	MMPLAYER_CMD_LOCK( player );
+
+	result = _mmplayer_set_videoframe_render_error_cb(player, callback, user_param);
+
+	MMPLAYER_CMD_UNLOCK( player );
+
+	return result;
+}
+
 int mm_player_do_video_capture(MMHandleType player)
 {
 	int result = MM_ERROR_NONE;

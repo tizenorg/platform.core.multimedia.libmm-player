@@ -166,6 +166,17 @@ typedef bool	(*mm_player_video_stream_callback) (void *stream, int stream_size, 
 typedef bool	(*mm_player_video_capture_callback) (void *stream, int stream_size, void *user_param);
 
 /**
+ * Video frame render error callback function type.
+ *
+ * @param	error_id	[in]	cause of error
+ * @param	user_param	[in]	User defined parameter which is passed when set
+ *								video frame render error callback
+ *
+ * @return	This callback function have to return MM_ERROR_NONE.
+ */
+typedef bool	(*mm_player_video_frame_render_error_callback) (void *error_id, void *user_param);
+
+/**
  * This function is to set play speed for playback.
  *
  * @param	player		[in]	Handle of player.
@@ -195,6 +206,22 @@ int mm_player_set_play_speed(MMHandleType player, float rate);
  * @since
  */
 int mm_player_set_video_stream_callback(MMHandleType player, mm_player_video_stream_callback callback, void *user_param);
+
+/**
+ * This function set callback function for rendering error information of video render plug-in.
+ *
+ * @param	player		[in]	Handle of player.
+ * @param	callback		[in]	Frame render error callback function.
+ * @param	user_param	[in]	User parameter which is passed to callback function.
+ *
+ * @return	This function returns zero on success, or negative value with error code.
+ * @see
+ * @remark	None
+ * @par Example
+ * @code
+ * @endcode
+ */
+int mm_player_set_video_frame_render_error_callback(MMHandleType player, mm_player_video_frame_render_error_callback callback, void *user_param);
 
 /**
  * This function set callback function for receiving audio stream from player.

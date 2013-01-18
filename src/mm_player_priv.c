@@ -511,6 +511,45 @@ int width, int height, gpointer data) // @
 	debug_fleave();
 }
 
+static void
+__mmplayer_videoframe_render_error_cb(GstElement *element, void *error_id, gpointer data)
+{
+	mm_player_t* player = (mm_player_t*)data;
+
+	return_if_fail ( player );
+
+	debug_fenter();
+
+	if (player->video_frame_render_error_cb )
+	{
+		if (player->attrs)
+		{
+			int surface_type = 0;
+			mm_attrs_get_int_by_name (player->attrs, "display_surface_type", &surface_type);
+			switch (surface_type)
+			{
+			case MM_DISPLAY_SURFACE_X_EXT:
+				player->video_frame_render_error_cb((unsigned int*)error_id, player->video_frame_render_error_cb_user_param);
+				debug_log("display surface type(X_EXT) : render error callback(%p) is finished", player->video_frame_render_error_cb);
+				break;
+			default:
+				debug_error("video_frame_render_error_cb was set, but this surface type(%d) is not supported", surface_type);
+				break;
+			}
+		}
+		else
+		{
+			debug_error("could not get surface type");
+		}
+	}
+	else
+	{
+		debug_warning("video_frame_render_error_cb was not set");
+	}
+
+	debug_fleave();
+}
+
 gboolean
 _mmplayer_update_content_attrs(mm_player_t* player) // @
 {
@@ -2837,7 +2876,7 @@ _mmplayer_update_video_param(mm_player_t* player) // @
 			}
 		}
 		break;
-		case MM_DISPLAY_SURFACE_X_EXT:	/* NOTE : this surface type is for the video texture(canvas texture) */
+		case MM_DISPLAY_SURFACE_X_EXT:	/* NOTE : this surface type is used for the videoTexture(canvasTexture) overlay */
 		{
 			void *pixmap_id_cb = NULL;
 			void *pixmap_id_cb_user_data = NULL;
@@ -3572,10 +3611,9 @@ __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps, MMDispl
 		{
 			void *pixmap_id_cb = NULL;
 			mm_attrs_get_data_by_name(attrs, "display_overlay", &pixmap_id_cb);
-			if (pixmap_id_cb) /* this is for the video textue(canvas texture) */
+			if (pixmap_id_cb) /* this is used for the videoTextue(canvasTexture) overlay */
 			{
 				videosink_element = PLAYER_INI()->videosink_element_x;
-				debug_warning("video texture usage");
 			}
 			else
 			{
@@ -3597,6 +3635,20 @@ __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps, MMDispl
 
 		MMPLAYER_CREATE_ELEMENT(videobin, MMPLAYER_V_SINK, videosink_element, videosink_element, TRUE);
 		debug_log("selected videosink name: %s", videosink_element);
+
+		/* connect signal handlers for sink plug-in */
+		switch (surface_type) {
+		case MM_DISPLAY_SURFACE_X_EXT:
+			MMPLAYER_SIGNAL_CONNECT( player,
+									player->pipeline->videobin[MMPLAYER_V_SINK].gst,
+									"frame-render-error",
+									G_CALLBACK(__mmplayer_videoframe_render_error_cb),
+									player );
+			debug_log("videoTexture usage, connect a signal handler for pixmap rendering error");
+			break;
+		default:
+			break;
+		}
 	}
 
 	if ( _mmplayer_update_video_param(player) != MM_ERROR_NONE)
@@ -6865,7 +6917,28 @@ _mmplayer_set_buffer_seek_data_cb(MMHandleType hplayer, mm_player_buffer_seek_da
     	return MM_ERROR_NONE;
 }
 
-int __mmplayer_start_streaming_ext(mm_player_t *player)
+int
+_mmplayer_set_videoframe_render_error_cb(MMHandleType hplayer, mm_player_video_frame_render_error_callback callback, void *user_param) // @
+{
+	mm_player_t* player = (mm_player_t*) hplayer;
+
+	debug_fenter();
+
+	return_val_if_fail ( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
+	return_val_if_fail ( callback, MM_ERROR_INVALID_ARGUMENT );
+
+	player->video_frame_render_error_cb = callback;
+	player->video_frame_render_error_cb_user_param = user_param;
+
+	debug_log("Video frame render error cb Handle value is %p : %p\n", player, player->video_frame_render_error_cb);
+
+	debug_fleave();
+
+	return MM_ERROR_NONE;
+}
+
+int
+__mmplayer_start_streaming_ext(mm_player_t *player)
 {
 	gint ret = MM_ERROR_NONE;
 

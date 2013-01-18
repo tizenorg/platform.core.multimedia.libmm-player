@@ -452,14 +452,14 @@ typedef struct {
 	MMPlayerGstPipelineInfo	*pipeline;
 	gboolean pipeline_is_constructed;
 
-	/* Buffering support cbs*/
+	/* buffering support cbs*/
 	mm_player_buffer_need_data_callback need_data_cb;
 	mm_player_buffer_enough_data_callback enough_data_cb;
 	mm_player_buffer_seek_data_callback seek_data_cb;
 
 	void* buffer_cb_user_param;
 
-	/* for video stream callback */
+	/* video stream callback */
 	mm_player_video_stream_callback video_stream_cb;
 	void* video_stream_cb_user_param;
 	int use_video_stream;
@@ -474,6 +474,10 @@ typedef struct {
 
 	/* video capture callback*/
 	gulong video_capture_cb_probe_id;
+
+	/* video frame render error callback */
+	mm_player_video_frame_render_error_callback video_frame_render_error_cb;
+	void* video_frame_render_error_cb_user_param;
 
 	/* sound info */
 	MMPlayerSoundInfo	sound;
@@ -646,6 +650,7 @@ int _mmplayer_set_playspeed(MMHandleType hplayer, gdouble rate);
 int _mmplayer_set_message_callback(MMHandleType hplayer, MMMessageCallback callback, void *user_param);
 int _mmplayer_set_videostream_cb(MMHandleType hplayer,mm_player_video_stream_callback callback, void *user_param);
 int _mmplayer_set_audiostream_cb(MMHandleType hplayer,mm_player_audio_stream_callback callback, void *user_param);
+int _mmplayer_set_videoframe_render_error_cb(MMHandleType hplayer, mm_player_video_frame_render_error_callback callback, void *user_param);
 int _mmplayer_set_subtitle_silent (MMHandleType hplayer, int silent);
 int _mmplayer_get_subtitle_silent (MMHandleType hplayer, int* silent);
 int _mmplayer_get_buffer_position(MMHandleType hplayer, int format, unsigned long* start_pos, unsigned long* stop_pos);
