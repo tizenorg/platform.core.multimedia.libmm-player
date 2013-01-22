@@ -2415,10 +2415,10 @@ __mmplayer_get_property_value_for_rotation(mm_player_t* player, int rotation_ang
 {
 	int pro_value = 0; // in the case of expection, default will be returned.
 	int dest_angle = rotation_angle;
-	char *element_name = NULL;
 	int rotation_using_type = -1;
 	#define ROTATION_USING_X	0
-	#define ROTATION_USING_FLIP	1
+	#define ROTATION_USING_FIMC	1
+	#define ROTATION_USING_FLIP	2
 
 	return_val_if_fail(player, FALSE);
 	return_val_if_fail(value, FALSE);
@@ -2438,7 +2438,14 @@ __mmplayer_get_property_value_for_rotation(mm_player_t* player, int rotation_ang
 
 	if (player->use_video_stream)
 	{
-		rotation_using_type = ROTATION_USING_FLIP;
+		if (player->is_nv12_tiled)
+		{
+			rotation_using_type = ROTATION_USING_FIMC;
+		}
+		else
+		{
+			rotation_using_type = ROTATION_USING_FLIP;
+		}
 	}
 	else
 	{
@@ -2452,6 +2459,20 @@ __mmplayer_get_property_value_for_rotation(mm_player_t* player, int rotation_ang
 				rotation_using_type = ROTATION_USING_X;
 				break;
 			case MM_DISPLAY_SURFACE_EVAS:
+				if (player->is_nv12_tiled && !strcmp(PLAYER_INI()->videosink_element_evas,"evasimagesink"))
+				{
+					rotation_using_type = ROTATION_USING_FIMC;
+				}
+				else if (!player->is_nv12_tiled)
+				{
+					rotation_using_type = ROTATION_USING_FLIP;
+				}
+				else
+				{
+					debug_error("it should not be here..");
+					return FALSE;
+				}
+				break;
 			default:
 				rotation_using_type = ROTATION_USING_FLIP;
 				break;
@@ -2479,6 +2500,24 @@ __mmplayer_get_property_value_for_rotation(mm_player_t* player, int rotation_ang
 						pro_value = 1; // counter-clockwise 90
 						break;
 				}
+			}
+			break;
+		case ROTATION_USING_FIMC: // fimcconvert
+			{
+					switch (dest_angle)
+					{
+						case 0:
+							break;
+						case 90:
+							pro_value = 90; // clockwise 90
+							break;
+						case 180:
+							pro_value = 180;
+							break;
+						case 270:
+							pro_value = 270; // counter-clockwise 90
+							break;
+					}
 			}
 			break;
 		case ROTATION_USING_FLIP: // videoflip
@@ -2577,12 +2616,49 @@ _mmplayer_update_video_param(mm_player_t* player) // @
 	/* check video stream callback is used */
 	if( player->use_video_stream )
 	{
+		if (player->is_nv12_tiled)
+		{
+			gchar *ename = NULL;
+			int width = 0;
+			int height = 0;
+
+			mm_attrs_get_int_by_name(attrs, "display_width", &width);
+			mm_attrs_get_int_by_name(attrs, "display_height", &height);
+
+			/* resize video frame with requested values for fimcconvert */
+			ename = GST_PLUGIN_FEATURE_NAME(gst_element_get_factory(player->pipeline->videobin[MMPLAYER_V_CONV].gst));
+
+			if (g_strrstr(ename, "fimcconvert"))
+			{
+				if (width)
+					g_object_set(player->pipeline->videobin[MMPLAYER_V_CONV].gst, "dst-width", width, NULL);
+
+				if (height)
+					g_object_set(player->pipeline->videobin[MMPLAYER_V_CONV].gst, "dst-height", height, NULL);
+
+				/* get rotation value to set */
+				if (__mmplayer_get_property_value_for_rotation(player, org_angle+user_angle, &rotation_value))
+				{
+					g_object_set(player->pipeline->videobin[MMPLAYER_V_CONV].gst, "rotate", rotation_value, NULL);
+					debug_log("updating fimcconvert - r[%d], w[%d], h[%d]", rotation_value, width, height);
+				}
+			}
+			else
+			{
+				debug_error("no available video converter");
+				return MM_ERROR_PLAYER_INTERNAL;
+			}
+		}
+		else
+		{
 			debug_log("using video stream callback with memsink. player handle : [%p]", player);
 
 			/* get rotation value to set */
-			__mmplayer_get_property_value_for_rotation(player, org_angle+user_angle, &rotation_value);
-
-			g_object_set(player->pipeline->videobin[MMPLAYER_V_FLIP].gst, "method", rotation_value, NULL);
+			if (__mmplayer_get_property_value_for_rotation(player, org_angle+user_angle, &rotation_value))
+			{
+				g_object_set(player->pipeline->videobin[MMPLAYER_V_FLIP].gst, "method", rotation_value, NULL);
+			}
+		}
 		
 		return MM_ERROR_NONE;
 	}
@@ -2633,12 +2709,16 @@ _mmplayer_update_video_param(mm_player_t* player) // @
 				mm_attrs_get_int_by_name(attrs, "display_visible", &visible);
 
 				/* get rotation value to set */
-				__mmplayer_get_property_value_for_rotation(player, org_angle+user_angle, &rotation_value);
+				if (__mmplayer_get_property_value_for_rotation(player, org_angle+user_angle, &rotation_value))
+				{
+					g_object_set(player->pipeline->videobin[MMPLAYER_V_SINK].gst,
+						"rotate", rotation_value,
+						NULL );
+				}
 
 				g_object_set(player->pipeline->videobin[MMPLAYER_V_SINK].gst,
 					"force-aspect-ratio", force_aspect_ratio,
 					"zoom", zoom,
-					"rotate", rotation_value,
 					"handle-events", TRUE,
 					"display-geometry-method", display_method,
 					"draw-borders", FALSE,
@@ -2682,6 +2762,43 @@ _mmplayer_update_video_param(mm_player_t* player) // @
 			{
 				debug_error("no evas object");
 				return MM_ERROR_PLAYER_INTERNAL;
+			}
+
+			/* if evasimagesink */
+			if (!strcmp(PLAYER_INI()->videosink_element_evas,"evasimagesink") && player->is_nv12_tiled)
+			{
+				int width = 0;
+				int height = 0;
+				int no_scaling = !scaling;
+
+				mm_attrs_get_int_by_name(attrs, "display_width", &width);
+				mm_attrs_get_int_by_name(attrs, "display_height", &height);
+
+				/* NOTE: fimcconvert does not manage index of src buffer from upstream src-plugin, decoder gives frame information in output buffer with no ordering */
+				g_object_set(player->pipeline->videobin[MMPLAYER_V_CONV].gst, "dst-buffer-num", 5, NULL);
+
+				if (no_scaling)
+				{
+					/* no-scaling order to fimcconvert, original width, height size of media src will be passed to sink plugin */
+					g_object_set(player->pipeline->videobin[MMPLAYER_V_CONV].gst,
+							"dst-width", 0, /* setting 0, output video width will be media src's width */
+							"dst-height", 0, /* setting 0, output video height will be media src's height */
+							NULL);
+				}
+				else
+				{
+					/* scaling order to fimcconvert */
+					if (width)
+					{
+						g_object_set(player->pipeline->videobin[MMPLAYER_V_CONV].gst, "dst-width", width, NULL);
+					}
+					if (height)
+					{
+						g_object_set(player->pipeline->videobin[MMPLAYER_V_CONV].gst, "dst-height", height, NULL);
+					}
+					debug_log("set video param : video frame scaling down to width(%d) height(%d)", width, height);
+				}
+				debug_log("set video param : display_evas_do_scaling %d", scaling);
 			}
 
 			/* if evaspixmapsink */
@@ -3276,7 +3393,7 @@ __mmplayer_audio_stream_probe (GstPad *pad, GstBuffer *buffer, gpointer u_data)
 /**
   * VIDEO PIPELINE
   * - x surface (arm/x86) : videoflip ! xvimagesink
-  * - evas surface  (arm) : ffmpegcolorspace ! videoflip ! evasimagesink
+  * - evas surface  (arm) : fimcconvert ! evasimagesink
   * - evas surface  (x86) : videoconvertor ! videoflip ! evasimagesink
   */
 static int
@@ -3322,18 +3439,21 @@ __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps, MMDispl
 	if( player->use_video_stream ) // video stream callback, so send raw video data to application
 	{
 		GstStructure *str = NULL;
-		guint32 fourcc = 0;
 		gint ret = 0;
-		gint width = 0;		//width of video
-		gint height = 0;		//height of video
-		GstCaps* video_caps = NULL;
 
 		debug_log("using memsink\n");
 
 		/* first, create colorspace convert */
-		if (strlen(PLAYER_INI()->name_of_video_converter) > 0)
+		if (player->is_nv12_tiled)
 		{
+			vconv_factory = "fimcconvert";
+		}
+		else // get video converter from player ini file
+		{
+			if (strlen(PLAYER_INI()->name_of_video_converter) > 0)
+			{
 				vconv_factory = PLAYER_INI()->name_of_video_converter;
+			}
 		}
 
 		if (vconv_factory)
@@ -3341,47 +3461,53 @@ __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps, MMDispl
 			MMPLAYER_CREATE_ELEMENT(videobin, MMPLAYER_V_CONV, vconv_factory, "video converter", TRUE);
 		}
 
-		/* rotator, scaler and capsfilter */
-		MMPLAYER_CREATE_ELEMENT(videobin, MMPLAYER_V_FLIP, "videoflip", "video rotator", TRUE);
-		MMPLAYER_CREATE_ELEMENT(videobin, MMPLAYER_V_SCALE, "videoscale", "video scaler", TRUE);
-		MMPLAYER_CREATE_ELEMENT(videobin, MMPLAYER_V_CAPS, "capsfilter", "videocapsfilter", TRUE);
-
-		/* get video stream caps parsed by demuxer */
-		str = gst_caps_get_structure (player->v_stream_caps, 0);
-		if ( !str )
+		if ( !player->is_nv12_tiled)
 		{
-			debug_error("cannot get structure");
-			goto ERROR;
-		}
+			gint width = 0;		//width of video
+			gint height = 0;		//height of video
+			GstCaps* video_caps = NULL;
 
-		mm_attrs_get_int_by_name(attrs, "display_width", &width);
-		mm_attrs_get_int_by_name(attrs, "display_height", &height);
-		if (!width || !height)
-		{
-			/* we set width/height of original media's size  to capsfilter for scaling video */
-			ret = gst_structure_get_int (str, "width", &width);
-			if ( !ret )
+			/* rotator, scaler and capsfilter */
+			MMPLAYER_CREATE_ELEMENT(videobin, MMPLAYER_V_FLIP, "videoflip", "video rotator", TRUE);
+			MMPLAYER_CREATE_ELEMENT(videobin, MMPLAYER_V_SCALE, "videoscale", "video scaler", TRUE);
+			MMPLAYER_CREATE_ELEMENT(videobin, MMPLAYER_V_CAPS, "capsfilter", "videocapsfilter", TRUE);
+
+			/* get video stream caps parsed by demuxer */
+			str = gst_caps_get_structure (player->v_stream_caps, 0);
+			if ( !str )
 			{
-				debug_error("cannot get width");
+				debug_error("cannot get structure");
 				goto ERROR;
 			}
 
-			ret = gst_structure_get_int(str, "height", &height);
-			if ( !ret )
-			{
-				debug_error("cannot get height");
-				goto ERROR;
+			mm_attrs_get_int_by_name(attrs, "display_width", &width);
+			mm_attrs_get_int_by_name(attrs, "display_height", &height);
+			if (!width || !height) {
+				/* we set width/height of original media's size  to capsfilter for scaling video */
+				ret = gst_structure_get_int (str, "width", &width);
+				if ( !ret )
+				{
+					debug_error("cannot get width");
+					goto ERROR;
+				}
+
+				ret = gst_structure_get_int(str, "height", &height);
+				if ( !ret )
+				{
+					debug_error("cannot get height");
+					goto ERROR;
+				}
 			}
+
+			video_caps = gst_caps_new_simple( "video/x-raw-rgb",
+											"width", G_TYPE_INT, width,
+											"height", G_TYPE_INT, height,
+											NULL);
+
+			g_object_set (GST_ELEMENT(videobin[MMPLAYER_V_CAPS].gst), "caps", video_caps, NULL );
+
+			gst_caps_unref( video_caps );
 		}
-
-		video_caps = gst_caps_new_simple( "video/x-raw-rgb",
-										"width", G_TYPE_INT, width,
-										"height", G_TYPE_INT, height,
-										NULL);
-
-		g_object_set (GST_ELEMENT(videobin[MMPLAYER_V_CAPS].gst), "caps", video_caps, NULL );
-
-		gst_caps_unref( video_caps );
 
 		/* finally, create video sink. output will be BGRA8888. */
 		MMPLAYER_CREATE_ELEMENT(videobin, MMPLAYER_V_SINK, "avsysmemsink", "videosink", TRUE);
@@ -3395,11 +3521,22 @@ __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps, MMDispl
 	else // render video data using sink plugin like xvimagesink
 	{
 		debug_log("using videosink");
-		
+
 		/* set video converter */
 		if (strlen(PLAYER_INI()->name_of_video_converter) > 0)
 		{
 			vconv_factory = PLAYER_INI()->name_of_video_converter;
+
+			if ( (player->is_nv12_tiled && (surface_type == MM_DISPLAY_SURFACE_EVAS) &&
+				!strcmp(PLAYER_INI()->videosink_element_evas, "evasimagesink") ) )
+			{
+				vconv_factory = "fimcconvert";
+			}
+			else if (player->is_nv12_tiled)
+			{
+				vconv_factory = NULL;
+			}
+
 			if (vconv_factory)
 			{
 				MMPLAYER_CREATE_ELEMENT(videobin, MMPLAYER_V_CONV, vconv_factory, "video converter", TRUE);
@@ -3408,7 +3545,8 @@ __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps, MMDispl
 		}
 
 		/* set video rotator */
-		MMPLAYER_CREATE_ELEMENT(videobin, MMPLAYER_V_FLIP, "videoflip", "video rotator", TRUE);
+		if ( !player->is_nv12_tiled )
+			MMPLAYER_CREATE_ELEMENT(videobin, MMPLAYER_V_FLIP, "videoflip", "video rotator", TRUE);
 
 		/* videoscaler */
 		#if !defined(__arm__)
