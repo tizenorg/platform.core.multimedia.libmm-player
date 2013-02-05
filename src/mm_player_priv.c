@@ -6600,11 +6600,13 @@ _mmplayer_unrealize(MMHandleType hplayer) // @
 	/* set player state if success */
 	if ( MM_ERROR_NONE == ret )
 	{
-		ret = _mmplayer_asm_set_state(hplayer, ASM_STATE_STOP);
-		if ( ret )
-		{
-			debug_error("failed to set asm state to STOP\n");
-			return ret;
+		if (player->sm.state != ASM_STATE_STOP) {
+			ret = _mmplayer_asm_set_state(hplayer, ASM_STATE_STOP);
+			if ( ret )
+			{
+				debug_error("failed to set asm state to STOP\n");
+				return ret;
+			}
 		}
 	}
 
