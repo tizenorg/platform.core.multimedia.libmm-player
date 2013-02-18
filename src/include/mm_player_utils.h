@@ -65,7 +65,6 @@ do \
 
 #define MMPLAYER_GET_ATTRS(x_player)		((mm_player_t*)x_player)->attrs
 
-/* sbs : for bluetooth */
 #define MAX_SOUND_DEVICE_LEN	18	
 
 /* element linking */

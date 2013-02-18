@@ -80,7 +80,7 @@
 
 #define DEFAULT_PLAYBACK_RATE			1.0
 
-#define GST_QUEUE_DEFAULT_TIME			2
+#define GST_QUEUE_DEFAULT_TIME			8
 #define GST_QUEUE_HLS_TIME				8
 
 /* video capture callback*/
@@ -2652,6 +2652,9 @@ _mmplayer_update_video_param(mm_player_t* player) // @
 
 	debug_log("check user angle: %d, org angle: %d", user_angle, org_angle);
 
+	/* get rotation value to set */
+	__mmplayer_get_property_value_for_rotation(player, org_angle+user_angle, &rotation_value);
+
 	/* check video stream callback is used */
 	if( player->use_video_stream )
 	{
@@ -2675,12 +2678,8 @@ _mmplayer_update_video_param(mm_player_t* player) // @
 				if (height)
 					g_object_set(player->pipeline->videobin[MMPLAYER_V_CONV].gst, "dst-height", height, NULL);
 
-				/* get rotation value to set */
-				if (__mmplayer_get_property_value_for_rotation(player, org_angle+user_angle, &rotation_value))
-				{
-					g_object_set(player->pipeline->videobin[MMPLAYER_V_CONV].gst, "rotate", rotation_value, NULL);
-					debug_log("updating fimcconvert - r[%d], w[%d], h[%d]", rotation_value, width, height);
-				}
+				g_object_set(player->pipeline->videobin[MMPLAYER_V_CONV].gst, "rotate", rotation_value, NULL);
+				debug_log("updating fimcconvert - r[%d], w[%d], h[%d]", rotation_value, width, height);
 			}
 			else
 			{
@@ -2692,11 +2691,7 @@ _mmplayer_update_video_param(mm_player_t* player) // @
 		{
 			debug_log("using video stream callback with memsink. player handle : [%p]", player);
 
-			/* get rotation value to set */
-			if (__mmplayer_get_property_value_for_rotation(player, org_angle+user_angle, &rotation_value))
-			{
-				g_object_set(player->pipeline->videobin[MMPLAYER_V_FLIP].gst, "method", rotation_value, NULL);
-			}
+			g_object_set(player->pipeline->videobin[MMPLAYER_V_FLIP].gst, "method", rotation_value, NULL);
 		}
 		
 		return MM_ERROR_NONE;
@@ -2747,17 +2742,10 @@ _mmplayer_update_video_param(mm_player_t* player) // @
 				mm_attrs_get_int_by_name(attrs, "display_roi_height", &roi_h);
 				mm_attrs_get_int_by_name(attrs, "display_visible", &visible);
 
-				/* get rotation value to set */
-				if (__mmplayer_get_property_value_for_rotation(player, org_angle+user_angle, &rotation_value))
-				{
-					g_object_set(player->pipeline->videobin[MMPLAYER_V_SINK].gst,
-						"rotate", rotation_value,
-						NULL );
-				}
-
 				g_object_set(player->pipeline->videobin[MMPLAYER_V_SINK].gst,
 					"force-aspect-ratio", force_aspect_ratio,
 					"zoom", zoom,
+					"rotate", rotation_value,
 					"handle-events", TRUE,
 					"display-geometry-method", display_method,
 					"draw-borders", FALSE,
@@ -2874,6 +2862,7 @@ _mmplayer_update_video_param(mm_player_t* player) // @
 				debug_log("set video param : force aspect ratio %d", force_aspect_ratio);
 				debug_log("set video param : display_evas_do_scaling %d (origin-size %d)", scaling, origin_size);
 			}
+			g_object_set(player->pipeline->videobin[MMPLAYER_V_FLIP].gst, "method", rotation_value, NULL);
 		}
 		break;
 		case MM_DISPLAY_SURFACE_X_EXT:	/* NOTE : this surface type is used for the videoTexture(canvasTexture) overlay */
@@ -5293,12 +5282,44 @@ int __gst_pause(mm_player_t* player, gboolean async) // @
 	ret = __mmplayer_gst_set_state(player,
 		player->pipeline->mainbin[MMPLAYER_M_PIPE].gst, GST_STATE_PAUSED, async, MMPLAYER_STATE_CHANGE_TIMEOUT(player));
 
-	if ( ret != MM_ERROR_NONE )
+	if ( FALSE == async && ret != MM_ERROR_NONE )
 	{
-		debug_error("failed to set state to PAUSED\n");
+		GstMessage *msg = NULL;
+		GTimer *timer = NULL;
+		gdouble MAX_TIMEOUT_SEC = 3;
 
-		/* dump state of all element */
-		__mmplayer_dump_pipeline_state( player );
+		debug_error("failed to set state to PAUSED");
+
+		timer = g_timer_new();
+		g_timer_start(timer);
+
+		GstBus *bus = gst_pipeline_get_bus (GST_PIPELINE(player->pipeline->mainbin[MMPLAYER_M_PIPE].gst));
+		/* check if gst error posted or not */
+		do
+		{
+			if (msg = gst_bus_timed_pop(bus, GST_SECOND /2))
+			{
+				if (GST_MESSAGE_TYPE(msg) == GST_MESSAGE_ERROR)
+				{
+					GError *error = NULL;
+					/* parse error code */
+					gst_message_parse_error(msg, &error, NULL);
+
+					if ( error->domain == GST_STREAM_ERROR )
+					{
+						 ret = __gst_handle_stream_error( player, error, msg );
+						player->posted_msg = TRUE;
+						break;
+					}
+				}
+				gst_message_unref(msg);
+			}
+		} while (g_timer_elapsed(timer, NULL) < MAX_TIMEOUT_SEC);
+
+		/* clean */
+		gst_object_unref(bus);
+		g_timer_stop (timer);
+		g_timer_destroy (timer);
 
 		return ret;
 	}
@@ -9301,15 +9322,7 @@ __mmplayer_handle_gst_error ( mm_player_t* player, GstMessage * message, GError*
 	/* post error to application */
 	if ( ! player->posted_msg )
 	{
-		if (msg_param.code == MM_MESSAGE_DRM_NOT_AUTHORIZED )
-		{
-			MMPLAYER_POST_MSG( player, MM_MESSAGE_DRM_NOT_AUTHORIZED, NULL );
-		}
-		else
-		{
-			MMPLAYER_POST_MSG( player, MM_MESSAGE_ERROR, &msg_param );
-		}
-
+		MMPLAYER_POST_MSG( player, MM_MESSAGE_ERROR, &msg_param );
 		/* don't post more if one was sent already */
 		player->posted_msg = TRUE;
 	}
@@ -9797,7 +9810,21 @@ __gst_transform_gsterror( mm_player_t* player, GstMessage * message, GError* err
 		case GST_STREAM_ERROR_DECRYPT_NOKEY:
 		{
 			debug_error("decryption error, [%s] failed, reason : [%s]\n", src_element_name, error->message);
-			return MM_MESSAGE_DRM_NOT_AUTHORIZED;
+
+			if ( strstr(error->message, "rights expired") )
+			{
+				return MM_ERROR_PLAYER_DRM_EXPIRED;
+			}
+			else if ( strstr(error->message, "no rights") )
+			{
+				return MM_ERROR_PLAYER_DRM_NO_LICENSE;
+			}
+			else if ( strstr(error->message, "has future rights") )
+			{
+				return MM_ERROR_PLAYER_DRM_FUTURE_USE;
+			}
+
+			return MM_ERROR_PLAYER_DRM_NOT_AUTHORIZED;
 		}
 		break;
 
