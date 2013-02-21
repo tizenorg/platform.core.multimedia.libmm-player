@@ -5307,7 +5307,13 @@ int __gst_pause(mm_player_t* player, gboolean async) // @
 
 					if ( error->domain == GST_STREAM_ERROR )
 					{
-						 ret = __gst_handle_stream_error( player, error, msg );
+						ret = __gst_handle_stream_error( player, error, msg );
+						player->posted_msg = TRUE;
+						break;
+					}
+					else if (  error->domain == GST_RESOURCE_ERROR)
+					{
+						ret = __gst_handle_resource_error( player, error->code );
 						player->posted_msg = TRUE;
 						break;
 					}
@@ -9608,13 +9614,15 @@ __gst_handle_resource_error( mm_player_t* player, int code )
 			break;
 		case GST_RESOURCE_ERROR_NOT_FOUND:
 		case GST_RESOURCE_ERROR_OPEN_READ:
-			if ( MMPLAYER_IS_HTTP_STREAMING(player) || MMPLAYER_IS_HTTP_LIVE_STREAMING ( player ) )
+			if ( MMPLAYER_IS_HTTP_STREAMING(player) || MMPLAYER_IS_HTTP_LIVE_STREAMING ( player ) 
+				||MMPLAYER_IS_RTSP_STREAMING(player))
 			{
 				trans_err = MM_ERROR_PLAYER_STREAMING_CONNECTION_FAIL;
 				break;
 			}
 		case GST_RESOURCE_ERROR_READ:
-			if ( MMPLAYER_IS_HTTP_STREAMING(player) ||  MMPLAYER_IS_HTTP_LIVE_STREAMING ( player ))
+			if ( MMPLAYER_IS_HTTP_STREAMING(player) ||  MMPLAYER_IS_HTTP_LIVE_STREAMING ( player )
+				||MMPLAYER_IS_RTSP_STREAMING(player))
 			{
 				trans_err = MM_ERROR_PLAYER_STREAMING_FAIL;
 				break;
