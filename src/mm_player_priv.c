@@ -2905,6 +2905,7 @@ _mmplayer_update_video_param(mm_player_t* player) // @
 				"display-geometry-method", display_method,
 				"draw-borders", FALSE,
 				"visible", visible,
+				"rotate", rotation_value,
 				"pixmap-id-callback", pixmap_id_cb,
 				"pixmap-id-callback-userdata", pixmap_id_cb_user_data,
 				NULL );
