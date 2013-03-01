@@ -2763,6 +2763,15 @@ _mmplayer_update_video_param(mm_player_t* player) // @
 				debug_log("set video param : visible %d", visible);
 				debug_log("set video param : force aspect ratio %d", force_aspect_ratio);
 			}
+
+            /* if vaapisink */
+            if (!strncmp(PLAYER_INI()->videosink_element_x, "vaapisink", strlen("vaapisink")))
+            {
+                g_object_set(player->pipeline->videobin[MMPLAYER_V_SINK].gst,
+                        "rotation", rotation_value,
+                        NULL);
+                debug_log("set video param: vaapisink rotation %d", rotation_value);
+            }
 		}
 		break;
 		case MM_DISPLAY_SURFACE_EVAS:
@@ -3494,9 +3503,11 @@ __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps, MMDispl
 			GstCaps* video_caps = NULL;
 
 			/* rotator, scaler and capsfilter */
+            if (strncmp(PLAYER_INI()->videosink_element_x, "vaapisink", strlen("vaapisink"))){
 			MMPLAYER_CREATE_ELEMENT(videobin, MMPLAYER_V_FLIP, "videoflip", "video rotator", TRUE);
 			MMPLAYER_CREATE_ELEMENT(videobin, MMPLAYER_V_SCALE, "videoscale", "video scaler", TRUE);
 			MMPLAYER_CREATE_ELEMENT(videobin, MMPLAYER_V_CAPS, "capsfilter", "videocapsfilter", TRUE);
+            }
 
 			/* get video stream caps parsed by demuxer */
 			str = gst_caps_get_structure (player->v_stream_caps, 0);
