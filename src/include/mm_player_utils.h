@@ -53,7 +53,7 @@ do \
 		g_mutex_lock(cmd_lock); \
 	else \
 	{ \
-		debug_log("don't get command lock"); \
+		debug_log("no command lock"); \
 		return MM_ERROR_PLAYER_NOT_INITIALIZED;	\
 	} \
 } while (0);

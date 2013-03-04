@@ -183,7 +183,7 @@ __mmplayer_capture_thread(gpointer data)
 	unsigned char * linear_y_plane = NULL;
 	unsigned char * linear_uv_plane = NULL;
 
-	return_if_fail (player);
+	return_val_if_fail(player, NULL);
 
 	while (!player->capture_thread_exit)
 	{

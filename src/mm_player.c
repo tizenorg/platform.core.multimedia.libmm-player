@@ -43,7 +43,7 @@ int mm_player_create(MMHandleType *player)
 	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	if (!g_thread_supported ())
-    	g_thread_init (NULL);
+		g_thread_init (NULL);
 
 	MMTA_INIT();
 
@@ -148,7 +148,6 @@ int  mm_player_destroy(MMHandleType player)
 	return result;
 }
 
-
 int mm_player_realize(MMHandleType player)
 {
 	int result = MM_ERROR_NONE;
@@ -168,7 +167,6 @@ int mm_player_realize(MMHandleType player)
 	return result;
 }
 
-
 int mm_player_unrealize(MMHandleType player)
 {
 	int result = MM_ERROR_NONE;
@@ -187,7 +185,6 @@ int mm_player_unrealize(MMHandleType player)
 
 	return result;
 }
-
 
 int mm_player_set_message_callback(MMHandleType player, MMMessageCallback callback, void *user_param)
 {
@@ -236,7 +233,6 @@ int mm_player_set_audio_stream_callback(MMHandleType player, mm_player_audio_str
 	return result;
 }
 
-
 int mm_player_set_audio_buffer_callback(MMHandleType player, mm_player_audio_stream_callback callback, void *user_param)
 {
 	int result = MM_ERROR_NONE;
@@ -264,7 +260,7 @@ int mm_player_set_video_stream_callback(MMHandleType player, mm_player_video_str
 
 	MMPLAYER_CMD_LOCK( player );
 
-    result = _mmplayer_set_videostream_cb(player, callback, user_param);
+	result = _mmplayer_set_videostream_cb(player, callback, user_param);
 
 	MMPLAYER_CMD_UNLOCK( player );
 
@@ -315,13 +311,12 @@ int mm_player_set_buffer_need_data_callback(MMHandleType player, mm_player_buffe
 
 	MMPLAYER_CMD_LOCK( player );
 
-    result = _mmplayer_set_buffer_need_data_cb(player, callback, user_param);
+	result = _mmplayer_set_buffer_need_data_cb(player, callback, user_param);
 
 	MMPLAYER_CMD_UNLOCK( player );
 
 	return result;
 }
-
 
 int mm_player_set_buffer_enough_data_callback(MMHandleType player, mm_player_buffer_enough_data_callback callback, void * user_param)
 {
@@ -333,7 +328,7 @@ int mm_player_set_buffer_enough_data_callback(MMHandleType player, mm_player_buf
 
 	MMPLAYER_CMD_LOCK( player );
 
-    result = _mmplayer_set_buffer_enough_data_cb(player, callback, user_param);
+	result = _mmplayer_set_buffer_enough_data_cb(player, callback, user_param);
 
 	MMPLAYER_CMD_UNLOCK( player );
 
@@ -351,13 +346,12 @@ int mm_player_set_buffer_seek_data_callback(MMHandleType player, mm_player_buffe
 
 	MMPLAYER_CMD_LOCK( player );
 
-    result = _mmplayer_set_buffer_seek_data_cb(player, callback, user_param);
+	result = _mmplayer_set_buffer_seek_data_cb(player, callback, user_param);
 
 	MMPLAYER_CMD_UNLOCK( player );
 
 	return result;
 }
-
 
 int mm_player_set_volume(MMHandleType player, MMPlayerVolumeType *volume)
 {
@@ -377,7 +371,6 @@ int mm_player_set_volume(MMHandleType player, MMPlayerVolumeType *volume)
 	return result;
 }
 
-
 int mm_player_get_volume(MMHandleType player, MMPlayerVolumeType *volume)
 {
 	int result = MM_ERROR_NONE;
@@ -396,7 +389,6 @@ int mm_player_get_volume(MMHandleType player, MMPlayerVolumeType *volume)
 	return result;
 }
 
-
 int mm_player_set_mute(MMHandleType player, int mute)
 {
 	int result = MM_ERROR_NONE;
@@ -413,7 +405,6 @@ int mm_player_set_mute(MMHandleType player, int mute)
 
 	return result;
 }
-
 
 int mm_player_get_mute(MMHandleType player, int *mute)
 {
@@ -432,7 +423,6 @@ int mm_player_get_mute(MMHandleType player, int *mute)
 
 	return result;
 }
-
 
 int mm_player_get_state(MMHandleType player, MMPlayerStateType *state)
 {
@@ -480,7 +470,6 @@ int mm_player_push_buffer(MMHandleType player, unsigned char *buf, int size)
 	return result;
 }
 
-
 int mm_player_start(MMHandleType player)
 {
 	int result = MM_ERROR_NONE;
@@ -498,7 +487,6 @@ int mm_player_start(MMHandleType player)
 
 	return result;
 }
-
 
 int  mm_player_stop(MMHandleType player)
 {
@@ -519,7 +507,6 @@ int  mm_player_stop(MMHandleType player)
 	return result;
 }
 
-
 int mm_player_pause(MMHandleType player)
 {
 	int result = MM_ERROR_NONE;
@@ -538,7 +525,6 @@ int mm_player_pause(MMHandleType player)
 
 	return result;
 }
-
 
 int mm_player_resume(MMHandleType player)
 {
@@ -559,7 +545,6 @@ int mm_player_resume(MMHandleType player)
 	return result;
 }
 
-
 int mm_player_activate_section_repeat(MMHandleType player, int start_pos, int end_pos)
 {
 	int result = MM_ERROR_NONE;
@@ -574,7 +559,6 @@ int mm_player_activate_section_repeat(MMHandleType player, int start_pos, int en
 
 	return result;
 }
-
 
 int mm_player_deactivate_section_repeat(MMHandleType player)
 {
@@ -591,7 +575,6 @@ int mm_player_deactivate_section_repeat(MMHandleType player)
 	return result;
 }
 
-
 int mm_player_set_play_speed(MMHandleType player, float rate)
 {
 	int result = MM_ERROR_NONE;
@@ -606,7 +589,6 @@ int mm_player_set_play_speed(MMHandleType player, float rate)
 
 	return result;
 }
-
 
 int mm_player_set_position(MMHandleType player, MMPlayerPosFormatType format, int pos)
 {
@@ -630,7 +612,6 @@ int mm_player_set_position(MMHandleType player, MMPlayerPosFormatType format, in
 
 	return result;
 }
-
 
 int mm_player_get_position(MMHandleType player, MMPlayerPosFormatType format, int *pos)
 {
@@ -697,7 +678,6 @@ int mm_player_adjust_subtitle_position(MMHandleType player, MMPlayerPosFormatTyp
 	return result;
 }
 
-
 int mm_player_set_subtitle_silent(MMHandleType player, int silent)
 {
 	int result = MM_ERROR_NONE;
@@ -714,7 +694,6 @@ int mm_player_set_subtitle_silent(MMHandleType player, int silent)
 
 	return result;
 }
-
 
 int mm_player_get_subtitle_silent(MMHandleType player, int* silent)
 {
@@ -733,7 +712,6 @@ int mm_player_get_subtitle_silent(MMHandleType player, int* silent)
 	return result;
 }
 
-
 int mm_player_set_attribute(MMHandleType player,  char **err_attr_name, const char *first_attribute_name, ...)
 {
 	int result = MM_ERROR_NONE;
@@ -751,7 +729,6 @@ int mm_player_set_attribute(MMHandleType player,  char **err_attr_name, const ch
 	return result;
 }
 
-
 int mm_player_get_attribute(MMHandleType player,  char **err_attr_name, const char *first_attribute_name, ...)
 {
 	int result = MM_ERROR_NONE;
@@ -768,7 +745,6 @@ int mm_player_get_attribute(MMHandleType player,  char **err_attr_name, const ch
 
 	return result;
 }
-
 
 int mm_player_get_attribute_info(MMHandleType player,  const char *attribute_name, MMPlayerAttrsInfo *info)
 {
@@ -799,7 +775,7 @@ int mm_player_get_pd_status(MMHandleType player, guint64 *current_pos, guint64 *
 	return result;
 }
 
-int mm_player_get_track_count(MMHandleType player,  MMPlayerTrackType track_type, int *count)
+int mm_player_get_track_count(MMHandleType player, MMPlayerTrackType track_type, int *count)
 {
 	int result = MM_ERROR_NONE;
 
@@ -812,4 +788,17 @@ int mm_player_get_track_count(MMHandleType player,  MMPlayerTrackType track_type
 
 	return result;
 
+}
+
+int mm_player_ignore_session(MMHandleType player)
+{
+	int result = MM_ERROR_NONE;
+
+	debug_log("\n");
+
+	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+
+	result = _mmplayer_asm_ignore_session(player);
+
+	return result;
 }

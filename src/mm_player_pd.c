@@ -278,7 +278,7 @@ gboolean _mmplayer_destroy_pd_downloader (MMHandleType handle)
 
 	pd = MM_PLAYER_GET_PD(handle);
 
-	if ( pd && pd->downloader_pipeline)
+	if (pd && pd->downloader_pipeline)
 		_mmplayer_unrealize_pd_downloader (handle);
 
 	/* release PD handle */

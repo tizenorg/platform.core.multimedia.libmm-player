@@ -23,6 +23,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/stat.h>
+#include <fcntl.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -33,14 +34,30 @@
 
 bool util_exist_file_path(const char *file_path)
 {
-	debug_log("\n");
+	int fd = NULL;
+	struct stat stat_results = {0, };
 
 	if (!file_path || !strlen(file_path))
 		return FALSE;
 
-	int res = access(file_path, R_OK);
-	if (res)
+	fd = open (file_path, O_RDONLY);
+
+	if (fd < 0)
+	{
+		debug_error("failed to open %s, %s", file_path, strerror(errno));
 		return FALSE;
+	}
+
+	if (fstat(fd, &stat_results) < 0)
+	{
+		debug_error("failed to get file status");
+	}
+	else
+	{
+		debug_warning("file size : %lld bytes", (long long)stat_results.st_size); //need to chech file validity
+	}
+
+	close(fd);
 
 	return TRUE;
 }
@@ -311,7 +328,7 @@ util_is_sdp_file ( const char *path )
 
 	uri = g_ascii_strdown ( path, -1 );
 
-	if ( uri == -1)
+	if ( uri == NULL)
 	{
 		return FALSE;
 	}
@@ -333,7 +350,7 @@ util_is_sdp_file ( const char *path )
 	if ( ! ret )
 	{
 		/* FIXIT : do it soon */
-		debug_warning("determining whether it's sdp or not with it's content is not implemented yet. ;)\n");
+		debug_log("determining whether it's sdp or not with it's content is not implemented yet. ;)\n");
 	}
 
 	g_free( uri);
