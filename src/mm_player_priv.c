@@ -7672,10 +7672,12 @@ GstCaps *caps, gpointer data)
 	/* try to plug */
 	if ( ! __mmplayer_try_to_plug( player, pad, caps ) )
 	{
-		debug_error("failed to autoplug for type : %s\n", player->type);
+		gboolean async = FALSE;
 
-		if ( ( PLAYER_INI()->async_start ) &&
-		( player->posted_msg == FALSE ) )
+		debug_error("failed to autoplug for type : %s\n", player->type);
+		mm_attrs_get_int_by_name(player->attrs, "profile_prepare_async", &async);
+
+		if (async && player->posted_msg == FALSE)
 		{
 			__mmplayer_post_missed_plugin( player );
 		}
