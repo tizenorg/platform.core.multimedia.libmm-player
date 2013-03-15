@@ -203,10 +203,9 @@ __mmplayer_apply_attribute(MMHandleType handle, const char *attribute_name)
 	{
 		/* check videosink element is created */
 		if ( !player->pipeline ||
-			 !player->pipeline->videobin ||
-			 !player->pipeline->videobin[MMPLAYER_V_SINK].gst )
+			!player->pipeline->videobin ||
+			!player->pipeline->videobin[MMPLAYER_V_SINK].gst )
 		{
-			debug_warning("videosink element is not yet ready");
 			/*
 			 * The attribute should be committed even though videobin is not created yet.
 			 * So, true should be returned here.

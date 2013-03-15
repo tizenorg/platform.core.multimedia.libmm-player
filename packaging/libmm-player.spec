@@ -1,14 +1,11 @@
-
 Name:       libmm-player
 Summary:    Multimedia Framework Player Library
-Version:    0.2.11
-Release:    1
+Version:    0.2.14
+Release:    0
 Group:      System/Libraries
-License:    Apache License, Version 2.0
+License:    Apache-2.0
 URL:        http://source.tizen.org
 Source0:    %{name}-%{version}.tar.gz
-Requires(post):  /sbin/ldconfig
-Requires(postun):  /sbin/ldconfig
 BuildRequires:  pkgconfig(mm-ta)
 BuildRequires:  pkgconfig(mm-common)
 BuildRequires:  pkgconfig(mm-sound)
@@ -23,9 +20,8 @@ BuildRequires:  pkgconfig(iniparser)
 BuildRequires:  pkgconfig(vconf)
 BuildRequires:  pkgconfig(icu-i18n)
 
-BuildRoot:  %{_tmppath}/%{name}-%{version}-build
-
 %description
+Multimedia Framework Player Library.
 
 %package devel
 Summary:    Multimedia Framework Player Library (DEV)
@@ -33,6 +29,7 @@ Group:      Development/Libraries
 Requires:   %{name} = %{version}-%{release}
 
 %description devel
+Multimedia Framework Player Library (DEV).
 
 %prep
 %setup -q
@@ -46,17 +43,10 @@ LDFLAGS+="-Wl,--rpath=%{_prefix}/lib -Wl,--hash-style=both -Wl,--as-needed"; exp
 
 CFLAGS=$CFLAGS LDFLAGS=$LDFLAGS ./configure --prefix=%{_prefix} --disable-static
 
-# Call make instruction with smp support
 make -j1 
 
 %install
-rm -rf %{buildroot}
 %make_install
-
-%clean
-rm -rf %{buildroot}
-
-
 
 %post -p /sbin/ldconfig
 

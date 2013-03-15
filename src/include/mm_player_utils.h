@@ -53,7 +53,7 @@ do \
 		g_mutex_lock(cmd_lock); \
 	else \
 	{ \
-		debug_log("don't get command lock"); \
+		debug_log("no command lock"); \
 		return MM_ERROR_PLAYER_NOT_INITIALIZED;	\
 	} \
 } while (0);
@@ -65,7 +65,6 @@ do \
 
 #define MMPLAYER_GET_ATTRS(x_player)		((mm_player_t*)x_player)->attrs
 
-/* sbs : for bluetooth */
 #define MAX_SOUND_DEVICE_LEN	18	
 
 /* element linking */

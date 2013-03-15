@@ -661,6 +661,8 @@ gboolean	_mmplayer_update_content_attrs(mm_player_t* player);
 int _mmplayer_set_volume_tune(MMHandleType hplayer, MMPlayerVolumeType volume);
 int _mmplayer_update_video_param(mm_player_t* player);
 int _mmplayer_set_audiobuffer_cb(MMHandleType hplayer, mm_player_audio_stream_callback callback, void *user_param);
+int _mmplayer_audio_effect_preset_apply(mm_player_t *player, MMAudioEffectPresetType effect_type);
+int _mmplayer_audio_effect_custom_apply(mm_player_t *player);
 
 #ifdef __cplusplus
 	}

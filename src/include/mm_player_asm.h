@@ -24,7 +24,6 @@
 
 #include <glib.h>
 #include <mm_types.h>
-#include <mm_error.h>
 
 #include <mm_session.h>
 #include <mm_session_private.h>
@@ -39,14 +38,15 @@ typedef struct {
 	int pid;
 	int by_asm_cb;
 	int event_src;
+	int skip_session;
 	ASM_sound_states_t state;
 	ASM_sound_events_t event;
 } MMPlayerASM;
 
-/* returns allocated handle */
 gint _mmplayer_asm_register(MMPlayerASM* sm, ASM_sound_cb_t callback, void* param);
-gint _mmplayer_asm_deregister(MMPlayerASM* sm);
+gint _mmplayer_asm_unregister(MMPlayerASM* sm);
 gint _mmplayer_asm_set_state(MMHandleType player, ASM_sound_states_t state);
+gint _mmplayer_asm_ignore_session(MMHandleType player);
 
 #ifdef __cplusplus
 }
