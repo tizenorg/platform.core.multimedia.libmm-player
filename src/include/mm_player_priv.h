@@ -87,6 +87,16 @@ enum tag_info
 	TAG_TRACK_NUMBER = 0x0200
 };
 
+enum content_attr_flag
+{
+	ATTR_MISSING_ONLY = 0x0001,
+	ATTR_DURATION = 0x0002,
+	ATTR_AUDIO  = 0x0004,
+	ATTR_VIDEO = 0x0008,
+	ATTR_BITRATE = 0x0010,
+	ATTR_ALL = 0x0020,
+};
+
 /* async mode makes trouble. alsasink sometimes fails to pause. */
 enum alassink_sync
 {
@@ -401,7 +411,7 @@ typedef struct {
 	int prev_state;				// player previous state
 	int pending_state;			// player state which is going to now
 	int target_state;				// player state which user want to go to
-	guint state_change_timeout;	
+	guint state_change_timeout;
 
 	gboolean section_repeat;
 	gint section_repeat_start;
@@ -426,9 +436,9 @@ typedef struct {
 	GCond* capture_thread_cond;
 	GMutex* capture_thread_mutex;
 	MMPlayerVideoCapture capture;
-	MMPlayerVideoColorspace video_cs;	
+	MMPlayerVideoColorspace video_cs;
 	MMPlayerMPlaneImage captured;
-	
+
 	/* fakesink handling lock */
 	GMutex* fsink_lock;
 
@@ -558,7 +568,7 @@ typedef struct {
 	gboolean doing_seek;
 
 	/* prevent to post msg over and over */
-	gboolean posted_msg;
+	gboolean msg_posted;
 
 	/* list of sink elements */
 	GList* sink_elements;
@@ -576,12 +586,10 @@ typedef struct {
 	 */
 	gboolean state_lost;
 
-	gboolean need_update_content_attrs;
-	gboolean need_update_content_dur;
-
 	gboolean is_sound_extraction;
 
 	gdouble playback_rate;
+
        /* player state resumed by fast rewind */
 	gboolean resumed_by_rewind;
 
@@ -654,7 +662,6 @@ int _mmplayer_set_videoframe_render_error_cb(MMHandleType hplayer, mm_player_vid
 int _mmplayer_set_subtitle_silent (MMHandleType hplayer, int silent);
 int _mmplayer_get_subtitle_silent (MMHandleType hplayer, int* silent);
 int _mmplayer_get_buffer_position(MMHandleType hplayer, int format, unsigned long* start_pos, unsigned long* stop_pos);
-gboolean	_mmplayer_update_content_attrs(mm_player_t* player);
 /* test API for tuning audio gain. this API should be
  * deprecated before the day of final release
  */
