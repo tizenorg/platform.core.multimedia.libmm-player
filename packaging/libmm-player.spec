@@ -39,9 +39,9 @@ Multimedia Framework Player Library (DEV).
 ./autogen.sh
 
 CFLAGS+=" -DEXPORT_API=\"__attribute__((visibility(\\\"default\\\")))\" "; export CFLAGS
-LDFLAGS+="-Wl,--rpath=%{_prefix}/lib -Wl,--hash-style=both -Wl,--as-needed"; export LDFLAGS
+LDFLAGS+="-Wl,--rpath=%{_libdir} -Wl,--hash-style=both -Wl,--as-needed"; export LDFLAGS
 
-CFLAGS=$CFLAGS LDFLAGS=$LDFLAGS ./configure --prefix=%{_prefix} --disable-static
+%configure --disable-static
 
 make -j1 
 
