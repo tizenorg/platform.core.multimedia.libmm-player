@@ -9866,7 +9866,10 @@ __gst_transform_gsterror( mm_player_t* player, GstMessage * message, GError* err
 			{
 				return MM_ERROR_PLAYER_DRM_FUTURE_USE;
 			}
-
+			else if ( strstr(error->message, "opl violation") )
+			{
+				return MM_ERROR_PLAYER_DRM_OUTPUT_PROTECTION;
+			}
 			return MM_ERROR_PLAYER_DRM_NOT_AUTHORIZED;
 		}
 		break;
