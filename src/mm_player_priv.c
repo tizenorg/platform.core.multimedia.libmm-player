@@ -147,6 +147,8 @@ static gboolean	__mmplayer_gstreamer_init(void);
 static int		__mmplayer_gst_set_state (mm_player_t* player, GstElement * pipeline,  GstState state, gboolean async, gint timeout );
 gboolean __mmplayer_post_message(mm_player_t* player, enum MMMessageType msgtype, MMMessageParamType* param);
 static gboolean	__mmplayer_gst_extract_tag_from_msg(mm_player_t* player, GstMessage *msg);
+static gboolean      __mmplayer_gst_handle_duration(mm_player_t* player, GstMessage* msg);
+
 int		__mmplayer_switch_audio_sink (mm_player_t* player);
 static gboolean __mmplayer_gst_remove_fakesink(mm_player_t* player, MMPlayerGstElement* fakesink);
 static int		__mmplayer_check_state(mm_player_t* player, enum PlayerCommandState command);
@@ -1142,7 +1144,7 @@ __mmplayer_get_state(mm_player_t* player) // @
 	int state = MM_PLAYER_STATE_NONE;
 
 	debug_fenter();
-	
+
 	return_val_if_fail ( player, MM_PLAYER_STATE_NONE );
 
 	state = MMPLAYER_CURRENT_STATE(player);
@@ -1150,7 +1152,7 @@ __mmplayer_get_state(mm_player_t* player) // @
 	debug_log("player state is %s.\n", MMPLAYER_STATE_GET_NAME(state));
 
 	debug_fleave();
-	
+
 	return state;
 }
 
@@ -1783,28 +1785,15 @@ __mmplayer_gst_callback(GstBus *bus, GstMessage *msg, gpointer data) // @
 		case GST_MESSAGE_DURATION:
 		{
 			debug_log("GST_MESSAGE_DURATION\n");
-
-			GstFormat format;
-			gint64 bytes = 0;
-
-			gst_message_parse_duration (msg, &format, &bytes);
-
-			if (MMPLAYER_IS_STREAMING(player) && format == GST_FORMAT_BYTES )
+			ret = __mmplayer_gst_handle_duration(player, msg);
+			if (!ret)
 			{
-				if (format == GST_FORMAT_BYTES)
-				{
-					debug_log("data total size of http content: %lld", bytes);
-					player->http_content_size = bytes;
-				}
-			} else {
-				/* handling audio clip which has vbr. means duration is keep changing */
-				if ( format == GST_FORMAT_TIME )
-				{
-					_mmplayer_update_content_attrs (player, ATTR_DURATION );
-				}
+				debug_warning("failed to update duration");
 			}
 		}
+
 		break;
+
 
 		case GST_MESSAGE_LATENCY:				debug_log("GST_MESSAGE_LATENCY\n"); break;
 		case GST_MESSAGE_ASYNC_START:		debug_log("GST_MESSAGE_ASYNC_DONE : %s\n", gst_element_get_name(GST_MESSAGE_SRC(msg))); break;
@@ -1846,6 +1835,41 @@ __mmplayer_gst_callback(GstBus *bus, GstMessage *msg, gpointer data) // @
 
 	return ret;
 }
+
+static gboolean
+__mmplayer_gst_handle_duration(mm_player_t* player, GstMessage* msg)
+{
+	GstFormat format;
+	gint64 bytes = 0;
+
+	debug_fenter();
+
+	return_val_if_fail(player, FALSE);
+	return_val_if_fail(msg, FALSE);
+
+	gst_message_parse_duration (msg, &format, &bytes);
+
+	if (MMPLAYER_IS_HTTP_STREAMING(player) && format == GST_FORMAT_BYTES )
+	{
+		debug_log("data total size of http content: %lld", bytes);
+		player->http_content_size = bytes;
+	}
+	else if (format == GST_FORMAT_TIME)
+	{
+		/* handling audio clip which has vbr. means duration is keep changing */
+		_mmplayer_update_content_attrs (player, ATTR_DURATION );
+	}
+	else
+	{
+		debug_warning("duration is neither BYTES or TIME");
+		return FALSE;
+	}
+
+	debug_fleave();
+
+	return TRUE;
+}
+
 
 static gboolean
 __mmplayer_gst_extract_tag_from_msg(mm_player_t* player, GstMessage* msg) // @
@@ -3132,10 +3156,10 @@ do \
 
 
 /**
-  * AUDIO PIPELINE 
+  * AUDIO PIPELINE
   * - Local playback 	: audioconvert !volume ! capsfilter ! audioeq ! audiosink
   * - Streaming 		: audioconvert !volume ! audiosink
-  * - PCM extraction 	: audioconvert ! audioresample ! capsfilter ! fakesink 
+  * - PCM extraction 	: audioconvert ! audioresample ! capsfilter ! fakesink
   */
 static int
 __mmplayer_gst_create_audio_pipeline(mm_player_t* player)
@@ -4058,7 +4082,7 @@ __mmplayer_gst_create_subtitle_src(mm_player_t* player)
 	if ( !subtitle_uri || strlen(subtitle_uri) < 1)
 	{
 		debug_error("subtitle uri is not proper filepath.\n");
-		return MM_ERROR_PLAYER_INVALID_URI;	
+		return MM_ERROR_PLAYER_INVALID_URI;
 	}
 	debug_log("subtitle file path is [%s].\n", subtitle_uri);
 
@@ -4133,7 +4157,7 @@ __mmplayer_gst_create_subtitle_src(mm_player_t* player)
 	}
 
 	debug_fleave();
-	
+
     	return MM_ERROR_NONE;
 
 
@@ -4410,6 +4434,9 @@ __mmplayer_bus_sync_callback (GstBus * bus, GstMessage * message, gpointer data)
 		case GST_MESSAGE_TAG:
 			__mmplayer_gst_extract_tag_from_msg(player, message);
 			break;
+		case GST_MESSAGE_DURATION:
+			__mmplayer_gst_handle_duration(player, message);
+			break;
 
 		default:
 			return GST_BUS_PASS;
@@ -4626,7 +4653,7 @@ __mmplayer_gst_create_pipeline(mm_player_t* player) // @
 
 				g_object_set(G_OBJECT(element), "location", player->pd_file_save_path, NULL);
 			}
-			
+
 			player->streaming_type = STREAMING_SERVICE_NONE;
 		}
 		break;
@@ -5269,7 +5296,7 @@ static int __gst_stop(mm_player_t* player) // @
 	timeout = MMPLAYER_STATE_CHANGE_TIMEOUT ( player );
 	if  ( player->profile.uri_type == MM_PLAYER_URI_TYPE_BUFF || player->profile.uri_type == MM_PLAYER_URI_TYPE_HLS)
 	{
-		ret = __mmplayer_gst_set_state(player, 
+		ret = __mmplayer_gst_set_state(player,
 			player->pipeline->mainbin[MMPLAYER_M_PIPE].gst, GST_STATE_READY, FALSE, timeout );
 	}
 	else
@@ -5466,7 +5493,7 @@ int __gst_resume(mm_player_t* player, gboolean async) // @
 			MMPLAYER_SET_STATE ( player, MM_PLAYER_STATE_PLAYING );
 		}
 	}
-	
+
 	/* FIXIT : analyze so called "async problem" */
 	/* set async off */
 	__gst_set_async_state_change( player, FALSE );
@@ -5857,7 +5884,7 @@ static gboolean __mmfplayer_parse_profile(const char *uri, void *param, MMPlayer
 		if (strlen(path)) {
 			strcpy(data->uri, uri);
 				data->uri_type = MM_PLAYER_URI_TYPE_URL_HTTP;
-			
+
 			ret = TRUE;
 		}
 	}
@@ -6665,7 +6692,7 @@ __mmplayer_unrealize_streaming_ext(mm_player_t *player)
 {
 	debug_fenter();
 	return_val_if_fail ( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
-	
+
 	/* destroy can called at anytime */
 	if (player->pd_downloader && MMPLAYER_IS_HTTP_PD(player))
 	{
@@ -6747,7 +6774,7 @@ _mmplayer_set_volume(MMHandleType hplayer, MMPlayerVolumeType volume) // @
 
 	return_val_if_fail ( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
 
-	debug_log("volume [L]=%f:[R]=%f\n", 
+	debug_log("volume [L]=%f:[R]=%f\n",
 		volume.level[MM_VOLUME_CHANNEL_LEFT], volume.level[MM_VOLUME_CHANNEL_RIGHT]);
 
 	/* invalid factor range or not */
@@ -6993,7 +7020,7 @@ _mmplayer_set_buffer_enough_data_cb(MMHandleType hplayer, mm_player_buffer_enoug
     	debug_log("buffer enough data cb Handle value is %p : %p\n", player, player->enough_data_cb);
 
 	debug_fleave();
-	
+
     	return MM_ERROR_NONE;
 }
 
@@ -8478,7 +8505,7 @@ const char *padname, const GList *templlist)
 		gchar *name = NULL;
 
 		name = g_strdup(GST_ELEMENT_NAME( GST_PAD_PARENT ( srcpad )));
-		
+
 		if (g_strrstr(name, "mpegtsdemux"))
 		{
 			gchar *demux_caps = NULL;
@@ -8487,7 +8514,7 @@ const char *padname, const GList *templlist)
 
 			dcaps = gst_pad_get_caps(srcpad);
 			demux_caps = gst_caps_to_string(dcaps);
-			
+
 			if (g_strrstr(demux_caps, "video/x-h264"))
 			{
 				parser_name = g_strdup("h264parse");
@@ -8496,7 +8523,7 @@ const char *padname, const GList *templlist)
 			{
 				parser_name = g_strdup("mpeg4videoparse");
 			}
-			
+
 			gst_caps_unref(dcaps);
 			MMPLAYER_FREEIF( demux_caps );
 
@@ -8505,7 +8532,7 @@ const char *padname, const GList *templlist)
 				parser = __mmplayer_element_create_and_link(player, srcpad, parser_name);
 
 				MMPLAYER_FREEIF(parser_name);
-				
+
 				if ( ! parser )
 				{
 					debug_error("failed to create parser\n");
@@ -10143,7 +10170,7 @@ __gst_send_event_to_sink( mm_player_t* player, GstEvent* event )
 	gboolean res = FALSE;
 
 	debug_fenter();
-	
+
 	return_val_if_fail( player, FALSE );
 	return_val_if_fail ( event, FALSE );
 
