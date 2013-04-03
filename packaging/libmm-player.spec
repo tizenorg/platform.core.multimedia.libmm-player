@@ -36,7 +36,7 @@ Multimedia Framework Player Library (DEV).
 
 %build
 
-./autogen.sh
+%autogen.sh
 
 CFLAGS+=" -DEXPORT_API=\"__attribute__((visibility(\\\"default\\\")))\" "; export CFLAGS
 LDFLAGS+="-Wl,--rpath=%{_libdir} -Wl,--hash-style=both -Wl,--as-needed"; export LDFLAGS
