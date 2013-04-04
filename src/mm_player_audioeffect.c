@@ -832,13 +832,11 @@ mm_player_audio_effect_custom_get_eq_bands_width(MMHandleType hplayer, int band_
 		return MM_ERROR_PLAYER_SOUND_EFFECT_NOT_SUPPORTED_FILTER;
 	}
 
-	return_val_if_fail( player->pipeline, MM_ERROR_PLAYER_NOT_INITIALIZED );
-
 	eq_num = PLAYER_INI()->audio_effect_custom_eq_band_num;
 	if (band_idx < 0 || band_idx > eq_num-1)
 	{
 		debug_error("out of range, invalid band_idx(%d)", band_idx);
-		result = MM_ERROR_PLAYER_INTERNAL;
+		result = MM_ERROR_INVALID_ARGUMENT;
 	}
 	else
 	{
@@ -871,13 +869,11 @@ mm_player_audio_effect_custom_get_eq_bands_freq(MMHandleType hplayer, int band_i
 		return MM_ERROR_PLAYER_SOUND_EFFECT_NOT_SUPPORTED_FILTER;
 	}
 
-	return_val_if_fail( player->pipeline, MM_ERROR_PLAYER_NOT_INITIALIZED );
-
 	eq_num = PLAYER_INI()->audio_effect_custom_eq_band_num;
 	if (band_idx < 0 || band_idx > eq_num-1)
 	{
 		debug_error("out of range, invalid band_idx(%d)", band_idx);
-		result = MM_ERROR_PLAYER_INTERNAL;
+		result = MM_ERROR_INVALID_ARGUMENT;
 	}
 	else
 	{
