@@ -577,8 +577,6 @@ _mmplayer_update_content_attrs(mm_player_t* player, enum content_attr_flag flag)
 	gint64 dur_nsec = 0;
 	GstStructure* p = NULL;
 	MMHandleType attrs = 0;
-	gint retry_count = 0;
-	gint retry_count_max = 10;
 	gchar *path = NULL;
 	gint stream_service_type = STREAMING_SERVICE_NONE;
 	struct stat sb;
@@ -633,37 +631,11 @@ _mmplayer_update_content_attrs(mm_player_t* player, enum content_attr_flag flag)
 		debug_log("try to update duration");
 		has_duration = FALSE;
 
-		/* update duration
-		 * NOTE : we need to wait for a while until is possible to get duration from pipeline
-		 * as getting duration timing is depends on behavier of demuxers ( or etc ).
-		 * we set timeout 100ms * 10 as initial value. fix it if needed.
-		 */
-		while ( retry_count <  retry_count_max)
+		if (gst_element_query_duration(player->pipeline->mainbin[MMPLAYER_M_PIPE].gst, &fmt, &dur_nsec ))
 		{
-			if ( FALSE == gst_element_query_duration(
-				player->pipeline->mainbin[MMPLAYER_M_PIPE].gst, &fmt, &dur_nsec ) )
-			{
-				/* retry if failed */
-				debug_warning("failed to get duraton. waiting 100ms and then retrying...");
-				usleep(100000);
-				retry_count++;
-				continue;
-			}
-
-			if ( dur_nsec == 0 && ( !MMPLAYER_IS_LIVE_STREAMING( player ) ) )
-			{
-				/* abnormal situation. try again if duration is zero in case of not live stream */
-				debug_warning("returned duration is zero. but it's not an live stream. retrying...");
-				usleep(100000);
-				retry_count++;
-				continue;
-			}
-
-			break;
+			player->duration = dur_nsec;
+			debug_log("duration : %lld msec", GST_TIME_AS_MSECONDS(dur_nsec));
 		}
-
-		player->duration = dur_nsec;
-		debug_log("duration : %lld msec", GST_TIME_AS_MSECONDS(dur_nsec));
 
 		/* try to get streaming service type */
 		stream_service_type = __mmplayer_get_stream_service_type( player );
@@ -672,14 +644,14 @@ _mmplayer_update_content_attrs(mm_player_t* player, enum content_attr_flag flag)
 		/* check duration is OK */
 		if ( dur_nsec == 0 && !MMPLAYER_IS_LIVE_STREAMING( player ) )
 		{
-			/* FIXIT : find another way to get duration here. */
-			debug_error("finally it's failed to get duration from pipeline. progressbar will not work correctely!");
+			debug_error("not ready to get duration");
 		}
 		else
 		{
 			/*update duration */
 			mm_attrs_set_int_by_name(attrs, "content_duration", GST_TIME_AS_MSECONDS(dur_nsec));
 			has_duration = TRUE;
+			debug_log("duration updated");
 		}
 	}
 
