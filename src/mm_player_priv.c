@@ -2909,10 +2909,8 @@ _mmplayer_update_video_param(mm_player_t* player) // @
 				int roi_y = 0;
 				int roi_w = 0;
 				int roi_h = 0;
-				int force_aspect_ratio = 0;
 				int origin_size = !scaling;
 
-				mm_attrs_get_int_by_name(attrs, "display_force_aspect_ration", &force_aspect_ratio);
 				mm_attrs_get_int_by_name(attrs, "display_method", &display_method);
 				mm_attrs_get_int_by_name(attrs, "display_roi_x", &roi_x);
 				mm_attrs_get_int_by_name(attrs, "display_roi_y", &roi_y);
@@ -2920,7 +2918,6 @@ _mmplayer_update_video_param(mm_player_t* player) // @
 				mm_attrs_get_int_by_name(attrs, "display_roi_height", &roi_h);
 
 				g_object_set(player->pipeline->videobin[MMPLAYER_V_SINK].gst,
-					"force-aspect-ratio", force_aspect_ratio,
 					"origin-size", origin_size,
 					"dst-roi-x", roi_x,
 					"dst-roi-y", roi_y,
@@ -2932,7 +2929,6 @@ _mmplayer_update_video_param(mm_player_t* player) // @
 				debug_log("set video param : method %d", display_method);
 				debug_log("set video param : dst-roi-x: %d, dst-roi-y: %d, dst-roi-w: %d, dst-roi-h: %d",
 								roi_x, roi_y, roi_w, roi_h );
-				debug_log("set video param : force aspect ratio %d", force_aspect_ratio);
 				debug_log("set video param : display_evas_do_scaling %d (origin-size %d)", scaling, origin_size);
 			}
 			g_object_set(player->pipeline->videobin[MMPLAYER_V_FLIP].gst, "method", rotation_value, NULL);
