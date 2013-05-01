@@ -478,6 +478,9 @@ __mmplayer_gst_set_state (mm_player_t* player, GstElement * element,  GstState s
 
 	if ( ret == GST_STATE_CHANGE_FAILURE || ( state != element_state ) )
 	{
+		if (MMPLAYER_CURRENT_STATE(player) == MM_PLAYER_STATE_READY)
+			__mmplayer_release_signal_connection( player );
+
 		debug_error("failed to change [%s] element state to [%s] within %d sec\n",
 			GST_ELEMENT_NAME(element),
 			gst_element_state_get_name(state), timeout );
@@ -9214,7 +9217,7 @@ __mmplayer_dump_pipeline_state( mm_player_t* player )
 			   	gst_element_get_state(GST_ELEMENT (item),&state, &pending,time);
 
 			   	factory = gst_element_get_factory (item) ;
-				if (!factory)
+				if (factory)
 				{
 					 debug_error("%s:%s : From:%s To:%s   refcount : %d\n", GST_OBJECT_NAME(factory) , GST_ELEMENT_NAME(item) ,
 					 	gst_element_state_get_name(state), gst_element_state_get_name(pending) , GST_OBJECT_REFCOUNT_VALUE(item));
@@ -9240,7 +9243,7 @@ __mmplayer_dump_pipeline_state( mm_player_t* player )
 
 	factory = gst_element_get_factory (item) ;
 
-	if (!factory)
+	if (factory)
 	{
 		debug_error("%s:%s : From:%s To:%s  refcount : %d\n",
 			GST_OBJECT_NAME(factory),
@@ -10279,6 +10282,7 @@ __mmplayer_release_signal_connection(mm_player_t* player)
 	debug_fenter();
 
 	return_if_fail( player );
+	return_if_fail( player->signals );
 
 	for ( ; sig_list; sig_list = sig_list->next )
 	{
