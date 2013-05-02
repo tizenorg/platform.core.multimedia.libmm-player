@@ -27,8 +27,11 @@
 #include <vconf.h>
 #include <mm_attrs_private.h>
 #include <mm_attrs.h>
+#ifndef GST_API_VERSION_1
 #include <gst/interfaces/xoverlay.h>
-
+#else
+#include <gst/video/videooverlay.h>
+#endif
 #include "mm_player_priv.h"
 #include "mm_player_attrs.h"
 

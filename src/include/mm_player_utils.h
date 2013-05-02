@@ -24,6 +24,9 @@
 
 #include <glib.h>
 #include <gst/gst.h>
+#include <stdint.h>
+#include <inttypes.h>
+
 #include <mm_player_ini.h>
 #include <mm_types.h>
 #include <mm_error.h>
@@ -180,6 +183,7 @@ gboolean __util_gst_pad_probe(GstPad *pad, GstBuffer *buffer, gpointer u_data);
 /* messages are treated as warnings bcz those code should not be checked in. 
  * and no error handling will supported for same manner. 
  */
+#ifndef GST_API_VERSION_1
 #define MMPLAYER_ADD_PROBE(x_pad, x_flag) \
 debug_warning("adding pad probe\n"); \
 if ( ! gst_pad_add_buffer_probe(x_pad, \
@@ -188,6 +192,16 @@ if ( ! gst_pad_add_buffer_probe(x_pad, \
 { \
 	debug_error("failed to add pad probe\n"); \
 }
+#else
+#define MMPLAYER_ADD_PROBE(x_pad, x_flag) \
+debug_warning("adding pad probe\n"); \
+if ( ! gst_pad_add_probe(x_pad, \
+	__util_gst_pad_probe, \
+	(gpointer)x_flag), NULL ) \
+{ \
+	debug_error("failed to add pad probe\n"); \
+} 
+#endif
 
 
 /* generating dot */

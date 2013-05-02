@@ -37,7 +37,7 @@
 |    LOCAL FUNCTION PROTOTYPES:												|
 ---------------------------------------------------------------------------*/
 static gboolean __mmplayer_video_capture_probe (GstPad *pad, GstBuffer *buffer, gpointer u_data);
-static int  __mmplayer_get_video_frame_from_buffer(mm_player_t* player, GstBuffer *buffer);
+//static int  __mmplayer_get_video_frame_from_buffer(mm_player_t* player, GstBuffer *buffer);
 static gpointer __mmplayer_capture_thread(gpointer data);
 static void __csc_tiled_to_linear_crop(unsigned char *yuv420_dest, unsigned char *nv12t_src, int yuv420_width, int yuv420_height, int left, int top, int right, int buttom);
 static int __tile_4x2_read(int x_size, int y_size, int x_pos, int y_pos);
@@ -147,9 +147,10 @@ _mmplayer_do_video_capture(MMHandleType hplayer)
 			GstBuffer *buf = NULL;
 			g_object_get(player->pipeline->videobin[MMPLAYER_V_SINK].gst, "last-buffer", &buf, NULL);
 
+
 			if (buf)
 			{
-				ret = __mmplayer_get_video_frame_from_buffer(player, buf);
+				//ret = __mmplayer_get_video_frame_from_buffer(player, buf);
 				gst_buffer_unref(buf);
 			}
 			return ret;
@@ -164,12 +165,16 @@ _mmplayer_do_video_capture(MMHandleType hplayer)
 	pad = gst_element_get_static_pad(player->pipeline->videobin[MMPLAYER_V_SINK].gst, "sink" );
 
 	/* register probe */
+#ifndef GST_API_VERSION_1
 	player->video_capture_cb_probe_id = gst_pad_add_buffer_probe (pad,
 		G_CALLBACK (__mmplayer_video_capture_probe), player);
+#else
+	player->video_capture_cb_probe_id = gst_pad_add_probe (pad, GST_PAD_PROBE_TYPE_BUFFER,
+		__mmplayer_video_capture_probe, player, NULL);
+#endif
 
 	gst_object_unref(GST_OBJECT(pad));
 	pad = NULL;
-
 	debug_fleave();
 
 	return ret;
@@ -317,6 +322,8 @@ EXIT:
 /**
   * The output is fixed as RGB888
   */
+#if 0
+#ifdef GST_API_VERSION_1
 static int
 __mmplayer_get_video_frame_from_buffer(mm_player_t* player, GstBuffer *buffer)
 {
@@ -355,7 +362,6 @@ __mmplayer_get_video_frame_from_buffer(mm_player_t* player, GstBuffer *buffer)
 	if (gst_structure_has_name(structure, "video/x-raw-yuv"))
 	{
 		gst_structure_get_fourcc (structure, "format", &fourcc);
-
 		switch(fourcc)
 		{
 			/* NV12T */
@@ -368,6 +374,174 @@ __mmplayer_get_video_frame_from_buffer(mm_player_t* player, GstBuffer *buffer)
 
 				/* get video frame info from proved buffer */
 				proved = (MMPlayerMPlaneImage *)GST_BUFFER_MALLOCDATA(buffer);
+
+				if ( !proved || !proved->a[0] || !proved->a[1] )
+					return MM_ERROR_PLAYER_INTERNAL;
+
+				yplane_size = (proved->s[0] * proved->e[0]);
+				uvplane_size = (proved->s[1] * proved->e[1]);
+
+				memset(&player->captured, 0x00, sizeof(MMPlayerMPlaneImage));
+				memcpy(&player->captured, proved, sizeof(MMPlayerMPlaneImage));
+
+				player->captured.a[0] = g_try_malloc(yplane_size);
+				if ( !player->captured.a[0] )
+					return MM_ERROR_SOUND_NO_FREE_SPACE;
+
+				player->captured.a[1] = g_try_malloc(uvplane_size);
+				if ( !player->captured.a[1] )
+					return MM_ERROR_SOUND_NO_FREE_SPACE;
+
+				memcpy(player->captured.a[0], proved->a[0], yplane_size);
+				memcpy(player->captured.a[1], proved->a[1], uvplane_size);
+				goto DONE;
+			}
+			break;
+
+			case GST_MAKE_FOURCC ('I', '4', '2', '0'):
+			{
+				src_fmt = MM_UTIL_IMG_FMT_I420;
+			}
+			break;
+
+			default:
+			{
+				goto UNKNOWN;
+			}
+			break;
+		}
+	}
+	else if (gst_structure_has_name(structure, "video/x-raw-rgb"))
+	{
+		gint bpp;
+		gint depth;
+		gint endianess;
+		gint blue_mask;
+		gboolean bigendian = FALSE;
+		gboolean isbluefirst = FALSE;
+
+	     /**
+
+		* The followings will be considered.
+		* RGBx, xRGB, BGRx, xBGR
+		* RGB888, BGR888
+		* RGB565
+		*
+		*/
+		gst_structure_get_int (structure, "bpp", &bpp);
+		gst_structure_get_int (structure, "depth", &depth);
+		gst_structure_get_int (structure, "endianness", &endianess);
+		gst_structure_get_int (structure, "blue_mask", &blue_mask);
+
+		if (endianess == 4321)
+			bigendian = TRUE;
+
+		if (blue_mask == -16777216)
+			isbluefirst = TRUE;
+
+		switch(bpp)
+		{
+			case 32:
+			{
+				switch(depth)
+				{
+					case 32:
+						if (bigendian && isbluefirst)
+							src_fmt = MM_UTIL_IMG_FMT_BGRA8888;
+					case 24:
+						if (bigendian && isbluefirst)
+							src_fmt = MM_UTIL_IMG_FMT_BGRX8888;
+						break;
+					default:
+						goto UNKNOWN;
+						break;
+				}
+			}
+			break;
+
+			case 24:
+			default:
+			{
+				goto UNKNOWN;
+			}
+			break;
+		}
+	}
+	else
+	{
+		goto UNKNOWN;
+	}
+	GstMapInfo info;
+	gst_buffer_map (buffer, &info, GST_MAP_WRITE);
+	__mm_player_convert_colorspace(player, info.data, src_fmt, src_width, src_height, dst_fmt);
+	gst_buffer_unmap (buffer, &info);
+
+DONE:
+	/* do convert colorspace */
+	g_cond_signal( player->capture_thread_cond );
+
+	debug_fleave();
+
+	return MM_ERROR_NONE;
+
+UNKNOWN:
+	debug_error("unknown format to capture\n");
+	return MM_ERROR_PLAYER_INTERNAL;
+}
+#else
+/**
+  * The output is fixed as RGB888
+  */
+static int
+__mmplayer_get_video_frame_from_buffer(mm_player_t* player, GstBuffer *buffer)
+{
+	gint yplane_size = 0;
+	gint uvplane_size = 0;
+	gint src_width = 0;
+	gint src_height = 0;
+	const gchar *fmt;
+	GstCaps *caps = NULL;
+	GstStructure *structure = NULL;
+	mm_util_img_format src_fmt = MM_UTIL_IMG_FMT_YUV420;
+	mm_util_img_format dst_fmt = MM_UTIL_IMG_FMT_RGB888; // fixed
+
+	debug_fenter();
+
+	return_val_if_fail ( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
+	return_val_if_fail ( buffer, MM_ERROR_INVALID_ARGUMENT );
+
+	/* get fourcc */
+	caps = GST_BUFFER_CAPS(buffer);
+
+	return_val_if_fail ( caps, MM_ERROR_INVALID_ARGUMENT );
+	debug_log("caps to capture: %s\n", gst_caps_to_string(caps));
+
+	structure = gst_caps_get_structure (caps, 0);
+
+	return_val_if_fail (structure != NULL, MM_ERROR_PLAYER_INTERNAL);
+
+	/* init capture image buffer */
+	memset(&player->capture, 0x00, sizeof(MMPlayerVideoCapture));
+
+	gst_structure_get_int (structure, "width", &src_width);
+	gst_structure_get_int (structure, "height", &src_height);
+
+	/* check rgb or yuv */
+	if (gst_structure_has_name(structure, "video/x-raw-yuv"))
+	{
+		fmt = gst_structure_get_string (structure, "format");
+		switch (GST_STR_FOURCC (fmt))
+		{
+			/* NV12T */
+			case GST_MAKE_FOURCC ('S', 'T', '1', '2'):
+			{
+				debug_msg ("captured format is ST12\n");
+
+				MMPlayerMPlaneImage *proved = NULL;
+				player->video_cs = MM_PLAYER_COLORSPACE_NV12_TILED;
+
+				/* get video frame info from proved buffer */
+				proved = (MMPlayerMPlaneImage *)gst_buffer_copy (buffer);
 
 				if ( !proved || !proved->a[0] || !proved->a[1] )
 					return MM_ERROR_PLAYER_INTERNAL;
@@ -479,6 +653,8 @@ UNKNOWN:
 	debug_error("unknown format to capture\n");
 	return MM_ERROR_PLAYER_INTERNAL;
 }
+#endif
+#endif
 
 static gboolean
 __mmplayer_video_capture_probe (GstPad *pad, GstBuffer *buffer, gpointer u_data)
@@ -489,7 +665,7 @@ __mmplayer_video_capture_probe (GstPad *pad, GstBuffer *buffer, gpointer u_data)
 	return_val_if_fail ( buffer, FALSE);
 	debug_fenter();
 
-	ret = __mmplayer_get_video_frame_from_buffer(player, buffer);
+	//ret = __mmplayer_get_video_frame_from_buffer(player, buffer);
 
 	if ( ret != MM_ERROR_NONE)
 	{
@@ -500,7 +676,11 @@ __mmplayer_video_capture_probe (GstPad *pad, GstBuffer *buffer, gpointer u_data)
 	/* remove probe to be called at one time */
 	if (player->video_capture_cb_probe_id)
 	{
+#ifndef GST_API_VERSION_1
 		gst_pad_remove_buffer_probe (pad, player->video_capture_cb_probe_id);
+#else
+		gst_pad_remove_probe (pad, player->video_capture_cb_probe_id);
+#endif
 		player->video_capture_cb_probe_id = 0;
 	}
 

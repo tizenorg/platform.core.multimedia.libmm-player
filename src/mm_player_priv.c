@@ -27,10 +27,15 @@
 #include <glib.h>
 #include <gst/gst.h>
 #include <gst/app/gstappsrc.h>
+#ifndef GST_API_VERSION_1
 #include <gst/interfaces/xoverlay.h>
+#else
+#include <gst/video/videooverlay.h>
+#endif
 #include <unistd.h>
 #include <string.h>
 #include <sys/time.h>
+#include <sys/stat.h> 
 #include <stdlib.h>
 
 #include <mm_error.h>
@@ -573,7 +578,9 @@ _mmplayer_update_content_attrs(mm_player_t* player, enum content_attr_flag flag)
 	gboolean missing_only = FALSE;
 	gboolean all = FALSE;
 
+#ifndef GST_API_VERSION_1
 	GstFormat fmt  = GST_FORMAT_TIME;
+#endif
 	gint64 dur_nsec = 0;
 	GstStructure* p = NULL;
 	MMHandleType attrs = 0;
@@ -631,11 +638,19 @@ _mmplayer_update_content_attrs(mm_player_t* player, enum content_attr_flag flag)
 		debug_log("try to update duration");
 		has_duration = FALSE;
 
+#ifdef GST_API_VERSION_1
+		if (gst_element_query_duration(player->pipeline->mainbin[MMPLAYER_M_PIPE].gst, GST_FORMAT_TIME, &dur_nsec ))
+		{
+			player->duration = dur_nsec;
+			debug_log("duration : %lld msec", GST_TIME_AS_MSECONDS(dur_nsec));
+		}
+#else
 		if (gst_element_query_duration(player->pipeline->mainbin[MMPLAYER_M_PIPE].gst, &fmt, &dur_nsec ))
 		{
 			player->duration = dur_nsec;
 			debug_log("duration : %lld msec", GST_TIME_AS_MSECONDS(dur_nsec));
 		}
+#endif
 
 		/* try to get streaming service type */
 		stream_service_type = __mmplayer_get_stream_service_type( player );
@@ -677,7 +692,11 @@ _mmplayer_update_content_attrs(mm_player_t* player, enum content_attr_flag flag)
 
 			if ( pad )
 			{
+#ifdef GST_API_VERSION_1
+				caps_a = gst_pad_get_current_caps( pad );
+#else
 				caps_a = gst_pad_get_negotiated_caps( pad );
+#endif
 
 				if ( caps_a )
 				{
@@ -728,7 +747,11 @@ _mmplayer_update_content_attrs(mm_player_t* player, enum content_attr_flag flag)
 			pad = gst_element_get_static_pad( player->pipeline->videobin[MMPLAYER_V_SINK].gst, "sink" );
 			if ( pad )
 			{
+#ifdef GST_API_VERSION_1
+				caps_v = gst_pad_get_current_caps( pad );
+#else
 				caps_v = gst_pad_get_negotiated_caps( pad );
+#endif
 				if (caps_v)
 				{
 					p = gst_caps_get_structure (caps_v, 0);
@@ -1401,6 +1424,11 @@ __mmplayer_gst_callback(GstBus *bus, GstMessage *msg, gpointer data) // @
 	return_val_if_fail ( player, FALSE );
 	return_val_if_fail ( msg && GST_IS_MESSAGE(msg), FALSE );
 
+#ifdef GST_API_VERSION_1
+	const GstStructure *structure;
+	structure = gst_message_get_structure (msg);
+#endif
+
 	switch ( GST_MESSAGE_TYPE( msg ) )
 	{
 		case GST_MESSAGE_UNKNOWN:
@@ -1431,7 +1459,11 @@ __mmplayer_gst_callback(GstBus *bus, GstMessage *msg, gpointer data) // @
 				debug_error("release audio callback\n");
 
 				/* release audio callback */
+#ifdef GST_API_VERSION_1
+				gst_pad_remove_probe (pad, player->audio_cb_probe_id);
+#else
 				gst_pad_remove_buffer_probe (pad, player->audio_cb_probe_id);
+#endif
 				player->audio_cb_probe_id = 0;
 				/* audio callback should be free because it can be called even though probe remove.*/
 				player->audio_stream_cb = NULL;
@@ -1532,6 +1564,29 @@ __mmplayer_gst_callback(GstBus *bus, GstMessage *msg, gpointer data) // @
 			gst_message_parse_error( msg, &error, &debug );
 
 			msg_src_element = GST_ELEMENT_NAME( GST_ELEMENT_CAST( msg->src ) );
+#ifdef GST_API_VERSION_1
+			if ( gst_structure_has_name ( structure, "streaming_error" ) )
+			{
+				/* Note : the streaming error from the streaming source is handled
+				 *   using __mmplayer_handle_streaming_error.
+				 */
+				__mmplayer_handle_streaming_error ( player, msg );
+
+				/* dump state of all element */
+				__mmplayer_dump_pipeline_state( player );
+			}
+			else
+			{
+				/* traslate gst error code to msl error code. then post it
+				 * to application if needed
+				 */
+				__mmplayer_handle_gst_error( player, msg, error );
+
+				/* dump state of all element */
+				__mmplayer_dump_pipeline_state( player );
+
+			}
+#else
 			if ( gst_structure_has_name ( msg->structure, "streaming_error" ) )
 			{
 				/* Note : the streaming error from the streaming source is handled
@@ -1553,6 +1608,9 @@ __mmplayer_gst_callback(GstBus *bus, GstMessage *msg, gpointer data) // @
 				__mmplayer_dump_pipeline_state( player );
 
 			}
+
+#endif
+			
 
 			if (MMPLAYER_IS_HTTP_PD(player))
 			{
@@ -1633,9 +1691,15 @@ __mmplayer_gst_callback(GstBus *bus, GstMessage *msg, gpointer data) // @
 				break;
 
 			/* get state info from msg */
+#ifdef GST_API_VERSION_1
+			voldstate = gst_structure_get_value (structure, "old-state");
+			vnewstate = gst_structure_get_value (structure, "new-state");
+			vpending = gst_structure_get_value (structure, "pending-state");			
+#else
 			voldstate = gst_structure_get_value (msg->structure, "old-state");
 			vnewstate = gst_structure_get_value (msg->structure, "new-state");
 			vpending = gst_structure_get_value (msg->structure, "pending-state");
+#endif
 
 			oldstate = (GstState)voldstate->data[0].v_int;
 			newstate = (GstState)vnewstate->data[0].v_int;
@@ -1860,6 +1924,24 @@ if (gst_tag_list_get_string(tag_list, gsttag, &string)) \
 	}\
 }
 
+#ifdef GST_API_VERSION_1
+#define MMPLAYER_UPDATE_TAG_IMAGE(gsttag, attribute, playertag) \
+value = gst_tag_list_get_value_index(tag_list, gsttag, index); \
+if (value) \
+{\
+	GstMapInfo info; \
+	gst_buffer_map (buffer, &info, GST_MAP_WRITE); \
+	buffer = gst_value_get_buffer (value); \
+	debug_log ( "update album cover data : %p, size : %d\n", info.data, gst_buffer_get_size(buffer)); \
+	player->album_art = (gchar *)g_malloc(gst_buffer_get_size(buffer)); \
+	if (player->album_art); \
+	{ \
+		memcpy(player->album_art, info.data, gst_buffer_get_size(buffer)); \
+		mm_attrs_set_data_by_name(attribute, playertag, (void *)player->album_art, gst_buffer_get_size(buffer)); \
+	} \
+gst_buffer_unmap (buffer, &info); \
+}
+#else
 #define MMPLAYER_UPDATE_TAG_IMAGE(gsttag, attribute, playertag) \
 value = gst_tag_list_get_value_index(tag_list, gsttag, index); \
 if (value) \
@@ -1873,6 +1955,7 @@ if (value) \
 		mm_attrs_set_data_by_name(attribute, playertag, (void *)player->album_art, GST_BUFFER_SIZE(buffer)); \
 	} \
 }
+#endif
 
 #define MMPLAYER_UPDATE_TAG_UINT(gsttag, attribute, playertag) \
 if (gst_tag_list_get_uint(tag_list, gsttag, &v_uint))\
@@ -2187,8 +2270,11 @@ __mmplayer_gst_rtp_dynamic_pad (GstElement *element, GstPad *pad, gpointer data)
 	else  /* NOTE : use pad's caps directely. if enabled. what I am assuming is there's no elemnt has dynamic pad */
 	{
 		debug_log("using pad caps to autopluging instead of doing typefind\n");
-
+#ifdef GST_API_VERSION_1
+		caps = gst_pad_get_current_caps( pad );
+#else
 		caps = gst_pad_get_caps( pad );
+#endif
 
 		MMPLAYER_CHECK_NULL( caps );
 
@@ -2301,7 +2387,11 @@ __mmplayer_gst_decode_callback(GstElement *decodebin, GstPad *pad, gboolean last
 	}
 
 	/* get mimetype from caps */
+#ifdef GST_API_VERSION_1
+	caps = gst_pad_get_current_caps( pad );
+#else
 	caps = gst_pad_get_caps( pad );
+#endif
 	if ( !caps )
 	{
 		debug_error("cannot get caps from pad.\n");
@@ -2724,7 +2814,11 @@ _mmplayer_update_video_param(mm_player_t* player) // @
 			mm_attrs_get_int_by_name(attrs, "display_height", &height);
 
 			/* resize video frame with requested values for fimcconvert */
+#ifdef GST_API_VERSION_1
+			ename = GST_OBJECT (gst_element_get_factory(player->pipeline->videobin[MMPLAYER_V_CONV].gst));
+#else
 			ename = GST_PLUGIN_FEATURE_NAME(gst_element_get_factory(player->pipeline->videobin[MMPLAYER_V_CONV].gst));
+#endif
 
 			if (g_strrstr(ename, "fimcconvert"))
 			{
@@ -2786,7 +2880,11 @@ _mmplayer_update_video_param(mm_player_t* player) // @
                 }
 
 				debug_log("set video param : xid %d", *(int*)xid);
+#ifdef GST_API_VERSION_1
+				gst_video_overlay_set_window_handle( GST_VIDEO_OVERLAY( player->pipeline->videobin[MMPLAYER_V_SINK].gst ), *(int*)xid );
+#else
 				gst_x_overlay_set_xwindow_id( GST_X_OVERLAY( player->pipeline->videobin[MMPLAYER_V_SINK].gst ), *(int*)xid );
+#endif
 			}
 			else
 			{
@@ -3211,6 +3309,16 @@ __mmplayer_gst_create_audio_pipeline(mm_player_t* player)
 
 			if ((srcpad = gst_element_get_static_pad(player->pipeline->mainbin[MMPLAYER_M_DEMUX].gst, "src")))
 			{
+#ifdef GST_API_VERSION_1
+				if ((caps = gst_pad_get_current_caps(srcpad)))
+				{
+					MMPLAYER_LOG_GST_CAPS_TYPE(caps);
+					GstStructure *str = gst_caps_get_structure(caps, 0);
+					if (str)
+						gst_structure_get_int (str, "channels", &channels);
+					gst_caps_unref(caps);
+				}
+#else
 				if ((caps = gst_pad_get_caps(srcpad)))
 				{
 					MMPLAYER_LOG_GST_CAPS_TYPE(caps);
@@ -3219,6 +3327,7 @@ __mmplayer_gst_create_audio_pipeline(mm_player_t* player)
 						gst_structure_get_int (str, "channels", &channels);
 					gst_caps_unref(caps);
 				}
+#endif
 				gst_object_unref(srcpad);
 			}
 		}
@@ -3465,11 +3574,23 @@ __mmplayer_audio_stream_probe (GstPad *pad, GstBuffer *buffer, gpointer u_data)
 	gint size;
 	guint8 *data;
 
+#ifdef GST_API_VERSION_1
+	GstMapInfo info;
+	gst_buffer_map (buffer, &info, GST_MAP_WRITE);
+	data = info.data;
+	size = gst_buffer_get_size(buffer);
+
+	if (player->audio_stream_cb && size && data)
+		player->audio_stream_cb((void *)data, size, player->audio_stream_cb_user_param);
+	
+	gst_buffer_unmap (buffer, &info);
+#else
 	data = GST_BUFFER_DATA(buffer);
 	size = GST_BUFFER_SIZE(buffer);
 
 	if (player->audio_stream_cb && size && data)
 		player->audio_stream_cb((void *)data, size, player->audio_stream_cb_user_param);
+#endif
 
 	return TRUE;
 }
@@ -4133,6 +4254,52 @@ ERROR:
 	return MM_ERROR_PLAYER_INTERNAL;
 }
 
+#ifdef GST_API_VERSION_1
+gboolean
+__mmplayer_update_subtitle( GstElement* object, GstBuffer *buffer, GstPad *pad, gpointer data)
+{
+	mm_player_t* player = (mm_player_t*) data;
+	MMMessageParamType msg = {0, };
+  	GstClockTime duration = 0;
+	guint8 *text = NULL;
+	gboolean ret = TRUE;
+	GstMapInfo info;
+
+	debug_fenter();
+
+	return_val_if_fail ( player, FALSE );
+	return_val_if_fail ( buffer, FALSE );
+
+	gst_buffer_map (buffer, &info, GST_MAP_WRITE);
+	text = info.data;
+	gst_buffer_unmap (buffer, &info);
+
+  	duration = GST_BUFFER_DURATION(buffer);
+
+	if ( player->is_subtitle_off )
+	{
+		debug_log("subtitle is OFF.\n" );
+		return TRUE;
+	}
+
+	if ( !text )
+	{
+		debug_log("There is no subtitle to be displayed.\n" );
+		return TRUE;
+	}
+
+	msg.data = (void *) text;
+	msg.subtitle.duration = GST_TIME_AS_MSECONDS(duration);
+
+	debug_warning("update subtitle : [%ld msec] %s\n'", msg.subtitle.duration, (char*)msg.data );
+
+	MMPLAYER_POST_MSG( player, MM_MESSAGE_UPDATE_SUBTITLE, &msg );
+
+	debug_fleave();
+
+	return ret;
+}
+#else
 gboolean
 __mmplayer_update_subtitle( GstElement* object, GstBuffer *buffer, GstPad *pad, gpointer data)
 {
@@ -4173,6 +4340,7 @@ __mmplayer_update_subtitle( GstElement* object, GstBuffer *buffer, GstPad *pad, 
 
 	return ret;
 }
+#endif
 
 static int 	__gst_adjust_subtitle_position(mm_player_t* player, int format, int position)
 {
@@ -4197,7 +4365,6 @@ static int 	__gst_adjust_subtitle_position(mm_player_t* player, int format, int 
 	{
 		case MM_PLAYER_POS_FORMAT_TIME:
 		{
-			/* check current postion */
 			if (__gst_get_position(player, MM_PLAYER_POS_FORMAT_TIME, &current_pos ))
 			{
 				debug_error("failed to get position");
@@ -4243,6 +4410,51 @@ static int 	__gst_adjust_subtitle_position(mm_player_t* player, int format, int 
 	return MM_ERROR_NONE;
 }
 
+#ifdef GST_API_VERSION_1
+static void
+__gst_appsrc_feed_data_mem(GstElement *element, guint size, gpointer user_data) // @
+{
+	GstElement *appsrc = element;
+    	tBuffer *buf = (tBuffer *)user_data;
+    	GstBuffer *buffer = NULL;
+    	GstFlowReturn ret = GST_FLOW_OK;
+    	gint len = size;
+
+	return_if_fail ( element );
+	return_if_fail ( buf );
+
+    	//buffer = gst_buffer_new ();
+
+	if (buf->offset >= buf->len)
+	{
+		debug_log("call eos appsrc\n");
+	       g_signal_emit_by_name (appsrc, "end-of-stream", &ret);
+	       return;
+	}
+
+	if ( buf->len - buf->offset < size)
+    	{
+        	len = buf->len - buf->offset + buf->offset;
+    	}
+
+	buffer = gst_buffer_new();
+	GstMapInfo info;
+
+	info.data = (guint8*)(buf->buf + buf->offset);
+	gst_buffer_set_size(buffer, len);
+
+    	//GST_BUFFER_DATA(buffer) = (guint8*)(buf->buf + buf->offset);
+    	//GST_BUFFER_SIZE(buffer) = len;
+    	GST_BUFFER_OFFSET(buffer) = buf->offset;
+    	GST_BUFFER_OFFSET_END(buffer) = buf->offset + len;
+	gst_buffer_map (buffer, &info, GST_MAP_WRITE);
+
+    	debug_log("feed buffer %p, offset %u-%u length %u\n", buffer, buf->offset, buf->len,len);
+    	g_signal_emit_by_name (appsrc, "push-buffer", buffer, &ret);
+
+    	buf->offset += len;
+}
+#else
 static void
 __gst_appsrc_feed_data_mem(GstElement *element, guint size, gpointer user_data) // @
 {
@@ -4279,6 +4491,7 @@ __gst_appsrc_feed_data_mem(GstElement *element, guint size, gpointer user_data) 
 
     	buf->offset += len;
 }
+#endif
 
 static gboolean
 __gst_appsrc_seek_data_mem(GstElement *element, guint64 size, gpointer user_data) // @
@@ -4336,6 +4549,65 @@ __gst_appsrc_enough_data(GstElement *element, gpointer user_data) // @
 	return TRUE;
 }
 
+#ifdef GST_API_VERSION_1
+int
+_mmplayer_push_buffer(MMHandleType hplayer, unsigned char *buf, int size) // @
+{
+	mm_player_t* player = (mm_player_t*)hplayer;
+    	GstBuffer *buffer = NULL;
+	GstMapInfo info;
+    	GstFlowReturn gst_ret = GST_FLOW_OK;
+	int ret = MM_ERROR_NONE;
+
+	debug_fenter();
+
+	return_val_if_fail ( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
+
+	/* check current state */
+//	MMPLAYER_CHECK_STATE_RETURN_IF_FAIL( player, MMPLAYER_COMMAND_START );
+
+
+	/* NOTE : we should check and create pipeline again if not created as we destroy
+	 * whole pipeline when stopping in streamming playback
+	 */
+	if ( ! player->pipeline )
+	{
+		if ( MM_ERROR_NONE != __gst_realize( player ) )
+		{
+			debug_error("failed to realize before starting. only in streamming\n");
+			return MM_ERROR_PLAYER_INTERNAL;
+		}
+	}
+
+     	debug_msg("app-src: pushing data\n");
+
+    	if ( buf == NULL )
+    	{
+        	debug_error("buf is null\n");
+        	return MM_ERROR_NONE;
+    	}
+
+    	buffer = gst_buffer_new ();
+
+    	if (size <= 0)
+    	{
+        	debug_log("call eos appsrc\n");
+        	g_signal_emit_by_name (player->pipeline->mainbin[MMPLAYER_M_SRC].gst, "end-of-stream", &gst_ret);
+        	return MM_ERROR_NONE;
+    	}
+
+    	info.data = (guint8*)(buf);
+    	gst_buffer_set_size(buffer, size);
+	gst_buffer_map (buffer, &info, GST_MAP_WRITE);
+
+    	debug_log("feed buffer %p, length %u\n", buf, size);
+    	g_signal_emit_by_name (player->pipeline->mainbin[MMPLAYER_M_SRC].gst, "push-buffer", buffer, &gst_ret);
+
+	debug_fleave();
+
+	return ret;
+}
+#else
 int
 _mmplayer_push_buffer(MMHandleType hplayer, unsigned char *buf, int size) // @
 {
@@ -4391,6 +4663,7 @@ _mmplayer_push_buffer(MMHandleType hplayer, unsigned char *buf, int size) // @
 
 	return ret;
 }
+#endif
 
 static GstBusSyncReply
 __mmplayer_bus_sync_callback (GstBus * bus, GstMessage * message, gpointer data)
@@ -4820,7 +5093,11 @@ __mmplayer_gst_create_pipeline(mm_player_t* player) // @
 			debug_error ("fakesink element could not be created\n");
 			goto INIT_ERROR;
 		}
+#ifdef GST_API_VERSION_1
+		GST_OBJECT_FLAG_UNSET (mainbin[MMPLAYER_M_SRC_FAKESINK].gst, GST_ELEMENT_FLAG_SINK);
+#else
 		GST_OBJECT_FLAG_UNSET (mainbin[MMPLAYER_M_SRC_FAKESINK].gst, GST_ELEMENT_IS_SINK);
+#endif
 
 		/* take ownership of fakesink. we are reusing it */
 		gst_object_ref( mainbin[MMPLAYER_M_SRC_FAKESINK].gst );
@@ -4854,8 +5131,11 @@ __mmplayer_gst_create_pipeline(mm_player_t* player) // @
 	}
 
 	/* set sync handler to get tag synchronously */
+#ifdef GST_API_VERSION_1
+	gst_bus_set_sync_handler(bus, __mmplayer_bus_sync_callback, player, NULL);
+#else
 	gst_bus_set_sync_handler(bus, __mmplayer_bus_sync_callback, player);
-
+#endif
 	/* finished */
 	gst_object_unref(GST_OBJECT(bus));
 	g_list_free(element_bucket);
@@ -4929,7 +5209,11 @@ __mmplayer_gst_destroy_pipeline(mm_player_t* player) // @
 		GstPad *pad = NULL;
 		pad = gst_element_get_static_pad(player->pipeline->mainbin[MMPLAYER_M_SRC].gst, "src" );
 
+#ifdef GST_API_VERSION_1
+		gst_pad_remove_probe (pad, ahs_appsrc_cb_probe_id);
+#else		
 		gst_pad_remove_buffer_probe (pad, ahs_appsrc_cb_probe_id);
+#endif
 		gst_object_unref(pad);
 		pad = NULL;
 		ahs_appsrc_cb_probe_id = 0;
@@ -4967,7 +5251,12 @@ __mmplayer_gst_destroy_pipeline(mm_player_t* player) // @
 			MMPlayerGstElement* videobin = player->pipeline->videobin;
 			MMPlayerGstElement* textbin = player->pipeline->textbin;
 			GstBus *bus = gst_pipeline_get_bus (GST_PIPELINE (mainbin[MMPLAYER_M_PIPE].gst));
+
+#ifdef GST_API_VERSION_1
+			gst_bus_set_sync_handler (bus, NULL, NULL, NULL);
+#else
 			gst_bus_set_sync_handler (bus, NULL, NULL);
+#endif
 			gst_object_unref(bus);
 
 			debug_log("pipeline status before set state to NULL\n");
@@ -5440,7 +5729,11 @@ int __gst_resume(mm_player_t* player, gboolean async) // @
 
 	/* clean bus sync handler because it's not needed any more */
 	bus = gst_pipeline_get_bus (GST_PIPELINE(player->pipeline->mainbin[MMPLAYER_M_PIPE].gst));
-	gst_bus_set_sync_handler (bus, NULL, NULL);
+#ifdef GST_API_VERSION_1
+			gst_bus_set_sync_handler (bus, NULL, NULL, NULL);
+#else
+			gst_bus_set_sync_handler (bus, NULL, NULL);
+#endif
 	gst_object_unref(bus);
 
 	/* set pipeline state to PLAYING */
@@ -5477,7 +5770,9 @@ int __gst_resume(mm_player_t* player, gboolean async) // @
 static int
 __gst_set_position(mm_player_t* player, int format, unsigned long position, gboolean internal_called) // @
 {
+#ifndef GST_API_VERSION_1
 	GstFormat fmt  = GST_FORMAT_TIME;
+#endif
 	unsigned long dur_msec = 0;
 	gint64 dur_nsec = 0;
 	gint64 pos_nsec = 0;
@@ -5497,10 +5792,17 @@ __gst_set_position(mm_player_t* player, int format, unsigned long position, gboo
 	 */
 	if ( !player->duration )
 	{
+#ifdef GST_API_VERSION_1
+		if ( !gst_element_query_duration( player->pipeline->mainbin[MMPLAYER_M_PIPE].gst, GST_FORMAT_TIME, &dur_nsec ))
+		{
+			goto SEEK_ERROR;
+		}
+#else
 		if ( !gst_element_query_duration( player->pipeline->mainbin[MMPLAYER_M_PIPE].gst, &fmt, &dur_nsec ))
 		{
 			goto SEEK_ERROR;
 		}
+#endif
 		player->duration = dur_nsec;
 	}
 
@@ -5616,7 +5918,9 @@ static int
 __gst_get_position(mm_player_t* player, int format, unsigned long* position) // @
 {
 	MMPlayerStateType current_state = MM_PLAYER_STATE_NONE;
+#ifndef GST_API_VERSION_1
 	GstFormat fmt = GST_FORMAT_TIME;
+#endif
 	signed long long pos_msec = 0;
 	gboolean ret = TRUE;
 
@@ -5630,7 +5934,11 @@ __gst_get_position(mm_player_t* player, int format, unsigned long* position) // 
 	 */
 	if ( current_state != MM_PLAYER_STATE_PAUSED )
 	{
+#ifdef GST_API_VERSION_1
+		ret = gst_element_query_position(player->pipeline->mainbin[MMPLAYER_M_PIPE].gst, GST_FORMAT_TIME, &pos_msec);
+#else
 		ret = gst_element_query_position(player->pipeline->mainbin[MMPLAYER_M_PIPE].gst, &fmt, &pos_msec);
+#endif
 	}
 
 	/* NOTE : get last point to overcome some bad operation of some elements
@@ -7251,7 +7559,9 @@ int
 _mmplayer_pause(MMHandleType hplayer) // @
 {
 	mm_player_t* player = (mm_player_t*)hplayer;
+#ifndef GST_API_VERSION_1
 	GstFormat fmt = GST_FORMAT_TIME;
+#endif
 	gint64 pos_msec = 0;
 	gboolean async = FALSE;
 	gint ret = MM_ERROR_NONE;
@@ -7281,8 +7591,13 @@ _mmplayer_pause(MMHandleType hplayer) // @
 			* ( returning zero when getting current position in paused state) of some
 			* elements
 			*/
-			if ( !gst_element_query_position(player->pipeline->mainbin[MMPLAYER_M_PIPE].gst, &fmt, &pos_msec))
-				debug_warning("getting current position failed in paused\n");
+#ifdef GST_API_VERSION_1
+			ret = gst_element_query_position(player->pipeline->mainbin[MMPLAYER_M_PIPE].gst, GST_FORMAT_TIME, &pos_msec);
+#else
+			ret = gst_element_query_position(player->pipeline->mainbin[MMPLAYER_M_PIPE].gst, &fmt, &pos_msec);
+#endif
+			if ( ! ret )
+			debug_warning("getting current position failed in paused\n");
 
 			player->last_position = pos_msec;
 		}
@@ -7407,11 +7722,13 @@ _mmplayer_activate_section_repeat(MMHandleType hplayer, unsigned long start, uns
 static int
 __mmplayer_set_pcm_extraction(mm_player_t* player)
 {
-	gint64 start_nsec = 0;
-	gint64 end_nsec = 0;
-	gint64 dur_nsec = 0;
-	gint64 dur_msec = 0;
+	guint64 start_nsec = 0;
+	guint64 end_nsec = 0;
+	guint64 dur_nsec = 0;
+	guint64 dur_msec = 0;
+#ifndef GST_API_VERSION_1
 	GstFormat fmt = GST_FORMAT_TIME;
+#endif
 	int required_start = 0;
 	int required_end = 0;
 	int ret = 0;
@@ -7440,7 +7757,11 @@ __mmplayer_set_pcm_extraction(mm_player_t* player)
 	}
 
 	/* get duration */
+#ifdef GST_API_VERSION_1
+	ret = gst_element_query_duration(player->pipeline->mainbin[MMPLAYER_M_PIPE].gst, GST_FORMAT_TIME, &dur_nsec);
+#else
 	ret = gst_element_query_duration(player->pipeline->mainbin[MMPLAYER_M_PIPE].gst, &fmt, &dur_nsec);
+#endif
 	if ( !ret )
 	{
 		debug_error("failed to get duration");
@@ -7481,7 +7802,9 @@ _mmplayer_deactivate_section_repeat(MMHandleType hplayer)
 {
 	mm_player_t* player = (mm_player_t*)hplayer;
 	gint64 cur_pos = 0;
+#ifndef GST_API_VERSION_1
 	GstFormat fmt  = GST_FORMAT_TIME;
+#endif
 	gint onetime = 1;
 
 	debug_fenter();
@@ -7491,8 +7814,11 @@ _mmplayer_deactivate_section_repeat(MMHandleType hplayer)
 	player->section_repeat = FALSE;
 
 	__mmplayer_set_play_count( player, onetime );
-
+#ifdef GST_API_VERSION_1
+	gst_element_query_position(player->pipeline->mainbin[MMPLAYER_M_PIPE].gst, GST_FORMAT_TIME, &cur_pos);
+#else
 	gst_element_query_position(player->pipeline->mainbin[MMPLAYER_M_PIPE].gst, &fmt, &cur_pos);
+#endif
 
 	if ( (!__gst_seek( player, player->pipeline->mainbin[MMPLAYER_M_PIPE].gst,
 					1.0,
@@ -7518,7 +7844,9 @@ _mmplayer_set_playspeed(MMHandleType hplayer, gdouble rate)
 	signed long long pos_msec = 0;
 	int ret = MM_ERROR_NONE;
 	int mute = FALSE;
+#ifndef GST_API_VERSION_1
 	GstFormat format =GST_FORMAT_TIME;
+#endif
 	MMPlayerStateType current_state = MM_PLAYER_STATE_NONE;
 	debug_fenter();
 
@@ -7542,9 +7870,13 @@ _mmplayer_set_playspeed(MMHandleType hplayer, gdouble rate)
 	player->playback_rate = rate;
 
 	current_state = MMPLAYER_CURRENT_STATE(player);
-
+#ifdef GST_API_VERSION_1
+	if ( current_state != MM_PLAYER_STATE_PAUSED )
+		ret = gst_element_query_position(player->pipeline->mainbin[MMPLAYER_M_PIPE].gst, GST_FORMAT_TIME, &pos_msec);
+#else
 	if ( current_state != MM_PLAYER_STATE_PAUSED )
 		ret = gst_element_query_position(player->pipeline->mainbin[MMPLAYER_M_PIPE].gst, &format, &pos_msec);
+#endif
 
 	debug_log ("pos_msec = %"GST_TIME_FORMAT" and ret = %d and state = %d", GST_TIME_ARGS (pos_msec), ret, current_state);
 
@@ -7784,7 +8116,11 @@ __mmplayer_warm_up_video_codec( mm_player_t* player,  GstElementFactory *factory
 
 	if (ret != GST_STATE_CHANGE_SUCCESS)
 	{
+#ifdef GST_API_VERSION_1
+		debug_error ("resource conflict so,  %s unusable\n", gst_object_get_name (GST_OBJECT (factory)));
+#else
 		debug_error ("resource conflict so,  %s unusable\n", GST_PLUGIN_FEATURE_NAME (factory));
+#endif
 		usable = FALSE;
 	}
 
@@ -7911,6 +8247,21 @@ __mmplayer_try_to_plug(mm_player_t* player, GstPad *pad, const GstCaps *caps) //
 		skip = FALSE;
 
 		/* filtering exclude keyword */
+#ifdef GST_API_VERSION_1
+		for ( idx = 0; PLAYER_INI()->exclude_element_keyword[idx][0] != '\0'; idx++ )
+		{
+			if ( g_strrstr(gst_object_get_name (GST_OBJECT (factory)),
+					PLAYER_INI()->exclude_element_keyword[idx]) )
+			{
+				debug_warning("skipping [%s] by exculde keyword [%s]\n",
+					gst_object_get_name (GST_OBJECT (factory)),
+					PLAYER_INI()->exclude_element_keyword[idx] );
+
+				skip = TRUE;
+				break;
+			}
+		}
+#else
 		for ( idx = 0; PLAYER_INI()->exclude_element_keyword[idx][0] != '\0'; idx++ )
 		{
 			if ( g_strrstr(GST_PLUGIN_FEATURE_NAME (factory),
@@ -7924,6 +8275,7 @@ __mmplayer_try_to_plug(mm_player_t* player, GstPad *pad, const GstCaps *caps) //
 				break;
 			}
 		}
+#endif
 
 		if ( skip ) continue;
 
@@ -7935,7 +8287,13 @@ __mmplayer_try_to_plug(mm_player_t* player, GstPad *pad, const GstCaps *caps) //
 		 */
 		if ( g_strrstr(klass, "Codec/Decoder/Image") )
 		{
-			debug_log("skipping [%s] by not required\n", GST_PLUGIN_FEATURE_NAME (factory));
+#ifdef GST_API_VERSION_1
+			debug_log("skipping [%s] by not required\n",
+				gst_object_get_name (GST_OBJECT (factory)) );
+#else
+			debug_log("skipping [%s] by not required\n",
+				GST_PLUGIN_FEATURE_NAME (factory) );
+#endif
 			continue;
 		}
 
@@ -7969,6 +8327,27 @@ __mmplayer_try_to_plug(mm_player_t* player, GstPad *pad, const GstCaps *caps) //
 
             		if( res && !gst_caps_is_empty(res) )
             		{
+#ifdef GST_API_VERSION_1
+                		GstElement *new_element;
+				GList *elements = player->parsers;
+                		char *name_template = g_strdup(temp1->name_template);
+				gchar *name_to_plug = gst_object_get_name (GST_OBJECT (factory));
+
+                		gst_caps_unref(res);
+
+				debug_log("found %s to plug\n", name_to_plug);
+
+				new_element = gst_element_factory_create(GST_ELEMENT_FACTORY(factory), NULL);
+				if ( ! new_element )
+				{
+					debug_error("failed to create element [%s]. continue with next.\n",
+						gst_object_get_name (GST_OBJECT (factory)));
+
+					MMPLAYER_FREEIF(name_template);
+
+					continue;
+				}
+#else
                 		GstElement *new_element;
 				GList *elements = player->parsers;
                 		char *name_template = g_strdup(temp1->name_template);
@@ -7988,6 +8367,7 @@ __mmplayer_try_to_plug(mm_player_t* player, GstPad *pad, const GstCaps *caps) //
 
 					continue;
 				}
+#endif
 
 				/* check and skip it if it was already used. Otherwise, it can be an infinite loop
 				 * because parser can accept its own output as input.
@@ -8239,7 +8619,11 @@ static gboolean __mmplayer_configure_audio_callback(mm_player_t* player)
 		{
 			GstPad *pad = NULL;
 
+#ifdef GST_API_VERSION_1
 			pad = gst_element_get_static_pad (player->pipeline->audiobin[MMPLAYER_A_SINK].gst, "sink");
+#else
+			pad = gst_element_get_pad (player->pipeline->audiobin[MMPLAYER_A_SINK].gst, "sink");
+#endif
 
 			if ( !pad )
 			{
@@ -8247,8 +8631,13 @@ static gboolean __mmplayer_configure_audio_callback(mm_player_t* player)
 				return FALSE;
 			}
 
+#ifdef GST_API_VERSION_1
+			player->audio_cb_probe_id = gst_pad_add_probe (pad, GST_PAD_PROBE_TYPE_BUFFER,
+				__mmplayer_audio_stream_probe, player, NULL);
+#else
 			player->audio_cb_probe_id = gst_pad_add_buffer_probe (pad,
 				G_CALLBACK (__mmplayer_audio_stream_probe), player);
+#endif
 
 			gst_object_unref (pad);
 
@@ -8273,8 +8662,13 @@ __mmplayer_init_factories(mm_player_t* player) // @
 
 	return_if_fail ( player );
 
+#ifdef GST_API_VERSION_1
+	player->factories = gst_registry_feature_filter(gst_registry_get(),
+                                        (GstPluginFeatureFilter)__mmplayer_feature_filter, FALSE, NULL);
+#else
 	player->factories = gst_registry_feature_filter(gst_registry_get_default(),
                                         (GstPluginFeatureFilter)__mmplayer_feature_filter, FALSE, NULL);
+#endif
 
     	player->factories = g_list_sort(player->factories, (GCompareFunc)util_factory_rank_compare);
 
@@ -8480,7 +8874,11 @@ const char *padname, const GList *templlist)
 			gchar *parser_name = NULL;
 			GstCaps *dcaps = NULL;
 
+#ifdef GST_API_VERSION_1
+			dcaps = gst_pad_get_current_caps(srcpad);
+#else
 			dcaps = gst_pad_get_caps(srcpad);
+#endif
 			demux_caps = gst_caps_to_string(dcaps);
 
 			if (g_strrstr(demux_caps, "video/x-h264"))
@@ -8568,7 +8966,11 @@ const char *padname, const GList *templlist)
 
 		/*  to check the video/audio type set the proper flag*/
 		{
+#ifdef GST_API_VERSION_1
+			srccaps = gst_pad_get_current_caps( srcpad );
+#else
 			srccaps = gst_pad_get_caps( srcpad );
+#endif
 			if ( !srccaps )
 				goto ERROR;
 
@@ -8622,7 +9024,9 @@ const char *padname, const GList *templlist)
 		{
 			if (MMPLAYER_IS_HTTP_STREAMING(player))
 			{
+#ifndef GST_API_VERSION_1
 				GstFormat fmt  = GST_FORMAT_BYTES;
+#endif
 				gint64 dur_bytes = 0L;
 				gchar *file_buffering_path = NULL;
 				gboolean use_file_buffer = FALSE;
@@ -8666,8 +9070,13 @@ const char *padname, const GList *templlist)
 
 					if ( !MMPLAYER_IS_HTTP_LIVE_STREAMING(player))
 	             			 {
+#ifdef GST_API_VERSION_1
+						if ( !gst_element_query_duration(player->pipeline->mainbin[MMPLAYER_M_SRC].gst, GST_FORMAT_BYTES, &dur_bytes))
+							debug_error("fail to get duration.\n");
+#else
 						if ( !gst_element_query_duration(player->pipeline->mainbin[MMPLAYER_M_SRC].gst, &fmt, &dur_bytes))
 							debug_error("fail to get duration.\n");
+#endif
 
 						if (dur_bytes>0)
 						{
@@ -8738,7 +9147,11 @@ const char *padname, const GList *templlist)
 			case GST_PAD_ALWAYS:
 			{
 				GstPad *srcpad = gst_element_get_static_pad(sinkelement, "src");
+#ifdef GST_API_VERSION_1
+				GstCaps *caps = gst_pad_get_current_caps(srcpad);
+#else
 				GstCaps *caps = gst_pad_get_caps(srcpad);
+#endif
 
 				/* Check whether caps has many types */
 				if ( gst_caps_get_size (caps) > 1 && g_strrstr(klass, "Parser")) {
@@ -8906,7 +9319,11 @@ static void 	__mmplayer_add_new_caps(GstPad* pad, GParamSpec* unused, gpointer d
 	return_if_fail ( unused )
 	return_if_fail ( data )
 
+#ifdef GST_API_VERSION_1
+	caps = gst_pad_get_current_caps(pad);
+#else
 	caps = gst_pad_get_caps(pad);
+#endif
 	if ( !caps )
 		return;
 
@@ -9023,13 +9440,22 @@ static void __mmplayer_add_new_pad(GstElement *element, GstPad *pad, gpointer da
 	return_if_fail ( pad );
 
    	GST_OBJECT_LOCK (pad);
+#ifdef GST_API_VERSION_1
+	if ((caps = gst_pad_get_current_caps (pad)))
+		gst_caps_ref(caps);
+#else
 	if ((caps = GST_PAD_CAPS(pad)))
 		gst_caps_ref(caps);
+#endif
 	GST_OBJECT_UNLOCK (pad);
 
 	if ( NULL == caps )
 	{
+#ifdef GST_API_VERSION_1
+		caps = gst_pad_get_current_caps(pad);
+#else
 		caps = gst_pad_get_caps(pad);
+#endif
 		if ( !caps ) return;
 	}
 
@@ -10022,7 +10448,11 @@ __mmplayer_link_decoder( mm_player_t* player, GstPad *srcpad)
 	return_val_if_fail ( srcpad, FALSE );
 
 	/* to check any of the decoder (video/audio) need to be linked  to parser*/
+#ifdef GST_API_VERSION_1
+	srccaps = gst_pad_get_current_caps( srcpad );
+#else
 	srccaps = gst_pad_get_caps( srcpad );
+#endif
 	if ( !srccaps )
 		goto ERROR;
 
@@ -10077,7 +10507,11 @@ __mmplayer_link_sink( mm_player_t* player , GstPad *srcpad)
 	return_val_if_fail ( srcpad, FALSE );
 
 	/* to check any of the decoder (video/audio) need to be linked	to parser*/
+#ifdef GST_API_VERSION_1
+	srccaps = gst_pad_get_current_caps( srcpad );
+#else
 	srccaps = gst_pad_get_caps( srcpad );
+#endif
 	if ( !srccaps )
 		goto ERROR;
 

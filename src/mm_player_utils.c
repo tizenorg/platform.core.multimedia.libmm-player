@@ -215,7 +215,11 @@ __util_gst_pad_probe(GstPad *pad, GstBuffer *buffer, gpointer u_data)
 	/* show buffer size */
 	if ( flag & MM_PROBE_BUFFERSIZE )
 	{
+#ifdef GST_API_VERSION_1
+		debug_warning("buffer size : %ud\n", gst_buffer_get_size(buffer));
+#else
 		debug_warning("buffer size : %ud\n", GST_BUFFER_SIZE(buffer));
+#endif
 	}
 
 	/* show buffer duration */

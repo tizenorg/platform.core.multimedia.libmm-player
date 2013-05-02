@@ -153,11 +153,34 @@ __pd_downloader_callback(GstBus *bus, GstMessage *msg, gpointer data)
 
 		case GST_MESSAGE_DURATION:
 		{
+#ifndef GST_API_VERSION_1
 			GstFormat fmt= GST_FORMAT_BYTES;
+#endif
 
 			gint64 size = 0LL;
 
 			/* get total size  of download file, (bytes) */
+#ifdef GST_API_VERSION_1
+			if ( ! gst_element_query_duration( pd->downloader_pipeline, GST_FORMAT_BYTES, &size ) )
+			{
+				GError *err = NULL;
+				GstMessage *new_msg = NULL;
+
+				err = g_error_new (GST_STREAM_ERROR, GST_STREAM_ERROR_FAILED, "can't get total size");
+				new_msg = gst_message_new_error (GST_OBJECT_CAST (pd->playback_pipeline_src), err, NULL);
+				gst_element_post_message (pd->playback_pipeline_src, new_msg);
+
+				g_error_free (err);
+
+				// TODO: check if playback pipeline is closed well or not
+				g_object_set (G_OBJECT (pd->playback_pipeline_src), "eos", TRUE, NULL);
+
+				_mmplayer_unrealize_pd_downloader ((MMHandleType)data);
+
+				debug_error("failed to query total size for download\n");
+				break;
+			}
+#else
 			if ( ! gst_element_query_duration( pd->downloader_pipeline, &fmt, &size ) )
 			{
 				GError *err = NULL;
@@ -177,6 +200,7 @@ __pd_downloader_callback(GstBus *bus, GstMessage *msg, gpointer data)
 				debug_error("failed to query total size for download\n");
 				break;
 			}
+#endif
 
 			pd->total_size = size;
 
