@@ -1,5 +1,5 @@
-* Sat May 18 2013 Rusty Lynch <rusty.lynch@intel.com> submit/tizen/20130517.045046@a7cd659
+* Sat May 18 2013 Rusty Lynch <rusty.lynch@intel.com> submit/tizen/20130517.045046@54f062c
 - Remove deprecated g_thread_init
-- Enable gstreamer-1.0 support
+- Fix Gstreamer 0.10-1.0 compliance
 - Use %autogen.sh instead of ./autogen.sh
 
