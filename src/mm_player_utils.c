@@ -231,7 +231,9 @@ __util_gst_pad_probe(GstPad *pad, GstBuffer *buffer, gpointer u_data)
 	/* show buffer caps */
 	if ( flag & MM_PROBE_CAPS )
 	{
+#ifndef GST_API_VERSION_1
 		debug_warning("caps : %s\n", gst_caps_to_string(GST_BUFFER_CAPS(buffer)));
+#endif
 	}
 
 	/* drop buffer if flag is on */

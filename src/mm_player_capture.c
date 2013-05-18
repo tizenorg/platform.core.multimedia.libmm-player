@@ -322,7 +322,6 @@ EXIT:
 /**
   * The output is fixed as RGB888
   */
-#if 0
 #ifdef GST_API_VERSION_1
 static int
 __mmplayer_get_video_frame_from_buffer(mm_player_t* player, GstBuffer *buffer)
@@ -653,7 +652,6 @@ UNKNOWN:
 	debug_error("unknown format to capture\n");
 	return MM_ERROR_PLAYER_INTERNAL;
 }
-#endif
 #endif
 
 static gboolean
