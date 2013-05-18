@@ -42,9 +42,6 @@ int mm_player_create(MMHandleType *player)
 
 	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
-	if (!g_thread_supported ())
-		g_thread_init (NULL);
-
 	MMTA_INIT();
 
 	__ta__("mm_player_ini_load",
