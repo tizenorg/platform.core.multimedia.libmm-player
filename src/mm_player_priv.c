@@ -5485,6 +5485,8 @@ __gst_set_position(mm_player_t* player, int format, unsigned long position, gboo
 	gint64 dur_nsec = 0;
 	gint64 pos_nsec = 0;
 	gboolean ret = TRUE;
+	gboolean accurated = FALSE;
+	GstSeekFlags seek_flags = GST_SEEK_FLAG_FLUSH;
 
 	debug_fenter();
 	return_val_if_fail ( player && player->pipeline, MM_ERROR_PLAYER_NOT_INITIALIZED );
@@ -5519,6 +5521,16 @@ __gst_set_position(mm_player_t* player, int format, unsigned long position, gboo
 
 	debug_log("playback rate: %f\n", player->playback_rate);
 
+	mm_attrs_get_int_by_name(player->attrs,"accurate_seek", &accurated);
+	if (accurated)
+	{
+		seek_flags |= GST_SEEK_FLAG_ACCURATE;
+	}
+	else
+	{
+		seek_flags |= GST_SEEK_FLAG_KEY_UNIT;
+	}
+
 	/* do seek */
 	switch ( format )
 	{
@@ -5541,7 +5553,7 @@ __gst_set_position(mm_player_t* player, int format, unsigned long position, gboo
 
 			pos_nsec = position * G_GINT64_CONSTANT(1000000);
 			ret = __gst_seek ( player, player->pipeline->mainbin[MMPLAYER_M_PIPE].gst, player->playback_rate,
-							GST_FORMAT_TIME, ( GST_SEEK_FLAG_FLUSH | GST_SEEK_FLAG_ACCURATE ),
+							GST_FORMAT_TIME, seek_flags,
 							GST_SEEK_TYPE_SET, pos_nsec, GST_SEEK_TYPE_NONE, GST_CLOCK_TIME_NONE );
 			if ( !ret  )
 			{
@@ -5567,7 +5579,7 @@ __gst_set_position(mm_player_t* player, int format, unsigned long position, gboo
 			/* FIXIT : why don't we use 'GST_FORMAT_PERCENT' */
 			pos_nsec = (gint64) ( ( position * player->duration ) / 100 );
 			ret = __gst_seek ( player, player->pipeline->mainbin[MMPLAYER_M_PIPE].gst, player->playback_rate,
-							GST_FORMAT_TIME, ( GST_SEEK_FLAG_FLUSH | GST_SEEK_FLAG_ACCURATE ),
+							GST_FORMAT_TIME, seek_flags,
 							GST_SEEK_TYPE_SET, pos_nsec, GST_SEEK_TYPE_NONE, GST_CLOCK_TIME_NONE );
 			if ( !ret  )
 			{

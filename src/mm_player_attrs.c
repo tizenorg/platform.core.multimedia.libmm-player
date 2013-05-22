@@ -931,6 +931,15 @@ _mmplayer_construct_attribute(MMHandleType handle)
 			MM_ATTRS_VALID_TYPE_NONE,
 			0,
 			0
+		},
+		{
+			"accurate_seek",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) 0,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			0,
+			1
 		}
 	};
 
