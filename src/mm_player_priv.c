@@ -4961,7 +4961,7 @@ __mmplayer_gst_destroy_pipeline(mm_player_t* player) // @
 
 		/* disconnecting bus watch */
 		if ( player->bus_watcher )
-			g_source_remove( player->bus_watcher );
+			g_source_remove_by_user_data( player);
 		player->bus_watcher = 0;
 
 		if ( mainbin )
@@ -5334,6 +5334,7 @@ int __gst_pause(mm_player_t* player, gboolean async) // @
 	debug_fenter();
 
 	return_val_if_fail(player && player->pipeline, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	return_val_if_fail(player->pipeline->mainbin, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	debug_log("current state before doing transition");
 	MMPLAYER_PENDING_STATE(player) = MM_PLAYER_STATE_PAUSED;
@@ -5343,60 +5344,69 @@ int __gst_pause(mm_player_t* player, gboolean async) // @
 	ret = __mmplayer_gst_set_state(player,
 		player->pipeline->mainbin[MMPLAYER_M_PIPE].gst, GST_STATE_PAUSED, async, MMPLAYER_STATE_CHANGE_TIMEOUT(player));
 
-	if ( FALSE == async && ret != MM_ERROR_NONE )
+	if ( FALSE == async )
 	{
-		GstMessage *msg = NULL;
-		GTimer *timer = NULL;
-		gdouble MAX_TIMEOUT_SEC = 3;
-
-		debug_error("failed to set state to PAUSED");
-
-		timer = g_timer_new();
-		g_timer_start(timer);
-
-		GstBus *bus = gst_pipeline_get_bus (GST_PIPELINE(player->pipeline->mainbin[MMPLAYER_M_PIPE].gst));
-		/* check if gst error posted or not */
-		do
+		if ( ret != MM_ERROR_NONE )
 		{
-			msg = gst_bus_timed_pop(bus, GST_SECOND /2);
-			if (msg)
+			GstMessage *msg = NULL;
+			GTimer *timer = NULL;
+			gdouble MAX_TIMEOUT_SEC = 3;
+
+			debug_error("failed to set state to PAUSED");
+
+			timer = g_timer_new();
+			g_timer_start(timer);
+
+			GstBus *bus = gst_pipeline_get_bus (GST_PIPELINE(player->pipeline->mainbin[MMPLAYER_M_PIPE].gst));
+			gboolean got_msg = FALSE;
+			/* check if gst error posted or not */
+			do
 			{
-				if (GST_MESSAGE_TYPE(msg) == GST_MESSAGE_ERROR)
+				msg = gst_bus_timed_pop(bus, GST_SECOND /2);
+				if (msg)
 				{
-					GError *error = NULL;
+					if (GST_MESSAGE_TYPE(msg) == GST_MESSAGE_ERROR)
+					{
+						GError *error = NULL;
 
-					debug_error("paring error posted from bus");
-					/* parse error code */
-					gst_message_parse_error(msg, &error, NULL);
+						debug_error("paring error posted from bus");
+						/* parse error code */
+						gst_message_parse_error(msg, &error, NULL);
 
-					if (error->domain == GST_STREAM_ERROR)
-					{
-						ret = __gst_handle_stream_error( player, error, msg );
+						if (error->domain == GST_STREAM_ERROR)
+						{
+							ret = __gst_handle_stream_error( player, error, msg );
+						}
+						else if (error->domain == GST_RESOURCE_ERROR)
+						{
+							ret = __gst_handle_resource_error( player, error->code );
+						}
+						else if (error->domain == GST_LIBRARY_ERROR)
+						{
+							ret = __gst_handle_library_error( player, error->code );
+						}
+						else if (error->domain == GST_CORE_ERROR)
+						{
+							ret = __gst_handle_core_error( player, error->code );
+						}
+						got_msg = TRUE;
+						player->msg_posted = TRUE;
 					}
-					else if (error->domain == GST_RESOURCE_ERROR)
-					{
-						ret = __gst_handle_resource_error( player, error->code );
-					}
-					else if (error->domain == GST_LIBRARY_ERROR)
-					{
-						ret = __gst_handle_library_error( player, error->code );
-					}
-					else if (error->domain == GST_CORE_ERROR)
-					{
-						ret = __gst_handle_core_error( player, error->code );
-					}
-					player->msg_posted = TRUE;
+					gst_message_unref(msg);
 				}
-				gst_message_unref(msg);
-			}
-		} while (g_timer_elapsed(timer, NULL) < MAX_TIMEOUT_SEC);
+			} while (!got_msg && (g_timer_elapsed(timer, NULL) < MAX_TIMEOUT_SEC));
 
-		/* clean */
-		gst_object_unref(bus);
-		g_timer_stop (timer);
-		g_timer_destroy (timer);
+			/* clean */
+			gst_object_unref(bus);
+			g_timer_stop (timer);
+			g_timer_destroy (timer);
 
-		return ret;
+			return ret;
+		}
+		else if ( (!player->pipeline->videobin) && (!player->pipeline->audiobin) )
+		{
+			return MM_ERROR_PLAYER_CODEC_NOT_FOUND;
+		}
 	}
 	else
 	{
@@ -5405,10 +5415,6 @@ int __gst_pause(mm_player_t* player, gboolean async) // @
 			MMPLAYER_SET_STATE ( player, MM_PLAYER_STATE_PAUSED );
 		}
 	}
-
-	/* FIXIT : analyze so called "async problem" */
-	/* set async off */
-	__gst_set_async_state_change( player, TRUE);
 
 	/* generate dot file before returning error */
 	MMPLAYER_GENERATE_DOT_IF_ENABLED ( player, "pipeline-status-pause" );
@@ -6534,7 +6540,7 @@ _mmplayer_destroy(MMHandleType handle) // @
 
 	if (player->lazy_pause_event_id)
 	{
-		g_source_remove (player->lazy_pause_event_id);
+		g_source_remove_by_user_data(player);
 		player->lazy_pause_event_id = 0;
 	}
 
@@ -9950,7 +9956,7 @@ __mmplayer_cancel_delayed_eos( mm_player_t* player )
 
 	if ( player->eos_timer )
 	{
-		g_source_remove( player->eos_timer );
+		g_source_remove_by_user_data(player);
 	}
 
 	player->eos_timer = 0;
