@@ -226,6 +226,7 @@ static int  __mmplayer_realize_streaming_ext(mm_player_t* player);
 static int __mmplayer_unrealize_streaming_ext(mm_player_t *player);
 static int __mmplayer_start_streaming_ext(mm_player_t *player);
 static int __mmplayer_destroy_streaming_ext(mm_player_t* player);
+static void __mmplayer_remove_g_source_from_context(guint source_id);
 
 
 /*===========================================================================================
@@ -4904,6 +4905,23 @@ INIT_ERROR:
 	return MM_ERROR_PLAYER_INTERNAL;
 }
 
+void __mmplayer_remove_g_source_from_context(guint source_id)
+{
+	GMainContext *context = g_main_context_get_thread_default ();
+	GSource *source = NULL;
+
+	debug_fenter();
+
+	source = g_main_context_find_source_by_id (context, source_id);
+
+	if (source != NULL)
+	{
+		debug_log("context : %x, source : %x", context, source);
+		g_source_destroy(source);
+	}
+
+	debug_fleave();
+}
 
 static int
 __mmplayer_gst_destroy_pipeline(mm_player_t* player) // @
@@ -4961,7 +4979,7 @@ __mmplayer_gst_destroy_pipeline(mm_player_t* player) // @
 
 		/* disconnecting bus watch */
 		if ( player->bus_watcher )
-			g_source_remove_by_user_data( player);
+			__mmplayer_remove_g_source_from_context(player->bus_watcher);
 		player->bus_watcher = 0;
 
 		if ( mainbin )
@@ -6540,7 +6558,7 @@ _mmplayer_destroy(MMHandleType handle) // @
 
 	if (player->lazy_pause_event_id)
 	{
-		g_source_remove_by_user_data(player);
+		__mmplayer_remove_g_source_from_context(player->lazy_pause_event_id);
 		player->lazy_pause_event_id = 0;
 	}
 
@@ -9956,7 +9974,7 @@ __mmplayer_cancel_delayed_eos( mm_player_t* player )
 
 	if ( player->eos_timer )
 	{
-		g_source_remove_by_user_data(player);
+		__mmplayer_remove_g_source_from_context( player->eos_timer );
 	}
 
 	player->eos_timer = 0;
