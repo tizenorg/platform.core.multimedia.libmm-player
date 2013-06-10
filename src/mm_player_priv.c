@@ -5425,10 +5425,7 @@ int __gst_pause(mm_player_t* player, gboolean async) // @
 		{
 			return MM_ERROR_PLAYER_CODEC_NOT_FOUND;
 		}
-	}
-	else
-	{
-		if ( async == FALSE )
+		else if ( ret== MM_ERROR_NONE)
 		{
 			MMPLAYER_SET_STATE ( player, MM_PLAYER_STATE_PAUSED );
 		}
