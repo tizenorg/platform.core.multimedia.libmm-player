@@ -355,9 +355,6 @@ __mmplayer_check_state(mm_player_t* player, enum PlayerCommandState command)
 			if ( MMPLAYER_IS_LIVE_STREAMING( player ) )
 				goto NO_OP;
 
-			if (player->doing_seek)
-				goto NOT_COMPLETED_SEEK;
-
 			MMPLAYER_TARGET_STATE(player) = MM_PLAYER_STATE_PAUSED;
 
 			if ( pending_state == MM_PLAYER_STATE_NONE )
@@ -386,9 +383,6 @@ __mmplayer_check_state(mm_player_t* player, enum PlayerCommandState command)
 		{
 			if ( MMPLAYER_IS_LIVE_STREAMING(player) )
 				goto NO_OP;
-
-			if (player->doing_seek)
-				goto NOT_COMPLETED_SEEK;
 
 			MMPLAYER_TARGET_STATE(player) = MM_PLAYER_STATE_PLAYING;
 
