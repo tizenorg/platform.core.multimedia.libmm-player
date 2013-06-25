@@ -127,7 +127,7 @@ enum MMPlayerUriType {
 	MM_PLAYER_URI_TYPE_FILE, 		/**< Player URI type File */
 	MM_PLAYER_URI_TYPE_URL, 		/**< Player URI type URL */
 	MM_PLAYER_URI_TYPE_BUFF, 		/**< Player URI type Buffer */
-	MM_PLAYER_URI_TYPE_HLS,			/**< Player URI type http live streaming */	
+	MM_PLAYER_URI_TYPE_HLS,			/**< Player URI type http live streaming */
 	MM_PLAYER_URI_TYPE_TEMP,			/**< Player URI type Temp */
 };
 
@@ -165,10 +165,10 @@ enum MainElementID
 	MMPLAYER_M_SRC_2ND_FAKESINK,
 
 	/* streaming plugin */
-	MMPLAYER_M_S_BUFFER, 
-	MMPLAYER_M_S_ADEC, 
-	MMPLAYER_M_S_VDEC, 
-	
+	MMPLAYER_M_S_BUFFER,
+	MMPLAYER_M_S_ADEC,
+	MMPLAYER_M_S_VDEC,
+
 	/* FIXIT : if there's really no usage for following IDs. remove it */
 	MMPLAYER_M_DEC1,
 	MMPLAYER_M_DEC2,
@@ -617,6 +617,8 @@ typedef struct {
 
 	gboolean play_subtitle;
 	gboolean use_textoverlay;
+
+	gchar *temp_encode_name;
 
 	/* PD downloader message callback and param */
 	MMMessageCallback pd_msg_cb;

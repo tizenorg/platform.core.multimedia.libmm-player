@@ -7828,15 +7828,16 @@ __mmplayer_warm_up_video_codec( mm_player_t* player,  GstElementFactory *factory
 static gboolean
 __mmplayer_try_to_plug(mm_player_t* player, GstPad *pad, const GstCaps *caps) // @
 {
-    	MMPlayerGstElement* mainbin = NULL;
-    	const char* mime = NULL;
-    	const GList* item = NULL;
-    	const gchar* klass = NULL;
-    	GstCaps* res = NULL;
-    	gboolean skip = FALSE;
+	MMPlayerGstElement* mainbin = NULL;
+	const char* mime = NULL;
+	const GList* item = NULL;
+	const gchar* klass = NULL;
+	GstCaps* res = NULL;
+	gboolean skip = FALSE;
 	GstPad* queue_pad = NULL;
 	GstElement* queue = NULL;
 	GstElement *element = NULL;
+	GstStructure *structure = NULL;
 
 	debug_fenter();
 
@@ -7844,31 +7845,31 @@ __mmplayer_try_to_plug(mm_player_t* player, GstPad *pad, const GstCaps *caps) //
 
 	mainbin = player->pipeline->mainbin;
 
-    	mime = gst_structure_get_name(gst_caps_get_structure(caps, 0));
+	mime = gst_structure_get_name(gst_caps_get_structure(caps, 0));
 
 	/* return if we got raw output */
 	if(g_str_has_prefix(mime, "video/x-raw") || g_str_has_prefix(mime, "audio/x-raw")
 		|| g_str_has_prefix(mime, "video/x-surface")
 		|| g_str_has_prefix(mime, "text/plain") ||g_str_has_prefix(mime, "text/x-pango-markup"))
-    	{
+	{
 
-        	element = (GstElement*)gst_pad_get_parent(pad);
-/* NOTE : When no decoder has added during autoplugging. like a simple wave playback.
- * No queue will be added. I think it can caused breaking sound when playing raw audio
- * frames but there's no different. Decodebin also doesn't add with those wav fils.
- * Anyway, currentely raw-queue seems not necessary.
- */
+		element = (GstElement*)gst_pad_get_parent(pad);
+		/* NOTE : When no decoder has added during autoplugging. like a simple wave playback.
+		* No queue will be added. I think it can caused breaking sound when playing raw audio
+		* frames but there's no different. Decodebin also doesn't add with those wav fils.
+		* Anyway, currentely raw-queue seems not necessary.
+		*/
 #if 1
 		/* NOTE : check if previously linked element is demuxer/depayloader/parse means no decoder
-		 * has linked. if so, we need to add queue for quality of output. note that
-		 * decodebin also has same problem.
-		 */
+		* has linked. if so, we need to add queue for quality of output. note that
+		* decodebin also has same problem.
+		*/
 		klass = gst_element_factory_get_klass( gst_element_get_factory(element) );
 
 		/* add queue if needed */
 		if( (g_strrstr(klass, "Demux") || g_strrstr(klass, "Depayloader")
 			|| g_strrstr(klass, "Parse")) &&  !g_str_has_prefix(mime, "text"))
-	    	{
+		{
 			debug_log("adding raw queue\n");
 
 			queue = gst_element_factory_make("queue", NULL);
@@ -7923,20 +7924,20 @@ __mmplayer_try_to_plug(mm_player_t* player, GstPad *pad, const GstCaps *caps) //
 		MMPLAYER_CHECK_CMD_IF_EXIT(player);
 
 		if(__mmplayer_link_sink(player,pad))
-       		 __mmplayer_gst_decode_callback(element, pad, FALSE, player);
+			__mmplayer_gst_decode_callback(element, pad, FALSE, player);
 
 		gst_object_unref( GST_OBJECT(element));
 		element = NULL;
 
-        	return TRUE;
-    	}
+		return TRUE;
+	}
 
 	item = player->factories;
-    	for(; item != NULL ; item = item->next)
-    	{
-        	GstElementFactory *factory = GST_ELEMENT_FACTORY(item->data);
-        	const GList *pads;
-        	gint idx = 0;
+	for(; item != NULL ; item = item->next)
+	{
+		GstElementFactory *factory = GST_ELEMENT_FACTORY(item->data);
+		const GList *pads;
+		gint idx = 0;
 
 		skip = FALSE;
 
@@ -7944,11 +7945,11 @@ __mmplayer_try_to_plug(mm_player_t* player, GstPad *pad, const GstCaps *caps) //
 		for ( idx = 0; PLAYER_INI()->exclude_element_keyword[idx][0] != '\0'; idx++ )
 		{
 			if ( g_strrstr(GST_PLUGIN_FEATURE_NAME (factory),
-					PLAYER_INI()->exclude_element_keyword[idx] ) )
+				PLAYER_INI()->exclude_element_keyword[idx] ) )
 			{
 				debug_warning("skipping [%s] by exculde keyword [%s]\n",
-					GST_PLUGIN_FEATURE_NAME (factory),
-					PLAYER_INI()->exclude_element_keyword[idx] );
+				GST_PLUGIN_FEATURE_NAME (factory),
+				PLAYER_INI()->exclude_element_keyword[idx] );
 
 				skip = TRUE;
 				break;
@@ -7961,8 +7962,8 @@ __mmplayer_try_to_plug(mm_player_t* player, GstPad *pad, const GstCaps *caps) //
 		klass = gst_element_factory_get_klass(GST_ELEMENT_FACTORY(factory));
 
 		/* NOTE : msl don't need to use image plugins.
-		 * So, those plugins should be skipped for error handling.
-		 */
+		* So, those plugins should be skipped for error handling.
+		*/
 		if ( g_strrstr(klass, "Codec/Decoder/Image") )
 		{
 			debug_log("skipping [%s] by not required\n", GST_PLUGIN_FEATURE_NAME (factory));
@@ -7970,15 +7971,15 @@ __mmplayer_try_to_plug(mm_player_t* player, GstPad *pad, const GstCaps *caps) //
 		}
 
 		/* check pad compatability */
-	        for(pads = gst_element_factory_get_static_pad_templates(factory);
-    	             pads != NULL; pads=pads->next)
+		for(pads = gst_element_factory_get_static_pad_templates(factory);
+			pads != NULL; pads=pads->next)
 		{
-     		       GstStaticPadTemplate *temp1 = pads->data;
+			GstStaticPadTemplate *temp1 = pads->data;
 			GstCaps* static_caps = NULL;
 
-	            	if( temp1->direction != GST_PAD_SINK ||
-	                	temp1->presence != GST_PAD_ALWAYS)
-	                	continue;
+			if( temp1->direction != GST_PAD_SINK ||
+				temp1->presence != GST_PAD_ALWAYS)
+				continue;
 
 
 			if ( GST_IS_CAPS( &temp1->static_caps.caps) )
@@ -7992,19 +7993,37 @@ __mmplayer_try_to_plug(mm_player_t* player, GstPad *pad, const GstCaps *caps) //
 				static_caps = gst_caps_from_string ( temp1->static_caps.string );
 			}
 
-            		res = gst_caps_intersect(caps, static_caps);
+			if ( strcmp (GST_PLUGIN_FEATURE_NAME(factory),"rtpamrdepay") ==0 )
+			{
+				/* store encoding-name */
+				structure = gst_caps_get_structure (caps, 0);
+
+				/* figure out the mode first and set the clock rates */
+				player->temp_encode_name = gst_structure_get_string (structure, "encoding-name");
+
+			}
+			if (player->temp_encode_name != NULL)
+			{
+				if ((strcmp (player->temp_encode_name, "AMR") == 0) && (strcmp (GST_PLUGIN_FEATURE_NAME (factory), "amrwbdec" ) == 0))
+				{
+					debug_log("skip AMR-WB dec\n");
+					continue;
+				}
+			}
+
+			res = gst_caps_intersect(caps, static_caps);
 
 			gst_caps_unref( static_caps );
 			static_caps = NULL;
 
-            		if( res && !gst_caps_is_empty(res) )
-            		{
-                		GstElement *new_element;
+			if( res && !gst_caps_is_empty(res) )
+			{
+				GstElement *new_element;
 				GList *elements = player->parsers;
-                		char *name_template = g_strdup(temp1->name_template);
+				char *name_template = g_strdup(temp1->name_template);
 				gchar *name_to_plug = GST_PLUGIN_FEATURE_NAME(factory);
 
-                		gst_caps_unref(res);
+				gst_caps_unref(res);
 
 				debug_log("found %s to plug\n", name_to_plug);
 
@@ -8012,7 +8031,7 @@ __mmplayer_try_to_plug(mm_player_t* player, GstPad *pad, const GstCaps *caps) //
 				if ( ! new_element )
 				{
 					debug_error("failed to create element [%s]. continue with next.\n",
-						GST_PLUGIN_FEATURE_NAME (factory));
+					GST_PLUGIN_FEATURE_NAME (factory));
 
 					MMPLAYER_FREEIF(name_template);
 
@@ -8020,8 +8039,8 @@ __mmplayer_try_to_plug(mm_player_t* player, GstPad *pad, const GstCaps *caps) //
 				}
 
 				/* check and skip it if it was already used. Otherwise, it can be an infinite loop
-				 * because parser can accept its own output as input.
-				 */
+				* because parser can accept its own output as input.
+				*/
 				if (g_strrstr(klass, "Parser"))
 				{
 					gchar *selected = NULL;
@@ -8047,15 +8066,15 @@ __mmplayer_try_to_plug(mm_player_t* player, GstPad *pad, const GstCaps *caps) //
 				/* store specific handles for futher control */
 				if(g_strrstr(klass, "Demux") || g_strrstr(klass, "Parse"))
 				{
-		                	/* FIXIT : first value will be overwritten if there's more
-		                	 * than 1 demuxer/parser
-		                	 */
-	                		debug_log("plugged element is demuxer. take it\n");
-                    			mainbin[MMPLAYER_M_DEMUX].id = MMPLAYER_M_DEMUX;
-                    			mainbin[MMPLAYER_M_DEMUX].gst = new_element;
-	                	}
-                		else if(g_strrstr(klass, "Decoder") && __mmplayer_link_decoder(player,pad))
-                		{
+					/* FIXIT : first value will be overwritten if there's more
+					* than 1 demuxer/parser
+					*/
+					debug_log("plugged element is demuxer. take it\n");
+					mainbin[MMPLAYER_M_DEMUX].id = MMPLAYER_M_DEMUX;
+					mainbin[MMPLAYER_M_DEMUX].gst = new_element;
+				}
+				else if(g_strrstr(klass, "Decoder") && __mmplayer_link_decoder(player,pad))
+				{
 					if(mainbin[MMPLAYER_M_DEC1].gst == NULL)
 					{
 						debug_log("plugged element is decoder. take it[MMPLAYER_M_DEC1]\n");
@@ -8069,10 +8088,10 @@ __mmplayer_try_to_plug(mm_player_t* player, GstPad *pad, const GstCaps *caps) //
 						mainbin[MMPLAYER_M_DEC2].gst = new_element;
 					}
 					/* NOTE : IF one codec is found, add it to supported_codec and remove from
-					 * missing plugin. Both of them are used to check what's supported codec
-					 * before returning result of play start. And, missing plugin should be
-					 * updated here for multi track files.
-					 */
+					* missing plugin. Both of them are used to check what's supported codec
+					* before returning result of play start. And, missing plugin should be
+					* updated here for multi track files.
+					*/
 					if(g_str_has_prefix(mime, "video"))
 					{
 						GstPad *src_pad = NULL;
@@ -8103,30 +8122,30 @@ __mmplayer_try_to_plug(mm_player_t* player, GstPad *pad, const GstCaps *caps) //
 						player->not_supported_codec &= MISSING_PLUGIN_VIDEO;
 						player->can_support_codec |= FOUND_PLUGIN_AUDIO;
 					}
-                		}
-	                	if ( ! __mmplayer_close_link(player, pad, new_element,
-	                                    name_template,gst_element_factory_get_static_pad_templates(factory)) )
-	            		{
+				}
+				if ( ! __mmplayer_close_link(player, pad, new_element,
+					name_template,gst_element_factory_get_static_pad_templates(factory)) )
+				{
 					if (player->keep_detecting_vcodec)
 						continue;
 
-	            			/* Link is failed even though a supportable codec is found. */
+					/* Link is failed even though a supportable codec is found. */
 					__mmplayer_check_not_supported_codec(player, (gchar *)mime);
 
-	            			MMPLAYER_FREEIF(name_template);
+					MMPLAYER_FREEIF(name_template);
 					debug_error("failed to call _close_link\n");
 					return FALSE;
-	            		}
+				}
 
-	                	MMPLAYER_FREEIF(name_template);
-	                	return TRUE;
-            		}
+				MMPLAYER_FREEIF(name_template);
+				return TRUE;
+			}
 
 			gst_caps_unref(res);
 
 			break;
-        	}
-    	}
+		}
+	}
 
 	/* There is no available codec. */
 	__mmplayer_check_not_supported_codec(player,(gchar *)mime);
@@ -8368,6 +8387,7 @@ __mmplayer_release_misc(mm_player_t* player)
 	player->pending_seek.pos = 0;
 	player->msg_posted = FALSE;
 	player->has_many_types = FALSE;
+	player->temp_encode_name = NULL;
 
 	for (i = 0; i < MM_PLAYER_STREAM_COUNT_MAX; i++)
 	{
