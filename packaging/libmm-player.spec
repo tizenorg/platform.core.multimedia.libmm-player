@@ -6,6 +6,7 @@ Group:      System/Libraries
 License:    Apache-2.0
 URL:        http://source.tizen.org
 Source0:    %{name}-%{version}.tar.gz
+Source1001: 	libmm-player.manifest
 BuildRequires:  pkgconfig(mm-ta)
 BuildRequires:  pkgconfig(mm-common)
 BuildRequires:  pkgconfig(mm-sound)
@@ -42,6 +43,7 @@ Multimedia Framework Player Library (DEV).
 
 %prep
 %setup -q
+cp %{SOURCE1001} .
 
 %build
 
@@ -70,12 +72,13 @@ make -j1
 
 
 %files
-%manifest libmm-player.manifest
+%manifest %{name}.manifest
 %defattr(-,root,root,-)
 %{_libdir}/*.so.*
 
 
 %files devel
+%manifest %{name}.manifest
 %defattr(-,root,root,-)
 %{_libdir}/*.so
 %{_includedir}/mmf/*.h
