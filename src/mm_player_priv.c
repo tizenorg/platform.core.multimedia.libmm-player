@@ -3174,6 +3174,9 @@ __mmplayer_gst_create_audio_pipeline(mm_player_t* player)
 	/* converter */
 	MMPLAYER_CREATE_ELEMENT(audiobin, MMPLAYER_A_CONV, "audioconvert", "audioconverter", TRUE);
 
+	/* resampler */
+	MMPLAYER_CREATE_ELEMENT(audiobin, MMPLAYER_A_RESAMPLER, "audioresample", "resampler", TRUE);
+
 	if ( ! player->is_sound_extraction )
 	{
 		GstCaps* caps = NULL;
@@ -3301,9 +3304,6 @@ __mmplayer_gst_create_audio_pipeline(mm_player_t* player)
 		int dst_depth = 0;
 		char *caps_type = NULL;
 		GstCaps* caps = NULL;
-
-		/* resampler */
-		MMPLAYER_CREATE_ELEMENT(audiobin, MMPLAYER_A_RESAMPLER, "audioresample", "resampler", TRUE);
 
 		/* get conf. values */
 		mm_attrs_multiple_get(player->attrs,
