@@ -77,14 +77,6 @@ _mmplayer_asm_register(MMPlayerASM* sm, ASM_sound_cb_t callback, void* param)
 	{
 		debug_warning("Read MMSession Type failed. use default \"share\" type\n");
 		sessionType = MM_SESSION_TYPE_SHARE;
-
-		/* init session */
-		errorcode = mm_session_init(sessionType);
-		if ( errorcode )
-		{
-			debug_critical("mm_session_init() failed\n");
-			return errorcode;
-		}
 	}
 
 	/* check if it's CALL */
