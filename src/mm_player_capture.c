@@ -18,7 +18,7 @@
  * limitations under the License.
  *
  */
- 
+
 /*===========================================================================================
 |																							|
 |  INCLUDE FILES																			|
@@ -48,7 +48,7 @@ static int __mm_player_convert_colorspace(mm_player_t* player, unsigned char* sr
 |  FUNCTION DEFINITIONS																		|
 |  																							|
 ========================================================================================== */
-int 
+int
 _mmplayer_initialize_video_capture(mm_player_t* player)
 {
 	return_val_if_fail ( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
@@ -145,12 +145,18 @@ _mmplayer_do_video_capture(MMHandleType hplayer)
 		if (player->state == MM_PLAYER_STATE_PAUSED) // get last buffer from video sink
 		{
 			GstBuffer *buf = NULL;
+
+			gst_element_get_state(player->pipeline->mainbin[MMPLAYER_M_PIPE].gst, NULL, NULL, GST_CLOCK_TIME_NONE);
 			g_object_get(player->pipeline->videobin[MMPLAYER_V_SINK].gst, "last-buffer", &buf, NULL);
 
 			if (buf)
 			{
 				ret = __mmplayer_get_video_frame_from_buffer(player, buf);
 				gst_buffer_unref(buf);
+			}
+			else
+			{
+				debug_warning("Last buffer is NULL");
 			}
 			return ret;
 		}
@@ -200,7 +206,7 @@ __mmplayer_capture_thread(gpointer data)
 		debug_log("capture thread is recieved signal");
 
 		/* NOTE: Don't use MMPLAYER_CMD_LOCK() here.
-		 * Because deadlock can be happened if other player api is used in message callback. 
+		 * Because deadlock can be happened if other player api is used in message callback.
 		 */
 		if (player->video_cs == MM_PLAYER_COLORSPACE_NV12_TILED)
 		{

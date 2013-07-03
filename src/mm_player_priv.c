@@ -1772,6 +1772,10 @@ __mmplayer_gst_callback(GstBus *bus, GstMessage *msg, gpointer data) // @
 		{
 			debug_log("GST_MESSAGE_ASYNC_DONE : %s\n", gst_element_get_name(GST_MESSAGE_SRC(msg)));
 
+			/* we only handle message from pipeline */
+			if (msg->src != (GstObject *)player->pipeline->mainbin[MMPLAYER_M_PIPE].gst)
+				break;
+
 			if (player->doing_seek)
 			{
 				if (MMPLAYER_TARGET_STATE(player) == MM_PLAYER_STATE_PAUSED)
@@ -10202,6 +10206,17 @@ __gst_send_event_to_sink( mm_player_t* player, GstEvent* event )
 
 		if (GST_IS_ELEMENT(sink))
 		{
+			/* in the case of some video/audio file,
+			 * it's possible video sink don't consider same position seek
+			 * with current postion
+			 */
+			if ( !MMPLAYER_IS_STREAMING(player) && player->pipeline->videobin
+				&& player->pipeline->audiobin && (!g_strrstr(GST_ELEMENT_NAME(sink), "audiosink")) )
+			{
+				sinks = g_list_next (sinks);
+				continue;
+			}
+
 			/* keep ref to the event */
 			gst_event_ref (event);
 
