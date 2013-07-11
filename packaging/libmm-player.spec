@@ -1,6 +1,6 @@
 Name:       libmm-player
 Summary:    Multimedia Framework Player Library
-Version:    0.2.25
+Version:    0.2.26
 Release:    0
 Group:      System/Libraries
 License:    Apache-2.0

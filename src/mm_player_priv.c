@@ -2954,6 +2954,7 @@ _mmplayer_update_video_param(mm_player_t* player) // @
 			mm_attrs_get_data_by_name(attrs, "display_overlay", &pixmap_id_cb);
 			mm_attrs_get_data_by_name(attrs, "display_overlay_user_data", &pixmap_id_cb_user_data);
 			mm_attrs_get_int_by_name(attrs, "display_method", &display_method);
+			mm_attrs_get_int_by_name(attrs, "display_visible", &visible);
 
 			if ( pixmap_id_cb )
 			{
