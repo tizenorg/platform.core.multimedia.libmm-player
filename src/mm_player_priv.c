@@ -5386,7 +5386,7 @@ int __gst_pause(mm_player_t* player, gboolean async) // @
 					{
 						GError *error = NULL;
 
-						debug_error("paring error posted from bus");
+						debug_error("parsing error posted from bus");
 						/* parse error code */
 						gst_message_parse_error(msg, &error, NULL);
 
@@ -5422,9 +5422,10 @@ int __gst_pause(mm_player_t* player, gboolean async) // @
 		}
 		else if ( (!player->pipeline->videobin) && (!player->pipeline->audiobin) )
 		{
+			player->msg_posted = TRUE; // no need to post error by message callback
 			return MM_ERROR_PLAYER_CODEC_NOT_FOUND;
 		}
-		else if ( ret== MM_ERROR_NONE)
+		else if ( ret == MM_ERROR_NONE)
 		{
 			MMPLAYER_SET_STATE ( player, MM_PLAYER_STATE_PAUSED );
 		}
