@@ -9298,6 +9298,7 @@ static gboolean __mmplayer_feature_filter(GstPluginFeature *feature, gpointer da
     	if( g_strrstr(klass, "Demux") == NULL &&
         	g_strrstr(klass, "Codec/Decoder") == NULL &&
         	g_strrstr(klass, "Depayloader") == NULL &&
+        	g_strrstr(klass, "Hw") == NULL &&
         	g_strrstr(klass, "Parse") == NULL)
     	{
         	return FALSE;
