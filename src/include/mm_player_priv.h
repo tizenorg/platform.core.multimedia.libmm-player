@@ -461,6 +461,7 @@ typedef struct {
 	/* gstreamer pipeline */
 	MMPlayerGstPipelineInfo	*pipeline;
 	gboolean pipeline_is_constructed;
+	gboolean pipeline_use_audio_dsp;
 
 	/* buffering support cbs*/
 	mm_player_buffer_need_data_callback need_data_cb;

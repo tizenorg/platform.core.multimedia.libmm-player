@@ -43,6 +43,9 @@
 #include <mm_attrs_private.h>
 #include <mm_debug.h>
 
+#include <vconf.h>
+#include <vconf-keys.h>
+
 #include "mm_player_priv.h"
 #include "mm_player_ini.h"
 #include "mm_player_attrs.h"
@@ -94,6 +97,19 @@ gulong ahs_appsrc_cb_probe_id = 0;
 #define MMPLAYER_USE_FILE_FOR_BUFFERING(player) (((player)->profile.uri_type != MM_PLAYER_URI_TYPE_HLS) && (PLAYER_INI()->http_file_buffer_path) && (strlen(PLAYER_INI()->http_file_buffer_path) > 0) )
 
 #define	LAZY_PAUSE_TIMEOUT_MSEC	700
+
+#define VCONFKEY_AUDIODEC_SWITCH			"memory/sound/audiodec_switch"
+
+enum {
+	/** No request*/
+	VCONFKEY_AUDIODEC_NONE = 0x0000,
+	/** Request for switching to software decoder */
+	VCONFKEY_AUDIODEC_TO_SWDEC = 0x0001,
+	/** Request for switching to hardware decoder */
+	VCONFKEY_AUDIODEC_TO_HWDEC = 0x0002,
+};
+
+
 
 /*---------------------------------------------------------------------------
 |    LOCAL CONSTANT DEFINITIONS:											|
@@ -231,6 +247,8 @@ static int  __mmplayer_realize_streaming_ext(mm_player_t* player);
 static int __mmplayer_unrealize_streaming_ext(mm_player_t *player);
 static int __mmplayer_start_streaming_ext(mm_player_t *player);
 static int __mmplayer_destroy_streaming_ext(mm_player_t* player);
+
+static void __mmplayer_audiodec_switch_status_changed_cb(keynode_t* node, void* data);
 
 
 /*===========================================================================================
@@ -6586,6 +6604,8 @@ _mmplayer_create_player(MMHandleType handle) // @
 	player->play_subtitle = FALSE;
 	player->use_textoverlay = FALSE;
 
+	player->pipeline_use_audio_dsp = FALSE;
+
 	/* set player state to null */
 	MMPLAYER_STATE_CHANGE_TIMEOUT(player) = PLAYER_INI()->localplayback_state_change_timeout;
 	MMPLAYER_SET_STATE ( player, MM_PLAYER_STATE_NULL );
@@ -7600,6 +7620,7 @@ _mmplayer_pause(MMHandleType hplayer) // @
 			debug_warning("getting current position failed in paused\n");
 
 			player->last_position = pos_msec;
+			debug_log("player->last_position : %lld nsec, player->duration: %lld nsec", player->last_position, player->duration);
 		}
 		break;
 	}
@@ -8337,6 +8358,28 @@ __mmplayer_try_to_plug(mm_player_t* player, GstPad *pad, const GstCaps *caps) //
 
 				debug_log("found %s to plug\n", name_to_plug);
 
+
+				/*check if it is a audio dsp Hwdec/encap element*/
+				if (g_strrstr(klass, "Hwdec"))
+				{
+					int audiodec_switch_status = 0;
+					debug_log("found gsttinycompressencap, check runtime switch flag to check if we can use hwdec!\n");
+					/* Get actual vconf value */
+					vconf_get_int(VCONFKEY_AUDIODEC_SWITCH, &audiodec_switch_status);
+					debug_msg ("key value = 0x%x\n", audiodec_switch_status);
+					if(VCONFKEY_AUDIODEC_TO_SWDEC  == audiodec_switch_status)
+					{
+						debug_msg ("need switch to SW decoder, don't use tinycompress\n");
+						continue;
+					}
+					/* if audio effect is enabled */
+					if (PLAYER_INI()->use_audio_effect_preset || PLAYER_INI()->use_audio_effect_custom)
+					{
+						debug_msg ("audio effect may be used, don't use hw dec.\n");
+						continue;
+					}
+				}
+
 				new_element = gst_element_factory_create(GST_ELEMENT_FACTORY(factory), NULL);
 				if ( ! new_element )
 				{
@@ -8368,6 +8411,14 @@ __mmplayer_try_to_plug(mm_player_t* player, GstPad *pad, const GstCaps *caps) //
 					continue;
 				}
 #endif
+
+				/*check if it is a audio dsp sink element*/
+				if (g_strrstr(klass, "Hwsink"))
+				{
+					debug_log("found tinycompresssink, setting pipeline_use_audio_dsp to TRUE!\n");
+					player->pipeline_use_audio_dsp = TRUE;
+					__mmplayer_add_sink( player, new_element );
+				}
 
 				/* check and skip it if it was already used. Otherwise, it can be an infinite loop
 				 * because parser can accept its own output as input.
@@ -8563,6 +8614,48 @@ DONE:
 	return MM_ERROR_NONE;
 }
 
+static void __mmplayer_runtime_switch(MMHandleType hplayer)
+{
+	unsigned long last_position = 0;
+	mm_player_t* player = (mm_player_t*)hplayer;
+
+	debug_log("reconstrcting pipeline to switch hw decoder to sw decoder...");
+	_mmplayer_pause(hplayer);
+	last_position = GST_TIME_AS_MSECONDS(player->last_position);
+	debug_log("last_position : %dmsec", last_position);
+	_mmplayer_stop(hplayer);
+	__gst_unrealize(player);
+	player->pipeline_use_audio_dsp = FALSE;
+	__gst_realize(player);
+
+	/* pause pipeline */
+	_mmplayer_start(hplayer);
+	__gst_pause( player, FALSE );
+	debug_log("set position to last_position : %dmsec", last_position);
+	__gst_set_position(player, MM_PLAYER_POS_FORMAT_TIME, last_position, TRUE);
+	__gst_resume(player, FALSE);
+	if(FALSE == player->pipeline_use_audio_dsp)
+		vconf_ignore_key_changed(VCONFKEY_AUDIODEC_SWITCH , __mmplayer_audiodec_switch_status_changed_cb);
+
+}
+
+static void __mmplayer_audiodec_switch_status_changed_cb(keynode_t* node, void* data)
+{
+	int audiodec_switch_status = 0;
+	mm_player_t* player = (mm_player_t*)data;
+
+	debug_msg ("[%s] changed callback called, player->pipeline_use_audio_dsp:%d\n",
+			vconf_keynode_get_name(node), player->pipeline_use_audio_dsp);
+
+	/* Get actual vconf value */
+	vconf_get_int(VCONFKEY_AUDIODEC_SWITCH, &audiodec_switch_status);
+	debug_msg ("key value = 0x%x\n", audiodec_switch_status);
+
+	/* reconstruct pipeline based on vconf key value */
+	if((TRUE == player->pipeline_use_audio_dsp) && (VCONFKEY_AUDIODEC_TO_SWDEC == audiodec_switch_status))
+		__mmplayer_runtime_switch((MMHandleType)data);
+
+}
 
 static void __mmplayer_pipeline_complete(GstElement *decodebin,  gpointer data) // @
 {
@@ -8595,6 +8688,12 @@ static void __mmplayer_pipeline_complete(GstElement *decodebin,  gpointer data) 
 	}
 
 	MMPLAYER_GENERATE_DOT_IF_ENABLED ( player, "pipeline-status-complete" );
+
+	if(TRUE == player->pipeline_use_audio_dsp)
+	{
+		vconf_notify_key_changed(VCONFKEY_AUDIODEC_SWITCH , __mmplayer_audiodec_switch_status_changed_cb, (void *)data);
+
+	}
 }
 
 static gboolean __mmplayer_configure_audio_callback(mm_player_t* player)
