@@ -9,10 +9,10 @@ Source0:    %{name}-%{version}.tar.gz
 BuildRequires:  pkgconfig(mm-ta)
 BuildRequires:  pkgconfig(mm-common)
 BuildRequires:  pkgconfig(mm-sound)
-BuildRequires:  pkgconfig(gstreamer-0.10)
-BuildRequires:  pkgconfig(gstreamer-plugins-base-0.10)
-BuildRequires:  pkgconfig(gstreamer-interfaces-0.10)
-BuildRequires:  pkgconfig(gstreamer-app-0.10)
+BuildRequires:  pkgconfig(gstreamer-1.0)
+BuildRequires:  pkgconfig(gstreamer-plugins-base-1.0)
+BuildRequires:  pkgconfig(gstreamer-app-1.0)
+BuildRequires:  pkgconfig(gstreamer-video-1.0)
 BuildRequires:  pkgconfig(mm-session)
 BuildRequires:  pkgconfig(mmutil-imgp)
 BuildRequires:  pkgconfig(audio-session-mgr)
@@ -39,7 +39,7 @@ Multimedia Framework Player Library (DEV).
 ./autogen.sh
 
 CFLAGS+=" -DEXPORT_API=\"__attribute__((visibility(\\\"default\\\")))\" "; export CFLAGS
-LDFLAGS+="-Wl,--rpath=%{_libdir} -Wl,--hash-style=both -Wl,--as-needed"; export LDFLAGS
+LDFLAGS+="-Wl,--rpath=%{_libdir} -lgstvideo-1.0 -Wl,--hash-style=both -Wl,--as-needed"; export LDFLAGS
 
 %configure --disable-static
 

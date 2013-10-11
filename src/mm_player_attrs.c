@@ -27,7 +27,7 @@
 #include <vconf.h>
 #include <mm_attrs_private.h>
 #include <mm_attrs.h>
-#include <gst/interfaces/xoverlay.h>
+#include <gst/video/videooverlay.h>
 
 #include "mm_player_priv.h"
 #include "mm_player_attrs.h"

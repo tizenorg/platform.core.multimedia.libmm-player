@@ -24,6 +24,8 @@
 
 #include <glib.h>
 #include <gst/gst.h>
+#include <stdint.h>
+#include <inttypes.h>
 #include <mm_player_ini.h>
 #include <mm_types.h>
 #include <mm_error.h>
@@ -182,9 +184,9 @@ gboolean __util_gst_pad_probe(GstPad *pad, GstBuffer *buffer, gpointer u_data);
  */
 #define MMPLAYER_ADD_PROBE(x_pad, x_flag) \
 debug_warning("adding pad probe\n"); \
-if ( ! gst_pad_add_buffer_probe(x_pad, \
+if ( ! gst_pad_add_probe(x_pad, \
 	G_CALLBACK(__util_gst_pad_probe), \
-	(gpointer)x_flag) ) \
+	(gpointer)x_flag, NULL) ) \
 { \
 	debug_error("failed to add pad probe\n"); \
 }

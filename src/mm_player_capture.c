@@ -170,8 +170,8 @@ _mmplayer_do_video_capture(MMHandleType hplayer)
 	pad = gst_element_get_static_pad(player->pipeline->videobin[MMPLAYER_V_SINK].gst, "sink" );
 
 	/* register probe */
-	player->video_capture_cb_probe_id = gst_pad_add_buffer_probe (pad,
-		G_CALLBACK (__mmplayer_video_capture_probe), player);
+	player->video_capture_cb_probe_id = gst_pad_add_probe (pad, GST_PAD_PROBE_TYPE_BUFFER,
+		G_CALLBACK (__mmplayer_video_capture_probe), player, NULL);
 
 	gst_object_unref(GST_OBJECT(pad));
 	pad = NULL;

@@ -158,7 +158,7 @@ __pd_downloader_callback(GstBus *bus, GstMessage *msg, gpointer data)
 			gint64 size = 0LL;
 
 			/* get total size  of download file, (bytes) */
-			if ( ! gst_element_query_duration( pd->downloader_pipeline, &fmt, &size ) )
+			if ( ! gst_element_query_duration( pd->downloader_pipeline, fmt, &size ) )
 			{
 				GError *err = NULL;
 				GstMessage *new_msg = NULL;
