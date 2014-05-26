@@ -3,7 +3,7 @@
  *
  * Copyright (c) 2000 - 2011 Samsung Electronics Co., Ltd. All rights reserved.
  *
- * Contact: JongHyuk Choi <jhchoi.choi@samsung.com>, YeJin Cho <cho.yejin@samsung.com>, YoungHwan An <younghwan_.an@samsung.com>
+ * Contact: JongHyuk Choi <jhchoi.choi@samsung.com>, Heechul Jeon <heechul.jeon@samsung.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -111,7 +111,7 @@ bool util_remove_file_backup(const char *backup_path)
 int util_is_midi_type_by_mem(void *mem, int size)
 {
 	debug_log("\n");
-	
+
 	const char *p = (const char *)mem;
 
 	if (size < DETECTION_PREFIX_SIZE)
@@ -155,7 +155,7 @@ int util_is_midi_type_by_mem(void *mem, int size)
 int util_is_midi_type_by_file(const char *file_path)
 {
 	debug_log("\n");
-	
+
 	struct stat file_attrib;
 	FILE *fp = NULL;
 	char prefix[DETECTION_PREFIX_SIZE] = {0,};
@@ -184,7 +184,7 @@ int util_is_midi_type_by_file(const char *file_path)
 		fclose(fp);
 		return FALSE;
 	}
-	
+
 	size = fread(prefix, sizeof(char), DETECTION_PREFIX_SIZE, fp);
 
 	fclose(fp);
@@ -192,20 +192,20 @@ int util_is_midi_type_by_file(const char *file_path)
 	return util_is_midi_type_by_mem(prefix, size);
 }
 
-/* messages are treated as warnings bcz those code should not be checked in. 
- * and no error handling will supported for same manner. 
+/* messages are treated as warnings bcz those code should not be checked in.
+ * and no error handling will supported for same manner.
  */
-gboolean 
+gboolean
 __util_gst_pad_probe(GstPad *pad, GstBuffer *buffer, gpointer u_data)
 {
 	gint flag = (gint) u_data;
 	GstElement* parent = NULL;
 	gboolean ret = TRUE;
-	
+
 	/* show name as default */
 	parent = (GstElement*)gst_object_get_parent(GST_OBJECT(pad));
 	debug_warning("PAD PROBE : %s:%s\n", GST_ELEMENT_NAME(parent), GST_PAD_NAME(pad));
-	
+
 	/* show time stamp */
 	if ( flag & MM_PROBE_TIMESTAMP )
 	{
@@ -242,7 +242,7 @@ __util_gst_pad_probe(GstPad *pad, GstBuffer *buffer, gpointer u_data)
 		debug_warning("dropping\n");
 		ret = FALSE;
 	}
-		
+
 	/* show clock time */
 	if ( flag & MM_PROBE_CLOCK_TIME )
 	{
@@ -264,7 +264,7 @@ __util_gst_pad_probe(GstPad *pad, GstBuffer *buffer, gpointer u_data)
 	return ret;
 }
 
-char** 
+char**
 util_get_cookie_list ( const char *cookies )
 {
 	char **cookie_list = NULL;
@@ -308,7 +308,7 @@ bool util_check_valid_url ( const char *proxy )
 {
 	struct in_addr proxy_addr;
 	bool ret = TRUE;
-	
+
 	return_val_if_fail ( proxy, FALSE );
 	return_val_if_fail ( strlen(proxy), FALSE );
 
@@ -317,19 +317,19 @@ bool util_check_valid_url ( const char *proxy )
 		debug_warning("invalid proxy is set. \n");
 		ret = FALSE;
 	}
-	   
+
 	return ret;
 }
 
 /* check the given path is indicating sdp file */
-bool 
+bool
 util_is_sdp_file ( const char *path )
 {
 	gboolean ret = FALSE;
 	gchar* uri = NULL;
-	
+
 	debug_fenter();
-	
+
 	return_val_if_fail ( path, FALSE );
 
 	uri = g_ascii_strdown ( path, -1 );
@@ -365,7 +365,7 @@ util_is_sdp_file ( const char *path )
 	return ret;
 }
 
-int64_t 
+int64_t
 util_get_time ( void )
 {
 	struct timeval tv;
@@ -373,16 +373,16 @@ util_get_time ( void )
 	return (int64_t)tv.tv_sec * 1000000 + tv.tv_usec;
 }
 
-int 
+int
 util_get_rank_increase ( const char *factory_class )
 {
 	gint rank_pri_inc = 20;
 	gint rank_sec_inc = 10;
 	gint ret = 0;
 
-	if ( g_strrstr(factory_class,"Dsp") ) 
+	if ( g_strrstr(factory_class,"Dsp") )
 		ret = rank_pri_inc;
-	else if ( g_strrstr(factory_class,"HW") ) 
+	else if ( g_strrstr(factory_class,"HW") )
 		ret = rank_pri_inc;
 	else if ( g_strrstr(factory_class,"Arm") )
 		ret = rank_sec_inc;
@@ -390,7 +390,7 @@ util_get_rank_increase ( const char *factory_class )
 	return ret;
 }
 
-int 
+int
 util_factory_rank_compare(GstPluginFeature *f1, GstPluginFeature *f2) // @
 {
 	const gchar *klass;

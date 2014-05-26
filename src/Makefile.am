@@ -8,6 +8,9 @@ includelibmmfplayer_HEADERS = include/mm_player.h \
 
 libmmfplayer_la_SOURCES = mm_player.c \
 			  mm_player_priv.c \
+			  mm_player_priv_gst.c \
+			  mm_player_priv_internal.c \
+			  mm_player_priv_gst_wrapper.c \
 			  mm_player_ini.c \
 			  mm_player_utils.c \
 			  mm_player_asm.c \
