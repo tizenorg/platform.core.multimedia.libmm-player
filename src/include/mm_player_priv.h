@@ -127,7 +127,7 @@ enum MMPlayerUriType {
 	MM_PLAYER_URI_TYPE_FILE, 		/**< Player URI type File */
 	MM_PLAYER_URI_TYPE_URL, 		/**< Player URI type URL */
 	MM_PLAYER_URI_TYPE_BUFF, 		/**< Player URI type Buffer */
-	MM_PLAYER_URI_TYPE_HLS,			/**< Player URI type http live streaming */	
+	MM_PLAYER_URI_TYPE_HLS,			/**< Player URI type http live streaming */
 	MM_PLAYER_URI_TYPE_TEMP,			/**< Player URI type Temp */
 };
 
@@ -165,10 +165,10 @@ enum MainElementID
 	MMPLAYER_M_SRC_2ND_FAKESINK,
 
 	/* streaming plugin */
-	MMPLAYER_M_S_BUFFER, 
-	MMPLAYER_M_S_ADEC, 
-	MMPLAYER_M_S_VDEC, 
-	
+	MMPLAYER_M_S_BUFFER,
+	MMPLAYER_M_S_ADEC,
+	MMPLAYER_M_S_VDEC,
+
 	/* FIXIT : if there's really no usage for following IDs. remove it */
 	MMPLAYER_M_DEC1,
 	MMPLAYER_M_DEC2,
@@ -661,6 +661,7 @@ int _mmplayer_set_audiostream_cb(MMHandleType hplayer,mm_player_audio_stream_cal
 int _mmplayer_set_videoframe_render_error_cb(MMHandleType hplayer, mm_player_video_frame_render_error_callback callback, void *user_param);
 int _mmplayer_set_subtitle_silent (MMHandleType hplayer, int silent);
 int _mmplayer_get_subtitle_silent (MMHandleType hplayer, int* silent);
+int _mmplayer_get_track_count(MMHandleType hplayer,  MMPlayerTrackType track_type, int *count);
 int _mmplayer_get_buffer_position(MMHandleType hplayer, int format, unsigned long* start_pos, unsigned long* stop_pos);
 /* test API for tuning audio gain. this API should be
  * deprecated before the day of final release

@@ -27,12 +27,27 @@
 |    LOCAL FUNCTION PROTOTYPES:												|
 ---------------------------------------------------------------------------*/
 /* mm_player_priv.c */
-gboolean	__mmplayer_eos_timer_cb(gpointer u_data);
+gboolean	__mmplayer_set_state(mm_player_t* player, int state);
 void		__mmplayer_typefind_have_type(  GstElement *tf, guint probability, GstCaps *caps, gpointer data);
-GstBusSyncReply	__mmplayer_bus_sync_callback (GstBus * bus, GstMessage * message, gpointer data);
+gboolean	__mmplayer_try_to_plug(mm_player_t* player, GstPad *pad, const GstCaps *caps);
+void		__mmplayer_pipeline_complete(GstElement *decodebin,  gpointer data);
 gboolean	__mmplayer_update_subtitle( GstElement* object, GstBuffer *buffer, GstPad *pad, gpointer data);
-void		__mmplayer_videoframe_render_error_cb(GstElement *element, void *error_id, gpointer data);
+void		__mmplayer_release_misc(mm_player_t* player);
+gboolean	__mmplayer_configure_audio_callback(mm_player_t* player);
+void		__mmplayer_set_antishock( mm_player_t* player, gboolean disable_by_force);
+gboolean	_mmplayer_update_content_attrs(mm_player_t* player, enum content_attr_flag flag);
 void		__mmplayer_videostream_cb(GstElement *element, void *stream, int width, int height, gpointer data);
+void		__mmplayer_videoframe_render_error_cb(GstElement *element, void *error_id, gpointer data);
+void		__mmplayer_handle_buffering_message ( mm_player_t* player );
+int			__mmplayer_set_pcm_extraction(mm_player_t* player);
+gboolean	__mmplayer_can_extract_pcm( mm_player_t* player );
+void		__mmplayer_do_sound_fadedown(mm_player_t* player, unsigned int time);
+void		__mmplayer_undo_sound_fadedown(mm_player_t* player);
+const gchar *	__get_state_name ( int state );
+GstBusSyncReply	__mmplayer_bus_sync_callback (GstBus * bus, GstMessage * message, gpointer data);
+void		__mmplayer_post_delayed_eos( mm_player_t* player, int delay_in_ms );
+void		__gst_set_async_state_change(mm_player_t* player, gboolean async);
+gboolean	__mmplayer_post_message(mm_player_t* player, enum MMMessageType msgtype, MMMessageParamType* param);
 
 /* mm_player_priv_wrapper.c */
 gboolean	__mmplayer_gst_callback(GstBus *bus, GstMessage *msg, gpointer data);

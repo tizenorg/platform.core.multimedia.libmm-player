@@ -111,10 +111,7 @@
 /*---------------------------------------------------------------------------
 |    LOCAL FUNCTION PROTOTYPES:												|
 ---------------------------------------------------------------------------*/
-static gboolean __mmplayer_set_state(mm_player_t* player, int state);
 static int 		__mmplayer_get_state(mm_player_t* player);
-static gboolean __mmplayer_try_to_plug(mm_player_t* player, GstPad *pad, const GstCaps *caps);
-static void 	__mmplayer_pipeline_complete(GstElement *decodebin,  gpointer data);
 static gboolean __mmplayer_is_midi_type(gchar* str_caps);
 static gboolean __mmplayer_is_amr_type (gchar *str_caps);
 static gboolean __mmplayer_is_only_mp3_type (gchar *str_caps);
@@ -126,7 +123,6 @@ static void 	__mmplayer_add_new_pad(GstElement *element, GstPad *pad, gpointer d
 static gboolean	__mmplayer_get_stream_service_type( mm_player_t* player );
 static void 	__mmplayer_init_factories(mm_player_t* player);
 static void 	__mmplayer_release_factories(mm_player_t* player);
-static void	__mmplayer_release_misc(mm_player_t* player);
 static gboolean	__mmplayer_gstreamer_init(void);
 
 gboolean __mmplayer_post_message(mm_player_t* player, enum MMMessageType msgtype, MMMessageParamType* param);
@@ -134,22 +130,9 @@ gboolean __mmplayer_post_message(mm_player_t* player, enum MMMessageType msgtype
 int		__mmplayer_switch_audio_sink (mm_player_t* player);
 static int		__mmplayer_check_state(mm_player_t* player, enum PlayerCommandState command);
 static gboolean __mmplayer_audio_stream_probe (GstPad *pad, GstBuffer *buffer, gpointer u_data);
-static void		__mmplayer_post_delayed_eos( mm_player_t* player, int delay_in_ms );
-static void 	__mmplayer_cancel_delayed_eos( mm_player_t* player );
+static gboolean	__mmplayer_eos_timer_cb(gpointer u_data);
 static int		__mmplayer_check_not_supported_codec(mm_player_t* player, gchar* mime);
-static gboolean __mmplayer_configure_audio_callback(mm_player_t* player);
-static void __mmplayer_set_antishock( mm_player_t* player, gboolean disable_by_force);
 static gpointer __mmplayer_repeat_thread(gpointer data);
-int _mmplayer_get_track_count(MMHandleType hplayer,  MMPlayerTrackType track_type, int *count);
-static gboolean _mmplayer_update_content_attrs(mm_player_t* player, enum content_attr_flag flag);
-static void 	__gst_set_async_state_change(mm_player_t* player, gboolean async);
-static int __mmplayer_set_pcm_extraction(mm_player_t* player);
-static gboolean __mmplayer_can_extract_pcm( mm_player_t* player );
-
-/*fadeout */
-static void __mmplayer_do_sound_fadedown(mm_player_t* player, unsigned int time);
-static void __mmplayer_undo_sound_fadedown(mm_player_t* player);
-
 static void 	__mmplayer_add_new_caps(GstPad* pad, GParamSpec* unused, gpointer data);
 static void __mmplayer_set_unlinked_mime_type(mm_player_t* player, GstCaps *caps);
 
@@ -709,7 +692,7 @@ _mmplayer_update_content_attrs(mm_player_t* player, enum content_attr_flag flag)
 	return TRUE;
 }
 
-gint __mmplayer_get_stream_service_type( mm_player_t* player )
+static gint __mmplayer_get_stream_service_type( mm_player_t* player )
 {
 	gint streaming_type = STREAMING_SERVICE_NONE;
 
@@ -765,7 +748,7 @@ gint __mmplayer_get_stream_service_type( mm_player_t* player )
 /* this function sets the player state and also report
  * it to applicaton by calling callback function
  */
-static gboolean
+gboolean
 __mmplayer_set_state(mm_player_t* player, int state) // @
 {
 	MMMessageParamType msg = {0, };
@@ -1019,7 +1002,7 @@ __mmplayer_get_state(mm_player_t* player) // @
 	return state;
 }
 
-static void
+void
 __gst_set_async_state_change(mm_player_t* player, gboolean async)
 {
 	//debug_fenter();
@@ -1141,7 +1124,7 @@ static gpointer __mmplayer_repeat_thread(gpointer data)
 	return NULL;
 }
 
-static void
+void
 __mmplayer_handle_buffering_message ( mm_player_t* player )
 {
 	MMPlayerStateType prev_state = MM_PLAYER_STATE_NONE;
@@ -2033,7 +2016,7 @@ __mmplayer_bus_sync_callback (GstBus * bus, GstMessage * message, gpointer data)
 	return GST_BUS_DROP;
 }
 
-static void __mmplayer_do_sound_fadedown(mm_player_t* player, unsigned int time)
+void __mmplayer_do_sound_fadedown(mm_player_t* player, unsigned int time)
 {
 	debug_fenter();
 
@@ -2049,7 +2032,7 @@ static void __mmplayer_do_sound_fadedown(mm_player_t* player, unsigned int time)
 	debug_fleave();
 }
 
-static void __mmplayer_undo_sound_fadedown(mm_player_t* player)
+void __mmplayer_undo_sound_fadedown(mm_player_t* player)
 {
 	debug_fenter();
 
@@ -3588,7 +3571,7 @@ _mmplayer_activate_section_repeat(MMHandleType hplayer, unsigned long start, uns
 	return	MM_ERROR_NONE;
 }
 
-static int
+int
 __mmplayer_set_pcm_extraction(mm_player_t* player)
 {
 	guint64 start_nsec = 0;
@@ -4000,7 +3983,7 @@ __mmplayer_warm_up_video_codec( mm_player_t* player,  GstElementFactory *factory
 }
 
 /* it will return first created element */
-static gboolean
+gboolean
 __mmplayer_try_to_plug(mm_player_t* player, GstPad *pad, const GstCaps *caps) // @
 {
 	MMPlayerGstElement* mainbin = NULL;
@@ -4432,7 +4415,7 @@ DONE:
 }
 
 
-static void __mmplayer_pipeline_complete(GstElement *decodebin,  gpointer data) // @
+void __mmplayer_pipeline_complete(GstElement *decodebin,  gpointer data) // @
 {
     mm_player_t* player = (mm_player_t*)data;
 
@@ -4465,7 +4448,7 @@ static void __mmplayer_pipeline_complete(GstElement *decodebin,  gpointer data) 
 	MMPLAYER_GENERATE_DOT_IF_ENABLED ( player, "pipeline-status-complete" );
 }
 
-static gboolean __mmplayer_configure_audio_callback(mm_player_t* player)
+gboolean __mmplayer_configure_audio_callback(mm_player_t* player)
 {
 	debug_fenter();
 
@@ -4559,7 +4542,7 @@ __mmplayer_release_factories(mm_player_t* player) // @
 	debug_fleave();
 }
 
-static void
+void
 __mmplayer_release_misc(mm_player_t* player)
 {
 	int i;
@@ -5477,7 +5460,7 @@ _mmplayer_set_volume_tune(MMHandleType hplayer, MMPlayerVolumeType volume)
 	return error;
 }
 
-static gboolean
+gboolean
 __mmplayer_can_extract_pcm( mm_player_t* player )
 {
 	MMHandleType attrs = 0;
@@ -5508,26 +5491,49 @@ __mmplayer_can_extract_pcm( mm_player_t* player )
 	return TRUE;
 }
 
-static void
-__mmplayer_cancel_delayed_eos( mm_player_t* player )
+void
+__mmplayer_post_delayed_eos( mm_player_t* player, int delay_in_ms )
 {
 	debug_fenter();
 
 	return_if_fail( player );
 
-	if ( player->eos_timer )
+	/* cancel if existing */
+	__mmplayer_cancel_delayed_eos( player );
+
+
+	/* post now if delay is zero */
+	if ( delay_in_ms == 0 || player->is_sound_extraction)
 	{
-		g_source_remove( player->eos_timer );
+		debug_log("eos delay is zero. posting EOS now\n");
+		MMPLAYER_POST_MSG( player, MM_MESSAGE_END_OF_STREAM, NULL );
+
+		if ( player->is_sound_extraction )
+			__mmplayer_cancel_delayed_eos(player);
+
+		return;
 	}
 
-	player->eos_timer = 0;
+	/* init new timeout */
+	/* NOTE : consider give high priority to this timer */
+
+	debug_log("posting EOS message after [%d] msec\n", delay_in_ms);
+	player->eos_timer = g_timeout_add( delay_in_ms,
+		__mmplayer_eos_timer_cb, player );
+
+
+	/* check timer is valid. if not, send EOS now */
+	if ( player->eos_timer == 0 )
+	{
+		debug_warning("creating timer for delayed EOS has failed. sending EOS now\n");
+		MMPLAYER_POST_MSG( player, MM_MESSAGE_END_OF_STREAM, NULL );
+	}
 
 	debug_fleave();
-
-	return;
 }
 
-gboolean
+
+static gboolean
 __mmplayer_eos_timer_cb(gpointer u_data)
 {
 	mm_player_t* player = NULL;
@@ -5549,7 +5555,7 @@ __mmplayer_eos_timer_cb(gpointer u_data)
 	return FALSE;
 }
 
-static void __mmplayer_set_antishock( mm_player_t* player, gboolean disable_by_force)
+void __mmplayer_set_antishock( mm_player_t* player, gboolean disable_by_force)
 {
 	gint antishock = FALSE;
 	MMHandleType attrs = 0;

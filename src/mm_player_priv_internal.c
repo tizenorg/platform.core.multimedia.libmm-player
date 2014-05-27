@@ -267,6 +267,25 @@ __mmplayer_gst_set_state (mm_player_t* player, GstElement * element,  GstState s
 	return MM_ERROR_NONE;
 }
 
+void
+__mmplayer_cancel_delayed_eos( mm_player_t* player )
+{
+	debug_fenter();
+
+	return_if_fail( player );
+
+	if ( player->eos_timer )
+	{
+		g_source_remove( player->eos_timer );
+	}
+
+	player->eos_timer = 0;
+
+	debug_fleave();
+
+	return;
+}
+
 gboolean
 __mmplayer_check_subtitle( mm_player_t* player )
 {
@@ -821,47 +840,6 @@ INTERNAL_ERROR:
 CODEC_NOT_FOUND:
 	debug_log("not found any available codec. Player should be destroyed.\n");
 	return MM_ERROR_PLAYER_CODEC_NOT_FOUND;
-}
-
-static void
-__mmplayer_post_delayed_eos( mm_player_t* player, int delay_in_ms )
-{
-	debug_fenter();
-
-	return_if_fail( player );
-
-	/* cancel if existing */
-	__mmplayer_cancel_delayed_eos( player );
-
-
-	/* post now if delay is zero */
-	if ( delay_in_ms == 0 || player->is_sound_extraction)
-	{
-		debug_log("eos delay is zero. posting EOS now\n");
-		MMPLAYER_POST_MSG( player, MM_MESSAGE_END_OF_STREAM, NULL );
-
-		if ( player->is_sound_extraction )
-			__mmplayer_cancel_delayed_eos(player);
-
-		return;
-	}
-
-	/* init new timeout */
-	/* NOTE : consider give high priority to this timer */
-
-	debug_log("posting EOS message after [%d] msec\n", delay_in_ms);
-	player->eos_timer = g_timeout_add( delay_in_ms,
-		__mmplayer_eos_timer_cb, player );
-
-
-	/* check timer is valid. if not, send EOS now */
-	if ( player->eos_timer == 0 )
-	{
-		debug_warning("creating timer for delayed EOS has failed. sending EOS now\n");
-		MMPLAYER_POST_MSG( player, MM_MESSAGE_END_OF_STREAM, NULL );
-	}
-
-	debug_fleave();
 }
 
 gboolean

@@ -31,6 +31,7 @@
 void		__mmplayer_release_signal_connection(mm_player_t* player);
 gboolean	__mmplayer_dump_pipeline_state(mm_player_t* player);
 int			__mmplayer_gst_set_state (mm_player_t* player, GstElement * element,  GstState state, gboolean async, gint timeout);
+void		__mmplayer_cancel_delayed_eos(mm_player_t* player);
 gboolean	__mmplayer_check_subtitle(mm_player_t* player);
 int			__mmplayer_handle_missed_plugin(mm_player_t* player);
 gboolean	__mmplayer_link_decoder(mm_player_t* player, GstPad *srcpad);
