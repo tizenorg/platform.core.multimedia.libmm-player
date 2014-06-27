@@ -63,7 +63,7 @@ int _mmplayer_get_attribute(MMHandleType handle,  char **err_atr_name, const cha
  * @see
  *
  */
-int _mmplayer_get_attribute_info(MMHandleType handle,  const char *attribute_name, MMPlayerAttrsInfo *info);
+int _mmplayer_get_attributes_info(MMHandleType handle,  const char *attribute_name, MMPlayerAttrsInfo *info);
 /**
  * This function allocates structure of attributes and sets initial values.
  *

@@ -42,6 +42,9 @@ int mm_player_create(MMHandleType *player)
 
 	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
+	if (!g_thread_supported ())
+		g_thread_init (NULL);
+
 	MMTA_INIT();
 
 	__ta__("mm_player_ini_load",
@@ -440,8 +443,6 @@ int mm_player_get_state(MMHandleType player, MMPlayerStateType *state)
 /* NOTE : Not supported */
 int mm_player_change_videosink(MMHandleType player, MMDisplaySurfaceType display_surface_type, void *display_overlay)
 {
-	int result = MM_ERROR_NONE;
-
 	debug_log("\n");
 
 	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
@@ -796,6 +797,66 @@ int mm_player_ignore_session(MMHandleType player)
 	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	result = _mmplayer_asm_ignore_session(player);
+
+	return result;
+}
+
+int mm_player_set_display_zoom(MMHandleType player, float level)
+{
+	int result = MM_ERROR_NONE;
+	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+
+	MMPLAYER_CMD_LOCK( player );
+
+	result = _mmplayer_set_display_zoom(player, level);
+
+	MMPLAYER_CMD_UNLOCK( player );
+
+	return result;
+}
+
+int mm_player_get_display_zoom(MMHandleType player, float *level)
+{
+	int result = MM_ERROR_NONE;
+
+	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	return_val_if_fail(level, MM_ERROR_COMMON_INVALID_ARGUMENT);
+
+	MMPLAYER_CMD_LOCK( player );
+
+	result = _mmplayer_get_display_zoom(player, level);
+
+	MMPLAYER_CMD_UNLOCK( player );
+
+	return result;
+}
+
+int mm_player_set_display_zoom_start_position(MMHandleType player, int x, int y)
+{
+	int result = MM_ERROR_NONE;
+
+	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+
+	MMPLAYER_CMD_LOCK( player );
+
+	result = _mmplayer_set_display_zoom_start_pos(player, x, y);
+
+	MMPLAYER_CMD_UNLOCK( player );
+
+	return result;
+}
+
+int mm_player_get_display_zoom_start_position(MMHandleType player, int *x, int *y)
+{
+	int result = MM_ERROR_NONE;
+
+	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+
+	MMPLAYER_CMD_LOCK( player );
+
+	result = _mmplayer_get_display_zoom_start_pos(player, x, y);
+
+	MMPLAYER_CMD_UNLOCK( player );
 
 	return result;
 }

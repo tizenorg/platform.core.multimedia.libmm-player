@@ -360,6 +360,7 @@ int __gst_pause(mm_player_t* player, gboolean async) // @
 	debug_fenter();
 
 	return_val_if_fail(player && player->pipeline, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	return_val_if_fail(player->pipeline->mainbin, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	debug_log("current state before doing transition");
 	MMPLAYER_PENDING_STATE(player) = MM_PLAYER_STATE_PAUSED;
@@ -369,72 +370,77 @@ int __gst_pause(mm_player_t* player, gboolean async) // @
 	ret = __mmplayer_gst_set_state(player,
 		player->pipeline->mainbin[MMPLAYER_M_PIPE].gst, GST_STATE_PAUSED, async, MMPLAYER_STATE_CHANGE_TIMEOUT(player));
 
-	if ( FALSE == async && ret != MM_ERROR_NONE )
+	if ( FALSE == async )
 	{
-		GstMessage *msg = NULL;
-		GTimer *timer = NULL;
-		gdouble MAX_TIMEOUT_SEC = 3;
-
-		debug_error("failed to set state to PAUSED");
-
-		timer = g_timer_new();
-		g_timer_start(timer);
-
-		GstBus *bus = gst_pipeline_get_bus (GST_PIPELINE(player->pipeline->mainbin[MMPLAYER_M_PIPE].gst));
-		/* check if gst error posted or not */
-		do
+		if ( ret != MM_ERROR_NONE )
 		{
-			msg = gst_bus_timed_pop(bus, GST_SECOND /2);
-			if (msg)
+			GstMessage *msg = NULL;
+			GTimer *timer = NULL;
+			gdouble MAX_TIMEOUT_SEC = 3;
+
+			debug_error("failed to set state to PAUSED");
+
+			timer = g_timer_new();
+			g_timer_start(timer);
+
+			GstBus *bus = gst_pipeline_get_bus (GST_PIPELINE(player->pipeline->mainbin[MMPLAYER_M_PIPE].gst));
+			gboolean got_msg = FALSE;
+			/* check if gst error posted or not */
+			do
 			{
-				if (GST_MESSAGE_TYPE(msg) == GST_MESSAGE_ERROR)
+				msg = gst_bus_timed_pop(bus, GST_SECOND /2);
+				if (msg)
 				{
-					GError *error = NULL;
+					if (GST_MESSAGE_TYPE(msg) == GST_MESSAGE_ERROR)
+					{
+						GError *error = NULL;
 
-					debug_error("paring error posted from bus");
-					/* parse error code */
-					gst_message_parse_error(msg, &error, NULL);
+						debug_error("parsing error posted from bus");
+						/* parse error code */
+						gst_message_parse_error(msg, &error, NULL);
 
-					if (error->domain == GST_STREAM_ERROR)
-					{
-						ret = __gst_handle_stream_error( player, error, msg );
+						if (error->domain == GST_STREAM_ERROR)
+						{
+							ret = __gst_handle_stream_error( player, error, msg );
+						}
+						else if (error->domain == GST_RESOURCE_ERROR)
+						{
+							ret = __gst_handle_resource_error( player, error->code );
+						}
+						else if (error->domain == GST_LIBRARY_ERROR)
+						{
+							ret = __gst_handle_library_error( player, error->code );
+						}
+						else if (error->domain == GST_CORE_ERROR)
+						{
+							ret = __gst_handle_core_error( player, error->code );
+						}
+						got_msg = TRUE;
+						player->msg_posted = TRUE;
 					}
-					else if (error->domain == GST_RESOURCE_ERROR)
-					{
-						ret = __gst_handle_resource_error( player, error->code );
-					}
-					else if (error->domain == GST_LIBRARY_ERROR)
-					{
-						ret = __gst_handle_library_error( player, error->code );
-					}
-					else if (error->domain == GST_CORE_ERROR)
-					{
-						ret = __gst_handle_core_error( player, error->code );
-					}
-					player->msg_posted = TRUE;
+					gst_message_unref(msg);
 				}
-				gst_message_unref(msg);
-			}
-		} while (g_timer_elapsed(timer, NULL) < MAX_TIMEOUT_SEC);
+			} while (!got_msg && (g_timer_elapsed(timer, NULL) < MAX_TIMEOUT_SEC));
 
-		/* clean */
-		gst_object_unref(bus);
-		g_timer_stop (timer);
-		g_timer_destroy (timer);
+			/* clean */
+			gst_object_unref(bus);
+			g_timer_stop (timer);
+			g_timer_destroy (timer);
 
-		return ret;
-	}
-	else
-	{
-		if ( async == FALSE )
+			return ret;
+		}
+		else if ((!player->has_many_types) && (!player->pipeline->videobin) && (!player->pipeline->audiobin) )
+		{
+			if(MMPLAYER_IS_RTSP_STREAMING(player))
+				return ret;
+			player->msg_posted = TRUE; // no need to post error by message callback
+			return MM_ERROR_PLAYER_CODEC_NOT_FOUND;
+		}
+		else if ( ret == MM_ERROR_NONE)
 		{
 			MMPLAYER_SET_STATE ( player, MM_PLAYER_STATE_PAUSED );
 		}
 	}
-
-	/* FIXIT : analyze so called "async problem" */
-	/* set async off */
-	__gst_set_async_state_change( player, TRUE);
 
 	/* generate dot file before returning error */
 	MMPLAYER_GENERATE_DOT_IF_ENABLED ( player, "pipeline-status-pause" );
@@ -469,11 +475,7 @@ int __gst_resume(mm_player_t* player, gboolean async) // @
 
 	/* clean bus sync handler because it's not needed any more */
 	bus = gst_pipeline_get_bus (GST_PIPELINE(player->pipeline->mainbin[MMPLAYER_M_PIPE].gst));
-#ifdef GST_API_VERSION_1
-			gst_bus_set_sync_handler (bus, NULL, NULL, NULL);
-#else
-			gst_bus_set_sync_handler (bus, NULL, NULL);
-#endif
+	gst_bus_set_sync_handler (bus, NULL, NULL, NULL);
 	gst_object_unref(bus);
 
 	/* set pipeline state to PLAYING */
@@ -510,13 +512,13 @@ int __gst_resume(mm_player_t* player, gboolean async) // @
 int
 __gst_set_position(mm_player_t* player, int format, unsigned long position, gboolean internal_called) // @
 {
-#ifndef GST_API_VERSION_1
 	GstFormat fmt  = GST_FORMAT_TIME;
-#endif
 	unsigned long dur_msec = 0;
 	gint64 dur_nsec = 0;
 	gint64 pos_nsec = 0;
 	gboolean ret = TRUE;
+	gboolean accurated = FALSE;
+	GstSeekFlags seek_flags = GST_SEEK_FLAG_FLUSH;
 
 	debug_fenter();
 	return_val_if_fail ( player && player->pipeline, MM_ERROR_PLAYER_NOT_INITIALIZED );
@@ -532,17 +534,10 @@ __gst_set_position(mm_player_t* player, int format, unsigned long position, gboo
 	 */
 	if ( !player->duration )
 	{
-#ifdef GST_API_VERSION_1
-		if ( !gst_element_query_duration( player->pipeline->mainbin[MMPLAYER_M_PIPE].gst, GST_FORMAT_TIME, &dur_nsec ))
+		if ( !gst_element_query_duration( player->pipeline->mainbin[MMPLAYER_M_PIPE].gst, fmt, &dur_nsec ))
 		{
 			goto SEEK_ERROR;
 		}
-#else
-		if ( !gst_element_query_duration( player->pipeline->mainbin[MMPLAYER_M_PIPE].gst, &fmt, &dur_nsec ))
-		{
-			goto SEEK_ERROR;
-		}
-#endif
 		player->duration = dur_nsec;
 	}
 
@@ -557,6 +552,16 @@ __gst_set_position(mm_player_t* player, int format, unsigned long position, gboo
 	}
 
 	debug_log("playback rate: %f\n", player->playback_rate);
+
+	mm_attrs_get_int_by_name(player->attrs,"accurate_seek", &accurated);
+	if (accurated)
+	{
+		seek_flags |= GST_SEEK_FLAG_ACCURATE;
+	}
+	else
+	{
+		seek_flags |= GST_SEEK_FLAG_KEY_UNIT;
+	}
 
 	/* do seek */
 	switch ( format )
@@ -580,7 +585,7 @@ __gst_set_position(mm_player_t* player, int format, unsigned long position, gboo
 
 			pos_nsec = position * G_GINT64_CONSTANT(1000000);
 			ret = __gst_seek ( player, player->pipeline->mainbin[MMPLAYER_M_PIPE].gst, player->playback_rate,
-							GST_FORMAT_TIME, ( GST_SEEK_FLAG_FLUSH | GST_SEEK_FLAG_ACCURATE ),
+							GST_FORMAT_TIME, seek_flags,
 							GST_SEEK_TYPE_SET, pos_nsec, GST_SEEK_TYPE_NONE, GST_CLOCK_TIME_NONE );
 			if ( !ret  )
 			{
@@ -606,7 +611,7 @@ __gst_set_position(mm_player_t* player, int format, unsigned long position, gboo
 			/* FIXIT : why don't we use 'GST_FORMAT_PERCENT' */
 			pos_nsec = (gint64) ( ( position * player->duration ) / 100 );
 			ret = __gst_seek ( player, player->pipeline->mainbin[MMPLAYER_M_PIPE].gst, player->playback_rate,
-							GST_FORMAT_TIME, ( GST_SEEK_FLAG_FLUSH | GST_SEEK_FLAG_ACCURATE ),
+							GST_FORMAT_TIME, seek_flags,
 							GST_SEEK_TYPE_SET, pos_nsec, GST_SEEK_TYPE_NONE, GST_CLOCK_TIME_NONE );
 			if ( !ret  )
 			{
@@ -658,9 +663,7 @@ int
 __gst_get_position(mm_player_t* player, int format, unsigned long* position) // @
 {
 	MMPlayerStateType current_state = MM_PLAYER_STATE_NONE;
-#ifndef GST_API_VERSION_1
 	GstFormat fmt = GST_FORMAT_TIME;
-#endif
 	signed long long pos_msec = 0;
 	gboolean ret = TRUE;
 
@@ -674,11 +677,7 @@ __gst_get_position(mm_player_t* player, int format, unsigned long* position) // 
 	 */
 	if ( current_state != MM_PLAYER_STATE_PAUSED )
 	{
-#ifdef GST_API_VERSION_1
-		ret = gst_element_query_position(player->pipeline->mainbin[MMPLAYER_M_PIPE].gst, GST_FORMAT_TIME, &pos_msec);
-#else
-		ret = gst_element_query_position(player->pipeline->mainbin[MMPLAYER_M_PIPE].gst, &fmt, &pos_msec);
-#endif
+		ret = gst_element_query_position(player->pipeline->mainbin[MMPLAYER_M_PIPE].gst, fmt, &pos_msec);
 	}
 
 	/* NOTE : get last point to overcome some bad operation of some elements
@@ -861,6 +860,17 @@ __gst_send_event_to_sink( mm_player_t* player, GstEvent* event )
 
 		if (GST_IS_ELEMENT(sink))
 		{
+			/* in the case of some video/audio file,
+			 * it's possible video sink don't consider same position seek
+			 * with current postion
+			 */
+			if ( !MMPLAYER_IS_STREAMING(player) && player->pipeline->videobin
+				&& player->pipeline->audiobin && (!g_strrstr(GST_ELEMENT_NAME(sink), "audiosink")) )
+			{
+				sinks = g_list_next (sinks);
+				continue;
+			}
+
 			/* keep ref to the event */
 			gst_event_ref (event);
 
@@ -934,12 +944,11 @@ __gst_seek(mm_player_t* player, GstElement * element, gdouble rate,
 	return result;
 }
 
-int __gst_adjust_subtitle_position(mm_player_t* player, int format, int position)
+int __gst_adjust_subtitle_position(mm_player_t* player, int format, unsigned long position)
 {
 	GstEvent* event = NULL;
-	gint64 current_pos = 0;
-	gint64 adusted_pos = 0;
-	gboolean ret = TRUE;
+    unsigned long current_pos = 0;
+    unsigned long adusted_pos = 0;
 
 	debug_fenter();
 
@@ -957,13 +966,14 @@ int __gst_adjust_subtitle_position(mm_player_t* player, int format, int position
 	{
 		case MM_PLAYER_POS_FORMAT_TIME:
 		{
+			/* check current postion */
 			if (__gst_get_position(player, MM_PLAYER_POS_FORMAT_TIME, &current_pos ))
 			{
 				debug_error("failed to get position");
 				return MM_ERROR_PLAYER_INTERNAL;
 			}
 
-			adusted_pos = (gint64)current_pos + ((gint64)position * G_GINT64_CONSTANT(1000000));
+            adusted_pos = current_pos + (position * G_GINT64_CONSTANT(1000000));
 			if (adusted_pos < 0)
 				adusted_pos = G_GUINT64_CONSTANT(0);
 			debug_log("adjust subtitle postion : %lu -> %lu [msec]\n", GST_TIME_AS_MSECONDS(current_pos), GST_TIME_AS_MSECONDS(adusted_pos));
@@ -1002,51 +1012,6 @@ int __gst_adjust_subtitle_position(mm_player_t* player, int format, int position
 	return MM_ERROR_NONE;
 }
 
-#ifdef GST_API_VERSION_1
-void
-__gst_appsrc_feed_data_mem(GstElement *element, guint size, gpointer user_data) // @
-{
-	GstElement *appsrc = element;
-	tBuffer *buf = (tBuffer *)user_data;
-	GstBuffer *buffer = NULL;
-	GstFlowReturn ret = GST_FLOW_OK;
-	gint len = size;
-
-	return_if_fail ( element );
-	return_if_fail ( buf );
-
-	//buffer = gst_buffer_new ();
-
-	if (buf->offset >= buf->len)
-	{
-		debug_log("call eos appsrc\n");
-	       g_signal_emit_by_name (appsrc, "end-of-stream", &ret);
-	       return;
-	}
-
-	if ( buf->len - buf->offset < size)
-	{
-		len = buf->len - buf->offset + buf->offset;
-	}
-
-	buffer = gst_buffer_new();
-	GstMapInfo info;
-
-	info.data = (guint8*)(buf->buf + buf->offset);
-	gst_buffer_set_size(buffer, len);
-
-	//GST_BUFFER_DATA(buffer) = (guint8*)(buf->buf + buf->offset);
-	//GST_BUFFER_SIZE(buffer) = len;
-	GST_BUFFER_OFFSET(buffer) = buf->offset;
-	GST_BUFFER_OFFSET_END(buffer) = buf->offset + len;
-	gst_buffer_map (buffer, &info, GST_MAP_WRITE);
-
-	debug_log("feed buffer %p, offset %u-%u length %u\n", buffer, buf->offset, buf->len,len);
-	g_signal_emit_by_name (appsrc, "push-buffer", buffer, &ret);
-
-	buf->offset += len;
-}
-#else
 void
 __gst_appsrc_feed_data_mem(GstElement *element, guint size, gpointer user_data) // @
 {
@@ -1064,8 +1029,8 @@ __gst_appsrc_feed_data_mem(GstElement *element, guint size, gpointer user_data) 
 	if (buf->offset >= buf->len)
 	{
 		debug_log("call eos appsrc\n");
-	       g_signal_emit_by_name (appsrc, "end-of-stream", &ret);
-	       return;
+		g_signal_emit_by_name (appsrc, "end-of-stream", &ret);
+		return;
 	}
 
 	if ( buf->len - buf->offset < size)
@@ -1073,8 +1038,8 @@ __gst_appsrc_feed_data_mem(GstElement *element, guint size, gpointer user_data) 
 		len = buf->len - buf->offset + buf->offset;
 	}
 
-	GST_BUFFER_DATA(buffer) = (guint8*)(buf->buf + buf->offset);
-	GST_BUFFER_SIZE(buffer) = len;
+	gst_buffer_insert_memory(buffer, -1, gst_memory_new_wrapped(0, (guint8*)(buf->buf + buf->offset), len, 0, len, (guint8*)(buf->buf + buf->offset), g_free));
+
 	GST_BUFFER_OFFSET(buffer) = buf->offset;
 	GST_BUFFER_OFFSET_END(buffer) = buf->offset + len;
 
@@ -1083,7 +1048,6 @@ __gst_appsrc_feed_data_mem(GstElement *element, guint size, gpointer user_data) 
 
 	buf->offset += len;
 }
-#endif
 
 gboolean
 __gst_appsrc_seek_data_mem(GstElement *element, guint64 size, gpointer user_data) // @
@@ -1140,6 +1104,3 @@ __gst_appsrc_enough_data(GstElement *element, gpointer user_data) // @
 
 	return TRUE;
 }
-
-
-

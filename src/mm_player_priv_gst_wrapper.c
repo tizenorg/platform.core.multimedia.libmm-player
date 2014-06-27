@@ -113,11 +113,6 @@ __mmplayer_gst_callback(GstBus *bus, GstMessage *msg, gpointer data) // @
 	return_val_if_fail ( player, FALSE );
 	return_val_if_fail ( msg && GST_IS_MESSAGE(msg), FALSE );
 
-#ifdef GST_API_VERSION_1
-	const GstStructure *structure;
-	structure = gst_message_get_structure (msg);
-#endif
-
 	switch ( GST_MESSAGE_TYPE( msg ) )
 	{
 		case GST_MESSAGE_UNKNOWN:
@@ -148,11 +143,7 @@ __mmplayer_gst_callback(GstBus *bus, GstMessage *msg, gpointer data) // @
 				debug_error("release audio callback\n");
 
 				/* release audio callback */
-#ifdef GST_API_VERSION_1
 				gst_pad_remove_probe (pad, player->audio_cb_probe_id);
-#else
-				gst_pad_remove_buffer_probe (pad, player->audio_cb_probe_id);
-#endif
 				player->audio_cb_probe_id = 0;
 				/* audio callback should be free because it can be called even though probe remove.*/
 				player->audio_stream_cb = NULL;
@@ -253,8 +244,7 @@ __mmplayer_gst_callback(GstBus *bus, GstMessage *msg, gpointer data) // @
 			gst_message_parse_error( msg, &error, &debug );
 
 			msg_src_element = GST_ELEMENT_NAME( GST_ELEMENT_CAST( msg->src ) );
-#ifdef GST_API_VERSION_1
-			if ( gst_structure_has_name ( structure, "streaming_error" ) )
+			if ( gst_structure_has_name ( gst_message_get_structure(msg), "streaming_error" ) )
 			{
 				/* Note : the streaming error from the streaming source is handled
 				 *   using __mmplayer_handle_streaming_error.
@@ -275,31 +265,6 @@ __mmplayer_gst_callback(GstBus *bus, GstMessage *msg, gpointer data) // @
 				__mmplayer_dump_pipeline_state( player );
 
 			}
-#else
-			if ( gst_structure_has_name ( msg->structure, "streaming_error" ) )
-			{
-				/* Note : the streaming error from the streaming source is handled
-				 *   using __mmplayer_handle_streaming_error.
-				 */
-				__mmplayer_handle_streaming_error ( player, msg );
-
-				/* dump state of all element */
-				__mmplayer_dump_pipeline_state( player );
-			}
-			else
-			{
-				/* traslate gst error code to msl error code. then post it
-				 * to application if needed
-				 */
-				__mmplayer_handle_gst_error( player, msg, error );
-
-				/* dump state of all element */
-				__mmplayer_dump_pipeline_state( player );
-
-			}
-
-#endif
-
 
 			if (MMPLAYER_IS_HTTP_PD(player))
 			{
@@ -380,15 +345,9 @@ __mmplayer_gst_callback(GstBus *bus, GstMessage *msg, gpointer data) // @
 				break;
 
 			/* get state info from msg */
-#ifdef GST_API_VERSION_1
-			voldstate = gst_structure_get_value (structure, "old-state");
-			vnewstate = gst_structure_get_value (structure, "new-state");
-			vpending = gst_structure_get_value (structure, "pending-state");
-#else
-			voldstate = gst_structure_get_value (msg->structure, "old-state");
-			vnewstate = gst_structure_get_value (msg->structure, "new-state");
-			vpending = gst_structure_get_value (msg->structure, "pending-state");
-#endif
+			voldstate = gst_structure_get_value (gst_message_get_structure(msg), "old-state");
+			vnewstate = gst_structure_get_value (gst_message_get_structure(msg), "new-state");
+			vpending = gst_structure_get_value (gst_message_get_structure(msg), "pending-state");
 
 			oldstate = (GstState)voldstate->data[0].v_int;
 			newstate = (GstState)vnewstate->data[0].v_int;
@@ -527,6 +486,10 @@ __mmplayer_gst_callback(GstBus *bus, GstMessage *msg, gpointer data) // @
 		{
 			debug_log("GST_MESSAGE_ASYNC_DONE : %s\n", gst_element_get_name(GST_MESSAGE_SRC(msg)));
 
+			/* we only handle message from pipeline */
+			if (msg->src != (GstObject *)player->pipeline->mainbin[MMPLAYER_M_PIPE].gst)
+				break;
+
 			if (player->doing_seek)
 			{
 				if (MMPLAYER_TARGET_STATE(player) == MM_PLAYER_STATE_PAUSED)
@@ -612,7 +575,6 @@ if (gst_tag_list_get_string(tag_list, gsttag, &string)) \
 	}\
 }
 
-#ifdef GST_API_VERSION_1
 #define MMPLAYER_UPDATE_TAG_IMAGE(gsttag, attribute, playertag) \
 value = gst_tag_list_get_value_index(tag_list, gsttag, index); \
 if (value) \
@@ -620,37 +582,22 @@ if (value) \
 	GstMapInfo info; \
 	gst_buffer_map (buffer, &info, GST_MAP_WRITE); \
 	buffer = gst_value_get_buffer (value); \
-	debug_log ( "update album cover data : %p, size : %d\n", info.data, gst_buffer_get_size(buffer)); \
-	player->album_art = (gchar *)g_malloc(gst_buffer_get_size(buffer)); \
+	debug_log ( "update album cover data : %p, size : %d\n", info.data, info.size); \
+	player->album_art = (gchar *)g_malloc(info.size); \
 	if (player->album_art); \
 	{ \
-		memcpy(player->album_art, info.data, gst_buffer_get_size(buffer)); \
-		mm_attrs_set_data_by_name(attribute, playertag, (void *)player->album_art, gst_buffer_get_size(buffer)); \
+		memcpy(player->album_art, info.data, info.size); \
+		mm_attrs_set_data_by_name(attribute, playertag, (void *)player->album_art, info.size); \
 	} \
 gst_buffer_unmap (buffer, &info); \
 }
-#else
-#define MMPLAYER_UPDATE_TAG_IMAGE(gsttag, attribute, playertag) \
-value = gst_tag_list_get_value_index(tag_list, gsttag, index); \
-if (value) \
-{\
-	buffer = gst_value_get_buffer (value); \
-	debug_log ( "update album cover data : %p, size : %d\n", GST_BUFFER_DATA(buffer), GST_BUFFER_SIZE(buffer)); \
-	player->album_art = (gchar *)g_malloc(GST_BUFFER_SIZE(buffer)); \
-	if (player->album_art); \
-	{ \
-		memcpy(player->album_art, GST_BUFFER_DATA(buffer), GST_BUFFER_SIZE(buffer)); \
-		mm_attrs_set_data_by_name(attribute, playertag, (void *)player->album_art, GST_BUFFER_SIZE(buffer)); \
-	} \
-}
-#endif
 
 #define MMPLAYER_UPDATE_TAG_UINT(gsttag, attribute, playertag) \
 if (gst_tag_list_get_uint(tag_list, gsttag, &v_uint))\
 {\
 	if(v_uint)\
 	{\
-		if(gsttag==GST_TAG_BITRATE)\
+		if(strcmp(gsttag, GST_TAG_BITRATE) == 0)\
 		{\
 			if (player->updated_bitrate_count == 0) \
 				mm_attrs_set_int_by_name(attribute, "content_audio_bitrate", v_uint); \
@@ -663,7 +610,7 @@ if (gst_tag_list_get_uint(tag_list, gsttag, &v_uint))\
 				debug_log ( "update bitrate %d[bps] of stream #%d.\n", v_uint, player->updated_bitrate_count);\
 			}\
 		}\
-		else if (gsttag==GST_TAG_MAXIMUM_BITRATE)\
+		else if (strcmp(gsttag, GST_TAG_MAXIMUM_BITRATE))\
 		{\
 			if (player->updated_maximum_bitrate_count<MM_PLAYER_STREAM_COUNT_MAX) \
 			{\
@@ -957,11 +904,8 @@ __mmplayer_gst_rtp_dynamic_pad (GstElement *element, GstPad *pad, gpointer data)
 	else  /* NOTE : use pad's caps directely. if enabled. what I am assuming is there's no elemnt has dynamic pad */
 	{
 		debug_log("using pad caps to autopluging instead of doing typefind\n");
-#ifdef GST_API_VERSION_1
-		caps = gst_pad_get_current_caps( pad );
-#else
-		caps = gst_pad_get_caps( pad );
-#endif
+
+		caps = gst_pad_query_caps( pad, NULL );
 
 		MMPLAYER_CHECK_NULL( caps );
 
@@ -1073,11 +1017,7 @@ __mmplayer_gst_decode_callback(GstElement *decodebin, GstPad *pad, gboolean last
 	}
 
 	/* get mimetype from caps */
-#ifdef GST_API_VERSION_1
-	caps = gst_pad_get_current_caps( pad );
-#else
-	caps = gst_pad_get_caps( pad );
-#endif
+	caps = gst_pad_query_caps( pad, NULL );
 	if ( !caps )
 	{
 		debug_error("cannot get caps from pad.\n");
@@ -1462,6 +1402,9 @@ __mmplayer_gst_create_audio_pipeline(mm_player_t* player)
 	/* converter */
 	MMPLAYER_CREATE_ELEMENT(audiobin, MMPLAYER_A_CONV, "audioconvert", "audioconverter", TRUE);
 
+	/* resampler */
+	MMPLAYER_CREATE_ELEMENT(audiobin, MMPLAYER_A_RESAMPLER, "audioresample", "resampler", TRUE);
+
 	if ( ! player->is_sound_extraction )
 	{
 		GstCaps* caps = NULL;
@@ -1480,11 +1423,10 @@ __mmplayer_gst_create_audio_pipeline(mm_player_t* player)
 		/*capsfilter */
 		MMPLAYER_CREATE_ELEMENT(audiobin, MMPLAYER_A_CAPS_DEFAULT, "capsfilter", "audiocapsfilter", TRUE);
 
-		caps = gst_caps_from_string( "audio/x-raw-int, "
-						"endianness = (int) LITTLE_ENDIAN, "
-						"signed = (boolean) true, "
-						"width = (int) 16, "
-						"depth = (int) 16" );
+        caps = gst_caps_from_string( "audio/x-raw,"
+                             "format = (string)S16LE,"
+                             "layout = (string)interleaved" );
+
 		g_object_set (GST_ELEMENT(audiobin[MMPLAYER_A_CAPS_DEFAULT].gst), "caps", caps, NULL );
 
 		gst_caps_unref( caps );
@@ -1497,8 +1439,7 @@ __mmplayer_gst_create_audio_pipeline(mm_player_t* player)
 
 			if ((srcpad = gst_element_get_static_pad(player->pipeline->mainbin[MMPLAYER_M_DEMUX].gst, "src")))
 			{
-#ifdef GST_API_VERSION_1
-				if ((caps = gst_pad_get_current_caps(srcpad)))
+				if ((caps = gst_pad_query_caps(srcpad,NULL)))
 				{
 					MMPLAYER_LOG_GST_CAPS_TYPE(caps);
 					GstStructure *str = gst_caps_get_structure(caps, 0);
@@ -1506,16 +1447,6 @@ __mmplayer_gst_create_audio_pipeline(mm_player_t* player)
 						gst_structure_get_int (str, "channels", &channels);
 					gst_caps_unref(caps);
 				}
-#else
-				if ((caps = gst_pad_get_caps(srcpad)))
-				{
-					MMPLAYER_LOG_GST_CAPS_TYPE(caps);
-					GstStructure *str = gst_caps_get_structure(caps, 0);
-					if (str)
-						gst_structure_get_int (str, "channels", &channels);
-					gst_caps_unref(caps);
-				}
-#endif
 				gst_object_unref(srcpad);
 			}
 		}
@@ -1601,9 +1532,6 @@ __mmplayer_gst_create_audio_pipeline(mm_player_t* player)
 		char *caps_type = NULL;
 		GstCaps* caps = NULL;
 
-		/* resampler */
-		MMPLAYER_CREATE_ELEMENT(audiobin, MMPLAYER_A_RESAMPLER, "audioresample", "resampler", TRUE);
-
 		/* get conf. values */
 		mm_attrs_multiple_get(player->attrs,
 					NULL,
@@ -1614,10 +1542,11 @@ __mmplayer_gst_create_audio_pipeline(mm_player_t* player)
 		/* capsfilter */
 		MMPLAYER_CREATE_ELEMENT(audiobin, MMPLAYER_A_CAPS_DEFAULT, "capsfilter", "audiocapsfilter", TRUE);
 
-		caps = gst_caps_new_simple ("audio/x-raw-int",
+		caps = gst_caps_new_simple ("audio/x-raw",
+						"format", G_TYPE_STRING, "S16LE",
 						"rate", G_TYPE_INT, dst_samplerate,
 						"channels", G_TYPE_INT, dst_channels,
-						"depth", G_TYPE_INT, dst_depth,
+						"layout", G_TYPE_STRING, "interleaved",
 						NULL);
 
 		caps_type = gst_caps_to_string(caps);
@@ -1877,7 +1806,7 @@ __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps, MMDispl
 				}
 			}
 
-			video_caps = gst_caps_new_simple( "video/x-raw-rgb",
+            video_caps = gst_caps_new_simple( "video/x-raw",
 											"width", G_TYPE_INT, width,
 											"height", G_TYPE_INT, height,
 											NULL);
@@ -2071,7 +2000,6 @@ ERROR:
 
 int __mmplayer_gst_create_text_pipeline(mm_player_t* player)
 {
-	MMPlayerGstElement* first_element = NULL;
 	MMPlayerGstElement* textbin = NULL;
 	GList* element_bucket = NULL;
 	GstPad *pad = NULL;
@@ -2307,7 +2235,6 @@ __mmplayer_gst_create_subtitle_src(mm_player_t* player)
 	GstElement * pipeline = NULL;
 	GstElement *subsrc = NULL;
 	GstElement *subparse = NULL;
-	GstPad *sinkpad = NULL;
 	gchar *subtitle_uri =NULL;
 	gchar *charset = NULL;
 
@@ -2819,11 +2746,7 @@ __mmplayer_gst_create_pipeline(mm_player_t* player) // @
 			debug_error ("fakesink element could not be created\n");
 			goto INIT_ERROR;
 		}
-#ifdef GST_API_VERSION_1
 		GST_OBJECT_FLAG_UNSET (mainbin[MMPLAYER_M_SRC_FAKESINK].gst, GST_ELEMENT_FLAG_SINK);
-#else
-		GST_OBJECT_FLAG_UNSET (mainbin[MMPLAYER_M_SRC_FAKESINK].gst, GST_ELEMENT_IS_SINK);
-#endif
 
 		/* take ownership of fakesink. we are reusing it */
 		gst_object_ref( mainbin[MMPLAYER_M_SRC_FAKESINK].gst );
@@ -2857,11 +2780,8 @@ __mmplayer_gst_create_pipeline(mm_player_t* player) // @
 	}
 
 	/* set sync handler to get tag synchronously */
-#ifdef GST_API_VERSION_1
 	gst_bus_set_sync_handler(bus, __mmplayer_bus_sync_callback, player, NULL);
-#else
-	gst_bus_set_sync_handler(bus, __mmplayer_bus_sync_callback, player);
-#endif
+
 	/* finished */
 	gst_object_unref(GST_OBJECT(bus));
 	g_list_free(element_bucket);
@@ -2934,11 +2854,7 @@ __mmplayer_gst_destroy_pipeline(mm_player_t* player) // @
 		GstPad *pad = NULL;
 		pad = gst_element_get_static_pad(player->pipeline->mainbin[MMPLAYER_M_SRC].gst, "src" );
 
-#ifdef GST_API_VERSION_1
 		gst_pad_remove_probe (pad, ahs_appsrc_cb_probe_id);
-#else
-		gst_pad_remove_buffer_probe (pad, ahs_appsrc_cb_probe_id);
-#endif
 		gst_object_unref(pad);
 		pad = NULL;
 		ahs_appsrc_cb_probe_id = 0;
@@ -2967,7 +2883,7 @@ __mmplayer_gst_destroy_pipeline(mm_player_t* player) // @
 
 		/* disconnecting bus watch */
 		if ( player->bus_watcher )
-			g_source_remove( player->bus_watcher );
+			__mmplayer_remove_g_source_from_context(player->bus_watcher);
 		player->bus_watcher = 0;
 
 		if ( mainbin )
@@ -2976,12 +2892,7 @@ __mmplayer_gst_destroy_pipeline(mm_player_t* player) // @
 			MMPlayerGstElement* videobin = player->pipeline->videobin;
 			MMPlayerGstElement* textbin = player->pipeline->textbin;
 			GstBus *bus = gst_pipeline_get_bus (GST_PIPELINE (mainbin[MMPLAYER_M_PIPE].gst));
-
-#ifdef GST_API_VERSION_1
 			gst_bus_set_sync_handler (bus, NULL, NULL, NULL);
-#else
-			gst_bus_set_sync_handler (bus, NULL, NULL);
-#endif
 			gst_object_unref(bus);
 
 			debug_log("pipeline status before set state to NULL\n");

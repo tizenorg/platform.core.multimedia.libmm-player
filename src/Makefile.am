@@ -25,7 +25,7 @@ libmmfplayer_la_CFLAGS =  -I$(srcdir)/include \
 			  $(MMTA_CFLAGS) \
 			  $(MMUTIL_CFLAGS) \
 			  $(GST_CFLAGS) \
-			  $(GST_INTERFACE_CFLAGS) \
+			  $(GST_VIDEO_CFLAGS) \
 			  $(GST_APP_CFLAGS) \
 			  $(MMSESSION_CFLAGS) \
 			  $(MMSOUND_CFLAGS) \
@@ -46,7 +46,7 @@ libmmfplayer_la_LIBADD = $(GST_LIBS) \
 	    	 	 $(MMCOMMON_LIBS) \
 	    	 	 $(MMTA_LIBS) \
 	    	 	 $(MMUTIL_LIBS) \
-			 $(GST_INTERFACE_LIBS) \
+			 $(GST_VIDEO_LIBS) \
 			 $(GST_APP_LIBS) \
 			 $(INIPARSER_LIBS) \
 			 $(MMSESSION_LIBS) \

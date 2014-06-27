@@ -1,6 +1,6 @@
 Name:       libmm-player
 Summary:    Multimedia Framework Player Library
-Version:    0.2.19
+Version:    0.2.27
 Release:    0
 Group:      System/Libraries
 License:    Apache-2.0
@@ -10,17 +10,10 @@ Source1001: 	libmm-player.manifest
 BuildRequires:  pkgconfig(mm-ta)
 BuildRequires:  pkgconfig(mm-common)
 BuildRequires:  pkgconfig(mm-sound)
-
-%if %{defined with_Gstreamer0.10}
-BuildRequires:  pkgconfig(gstreamer-0.10)
-BuildRequires:  pkgconfig(gstreamer-plugins-base-0.10)
-BuildRequires:  pkgconfig(gstreamer-interfaces-0.10)
-BuildRequires:  pkgconfig(gstreamer-app-0.10)
-%else
 BuildRequires:  pkgconfig(gstreamer-1.0)
 BuildRequires:  pkgconfig(gstreamer-plugins-base-1.0)
+BuildRequires:  pkgconfig(gstreamer-video-1.0)
 BuildRequires:  pkgconfig(gstreamer-app-1.0)
-%endif
 
 BuildRequires:  pkgconfig(mm-session)
 BuildRequires:  pkgconfig(mmutil-imgp)
@@ -48,13 +41,6 @@ cp %{SOURCE1001} .
 %build
 
 ##  %autogen.sh
-
-%if %{defined with_Gstreamer0.10}
-export GSTREAMER_API=""
-%else
-export GSTREAMER_API="-DGST_API_VERSION_1=1"
-export use_gstreamer_1=1
-%endif
 
 CFLAGS+=" -DEXPORT_API=\"__attribute__((visibility(\\\"default\\\")))\" $GSTREAMER_API" ; export CFLAGS
 LDFLAGS+="-Wl,--rpath=%{_libdir} -lgstvideo-1.0 -Wl,--hash-style=both -Wl,--as-needed"; export LDFLAGS

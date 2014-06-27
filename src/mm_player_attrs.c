@@ -27,11 +27,8 @@
 #include <vconf.h>
 #include <mm_attrs_private.h>
 #include <mm_attrs.h>
-#ifndef GST_API_VERSION_1
-#include <gst/interfaces/xoverlay.h>
-#else
+
 #include <gst/video/videooverlay.h>
-#endif
 #include "mm_player_priv.h"
 #include "mm_player_attrs.h"
 
@@ -685,12 +682,12 @@ _mmplayer_construct_attribute(MMHandleType handle)
 		},
 		{
 			"display_zoom",
-			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_TYPE_DOUBLE,
 			MM_ATTRS_FLAG_RW,
 			(void *) 1,
-			MM_ATTRS_VALID_TYPE_INT_RANGE,
-			1,
-			MMPLAYER_MAX_INT
+			MM_ATTRS_VALID_TYPE_DOUBLE_RANGE,
+			1.0,
+			9.0
 		},
 		{
 			"display_surface_type",
@@ -934,6 +931,15 @@ _mmplayer_construct_attribute(MMHandleType handle)
 			MM_ATTRS_VALID_TYPE_NONE,
 			0,
 			0
+		},
+		{
+			"accurate_seek",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) 0,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			0,
+			1
 		}
 	};
 
@@ -983,7 +989,7 @@ _mmplayer_construct_attribute(MMHandleType handle)
 				mmf_attrs_set_valid_range (attrs, idx,
 						player_attrs[idx].value_min,
 						player_attrs[idx].value_max,
-						player_attrs[idx].default_value);
+                        (int)player_attrs[idx].default_value);
 			}
 			break;
 

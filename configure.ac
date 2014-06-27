@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.61)
-AC_INIT([libmm-player],[0.0.1])
+AC_INIT([libmm-player],[0.3.0])
 AC_CONFIG_SRCDIR([src/mm_player_priv.c])
 AC_CONFIG_HEADER([config.h])
 AM_INIT_AUTOMAKE([-Wall foreign])
@@ -57,43 +57,21 @@ PKG_CHECK_MODULES(GLIB, glib-2.0)
 AC_SUBST(GLIB_CFLAGS)
 AC_SUBST(GLIB_LIBS)
 
-if test "$use_gstreamer_1" = "1"; then 
-  PKG_CHECK_MODULES(GST, gstreamer-1.0)
-  AC_SUBST(GST_CFLAGS)
-  AC_SUBST(GST_LIBS)
-else
-  PKG_CHECK_MODULES(GST, gstreamer-0.10) 
-  AC_SUBST(GST_CFLAGS) 
-  AC_SUBST(GST_LIBS)
-fi
+PKG_CHECK_MODULES(GST, gstreamer-1.0 >= 1.2.0)
+AC_SUBST(GST_CFLAGS)
+AC_SUBST(GST_LIBS)
 
-if test "$use_gstreamer_1" = "1"; then 
-  PKG_CHECK_MODULES(GST_PLUGIN_BASE, gstreamer-plugins-base-1.0 )
-  AC_SUBST(GST_PLUGIN_BASE_CFLAGS)
-  AC_SUBST(GST_PLUGIN_BASE_LIBS)
-else
-  PKG_CHECK_MODULES(GST_PLUGIN_BASE, gstreamer-plugins-base-0.10 >= 0.10)
-  AC_SUBST(GST_PLUGIN_BASE_CFLAGS)
-  AC_SUBST(GST_PLUGIN_BASE_LIBS)
+PKG_CHECK_MODULES(GST_PLUGIN_BASE, gstreamer-plugins-base-1.0 >= 1.2.0)
+AC_SUBST(GST_PLUGIN_BASE_CFLAGS)
+AC_SUBST(GST_PLUGIN_BASE_LIBS)
 
-  PKG_CHECK_MODULES(GST_INTERFACE, gstreamer-interfaces-0.10 >= 0.10)
-  AC_SUBST(GST_INTERFACE_CFLAGS)
-  AC_SUBST(GST_INTERFACE_LIBS)
-fi
+PKG_CHECK_MODULES(GST_VIDEO, gstreamer-video-1.0 >= 1.2.0)
+AC_SUBST(GST_VIDEO_CFLAGS)
+AC_SUBST(GST_LIBS)
 
-if test "$use_gstreamer_1" = "1"; then 
-  PKG_CHECK_MODULES(GST_APP, gstreamer-app-1.0 )
-  AC_SUBST(GST_APP_CFLAGS)
-  AC_SUBST(GST_APP_LIBS)
-
-  PKG_CHECK_MODULES(GST_VIDEO, gstreamer-video-1.0 )
-  AC_SUBST(GST_VIDEO_CFLAGS)
-  AC_SUBST(GST_VIDEO_LIBS)
-else
-  PKG_CHECK_MODULES(GST_APP, gstreamer-app-0.10 >= 0.10 )
-  AC_SUBST(GST_APP_CFLAGS)
-  AC_SUBST(GST_APP_LIBS)
-fi
+PKG_CHECK_MODULES(GST_APP, gstreamer-app-1.0 >= 1.2.0)
+AC_SUBST(GST_APP_CFLAGS)
+AC_SUBST(GST_APP_LIBS)
 
 PKG_CHECK_MODULES(MMSESSION, mm-session)
 AC_SUBST(MMSESSION_CFLAGS)

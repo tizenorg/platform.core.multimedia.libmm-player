@@ -248,6 +248,8 @@ mm_player_ini_load(void);
 mm_player_ini_t*
 mm_player_ini_get_structure(void);
 
+int
+mm_player_audio_effect_ini_load(void);
 
 #ifdef __cplusplus
 	}

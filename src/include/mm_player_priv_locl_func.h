@@ -82,7 +82,7 @@ gboolean	__gst_send_event_to_sink( mm_player_t* player, GstEvent* event );
 gboolean	__gst_seek(mm_player_t* player, GstElement * element, gdouble rate,
 						GstFormat format, GstSeekFlags flags, GstSeekType cur_type,
 						gint64 cur, GstSeekType stop_type, gint64 stop);
-int		__gst_adjust_subtitle_position(mm_player_t* player, int format, int position);
+int		__gst_adjust_subtitle_position(mm_player_t* player, int format, unsigned long position);
 void	__gst_appsrc_feed_data_mem(GstElement *element, guint size, gpointer user_data);
 gboolean	__gst_appsrc_seek_data_mem(GstElement *element, guint64 size, gpointer user_data);
 void	__gst_appsrc_feed_data(GstElement *element, guint size, gpointer user_data);

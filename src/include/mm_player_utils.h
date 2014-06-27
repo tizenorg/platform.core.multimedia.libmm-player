@@ -183,7 +183,6 @@ gboolean __util_gst_pad_probe(GstPad *pad, GstBuffer *buffer, gpointer u_data);
 /* messages are treated as warnings bcz those code should not be checked in. 
  * and no error handling will supported for same manner. 
  */
-#ifndef GST_API_VERSION_1
 #define MMPLAYER_ADD_PROBE(x_pad, x_flag) \
 debug_warning("adding pad probe\n"); \
 if ( ! gst_pad_add_buffer_probe(x_pad, \
@@ -192,16 +191,6 @@ if ( ! gst_pad_add_buffer_probe(x_pad, \
 { \
 	debug_error("failed to add pad probe\n"); \
 }
-#else
-#define MMPLAYER_ADD_PROBE(x_pad, x_flag) \
-debug_warning("adding pad probe\n"); \
-if ( ! gst_pad_add_probe(x_pad, \
-	__util_gst_pad_probe, \
-	(gpointer)x_flag), NULL ) \
-{ \
-	debug_error("failed to add pad probe\n"); \
-} 
-#endif
 
 
 /* generating dot */
@@ -265,6 +254,16 @@ debug_log("------------------------------------------------------------\n");
 #define 	MMPLAYER_PT_IS_AUDIO( x_pt )		( strstr(x_pt, "_97") || strstr(x_pt, "audio") )
 #define 	MMPLAYER_PT_IS_VIDEO( x_pt )		( strstr(x_pt, "_96") || strstr(x_pt, "video") )
 
+#define MMPLAYER_VIDEO_SINK_CHECK(x_player) \
+do \
+{ \
+	return_val_if_fail ( x_player && \
+		x_player->pipeline && \
+		x_player->pipeline->videobin && \
+		x_player->pipeline->videobin[MMPLAYER_V_SINK].gst, \
+		MM_ERROR_PLAYER_NOT_INITIALIZED ); \
+} while(0);
+
 bool util_is_sdp_file ( const char *path );
 int64_t uti_get_time ( void );
 int util_get_rank_increase ( const char *factory_class );
@@ -281,7 +280,7 @@ int util_is_midi_type_by_file(const char *file_path);
 char** util_get_cookie_list ( const char *cookies );
 bool util_check_valid_url ( const char *proxy );
 
-char* util_get_charset(const char *file_path);
+const char* util_get_charset(const char *file_path);
 
 #ifdef __cplusplus
 	}

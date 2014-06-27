@@ -34,7 +34,7 @@
 
 bool util_exist_file_path(const char *file_path)
 {
-	int fd = NULL;
+	int fd = -1;
 	struct stat stat_results = {0, };
 
 	if (!file_path || !strlen(file_path))
@@ -200,6 +200,7 @@ __util_gst_pad_probe(GstPad *pad, GstBuffer *buffer, gpointer u_data)
 {
 	gint flag = (gint) u_data;
 	GstElement* parent = NULL;
+	GstMapInfo mapinfo = {0, };
 	gboolean ret = TRUE;
 
 	/* show name as default */
@@ -213,14 +214,12 @@ __util_gst_pad_probe(GstPad *pad, GstBuffer *buffer, gpointer u_data)
 	}
 
 	/* show buffer size */
+	gst_buffer_map(buffer, &mapinfo, GST_MAP_READ);
 	if ( flag & MM_PROBE_BUFFERSIZE )
 	{
-#ifdef GST_API_VERSION_1
-		debug_warning("buffer size : %ud\n", gst_buffer_get_size(buffer));
-#else
-		debug_warning("buffer size : %ud\n", GST_BUFFER_SIZE(buffer));
-#endif
+		debug_warning("buffer size : %ud\n", mapinfo.size);
 	}
+	gst_buffer_unmap(buffer, &mapinfo);
 
 	/* show buffer duration */
 	if ( flag & MM_PROBE_BUFFER_DURATION )
@@ -231,9 +230,7 @@ __util_gst_pad_probe(GstPad *pad, GstBuffer *buffer, gpointer u_data)
 	/* show buffer caps */
 	if ( flag & MM_PROBE_CAPS )
 	{
-#ifndef GST_API_VERSION_1
-		debug_warning("caps : %s\n", gst_caps_to_string(GST_BUFFER_CAPS(buffer)));
-#endif
+		debug_warning("caps : %s\n", gst_caps_to_string(gst_pad_get_current_caps(pad)));
 	}
 
 	/* drop buffer if flag is on */
@@ -405,7 +402,7 @@ util_factory_rank_compare(GstPluginFeature *f1, GstPluginFeature *f2) // @
     	return (gst_plugin_feature_get_rank(f2)+f2_rank_inc) - (gst_plugin_feature_get_rank(f1)+f1_rank_inc );
 }
 
-char*
+const char*
 util_get_charset(const char *file_path)
 {
 	UCharsetDetector* ucsd;

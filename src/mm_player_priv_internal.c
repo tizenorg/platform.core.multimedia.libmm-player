@@ -102,6 +102,7 @@ __mmplayer_release_signal_connection(mm_player_t* player)
 	debug_fenter();
 
 	return_if_fail( player );
+	return_if_fail( player->signals );
 
 	for ( ; sig_list; sig_list = sig_list->next )
 	{
@@ -135,7 +136,9 @@ __mmplayer_dump_pipeline_state( mm_player_t* player )
 	GstIterator*iter = NULL;
 	gboolean done = FALSE;
 
-	GstElement *item = NULL;
+	GValue item = { 0, };
+	GstElement *element;
+
 	GstElementFactory *factory = NULL;
 
 	GstState state = GST_STATE_VOID_PENDING;
@@ -154,47 +157,51 @@ __mmplayer_dump_pipeline_state( mm_player_t* player )
 	if ( iter != NULL )
 	{
 		while (!done) {
-			 switch ( gst_iterator_next (iter, (gpointer)&item) )
-			 {
-			   case GST_ITERATOR_OK:
-			   	gst_element_get_state(GST_ELEMENT (item),&state, &pending,time);
+			switch ( gst_iterator_next (iter, &item) )
+			{
+			case GST_ITERATOR_OK:
+				element = g_value_get_object (&item);
+				gst_element_get_state(element,&state, &pending,time);
 
-			   	factory = gst_element_get_factory (item) ;
-				if (!factory)
+				factory = gst_element_get_factory (element) ;
+
+				if (factory)
 				{
-					 debug_error("%s:%s : From:%s To:%s   refcount : %d\n", GST_OBJECT_NAME(factory) , GST_ELEMENT_NAME(item) ,
-					 	gst_element_state_get_name(state), gst_element_state_get_name(pending) , GST_OBJECT_REFCOUNT_VALUE(item));
+				debug_error("%s:%s : From:%s To:%s   refcount : %d\n", GST_OBJECT_NAME(factory) , GST_ELEMENT_NAME(element) ,
+					 	gst_element_state_get_name(state), gst_element_state_get_name(pending) , GST_OBJECT_REFCOUNT_VALUE(element));
 				}
-				 gst_object_unref (item);
-				 break;
-			   case GST_ITERATOR_RESYNC:
-				 gst_iterator_resync (iter);
-				 break;
-			   case GST_ITERATOR_ERROR:
-				 done = TRUE;
-				 break;
-			   case GST_ITERATOR_DONE:
-				 done = TRUE;
-				 break;
-			 }
+				g_value_reset(&item); 
+				break;
+			case GST_ITERATOR_RESYNC:
+				gst_iterator_resync (iter);
+				break;
+			case GST_ITERATOR_ERROR:
+				done = TRUE;
+				break;
+			case GST_ITERATOR_DONE:
+				done = TRUE;
+				break;
+			}
 		}
 	}
 
-	item = GST_ELEMENT(player->pipeline->mainbin[MMPLAYER_M_PIPE].gst);
+	element = GST_ELEMENT(player->pipeline->mainbin[MMPLAYER_M_PIPE].gst);
 
-	gst_element_get_state(GST_ELEMENT (item),&state, &pending,time);
+	gst_element_get_state(element,&state, &pending,time);
 
-	factory = gst_element_get_factory (item) ;
+	factory = gst_element_get_factory (element) ;
 
 	if (!factory)
 	{
 		debug_error("%s:%s : From:%s To:%s  refcount : %d\n",
 			GST_OBJECT_NAME(factory),
-			GST_ELEMENT_NAME(item),
+			GST_ELEMENT_NAME(element),
 			gst_element_state_get_name(state),
 			gst_element_state_get_name(pending),
-			GST_OBJECT_REFCOUNT_VALUE(item) );
+			GST_OBJECT_REFCOUNT_VALUE(element) );
 	}
+
+	g_value_unset (&item);
 
 	if ( iter )
 		gst_iterator_free (iter);
@@ -243,6 +250,9 @@ __mmplayer_gst_set_state (mm_player_t* player, GstElement * element,  GstState s
 
 	if ( ret == GST_STATE_CHANGE_FAILURE || ( state != element_state ) )
 	{
+		if (MMPLAYER_CURRENT_STATE(player) == MM_PLAYER_STATE_READY)
+			__mmplayer_release_signal_connection( player );
+
 		debug_error("failed to change [%s] element state to [%s] within %d sec\n",
 			GST_ELEMENT_NAME(element),
 			gst_element_state_get_name(state), timeout );
@@ -276,7 +286,7 @@ __mmplayer_cancel_delayed_eos( mm_player_t* player )
 
 	if ( player->eos_timer )
 	{
-		g_source_remove( player->eos_timer );
+		__mmplayer_remove_g_source_from_context( player->eos_timer );
 	}
 
 	player->eos_timer = 0;
@@ -420,11 +430,7 @@ __mmplayer_link_decoder( mm_player_t* player, GstPad *srcpad)
 	return_val_if_fail ( srcpad, FALSE );
 
 	/* to check any of the decoder (video/audio) need to be linked  to parser*/
-#ifdef GST_API_VERSION_1
-	srccaps = gst_pad_get_current_caps( srcpad );
-#else
-	srccaps = gst_pad_get_caps( srcpad );
-#endif
+    srccaps = gst_pad_query_caps( srcpad, NULL );
 	if ( !srccaps )
 		goto ERROR;
 
@@ -479,11 +485,7 @@ __mmplayer_link_sink( mm_player_t* player , GstPad *srcpad)
 	return_val_if_fail ( srcpad, FALSE );
 
 	/* to check any of the decoder (video/audio) need to be linked	to parser*/
-#ifdef GST_API_VERSION_1
-	srccaps = gst_pad_get_current_caps( srcpad );
-#else
-	srccaps = gst_pad_get_caps( srcpad );
-#endif
+    srccaps = gst_pad_query_caps( srcpad, NULL );
 	if ( !srccaps )
 		goto ERROR;
 
@@ -1100,7 +1102,6 @@ __mmplayer_handle_streaming_error  ( mm_player_t* player, GstMessage * message )
 	return TRUE;
 
 }
-
 void
 __mmplayer_add_sink( mm_player_t* player, GstElement* sink )
 {
@@ -1114,7 +1115,6 @@ __mmplayer_add_sink( mm_player_t* player, GstElement* sink )
 
 	debug_fleave();
 }
-
 void
 __mmplayer_del_sink( mm_player_t* player, GstElement* sink )
 {

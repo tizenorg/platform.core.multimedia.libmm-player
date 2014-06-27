@@ -618,6 +618,8 @@ typedef struct {
 	gboolean play_subtitle;
 	gboolean use_textoverlay;
 
+	const gchar *temp_encode_name;
+
 	/* PD downloader message callback and param */
 	MMMessageCallback pd_msg_cb;
 	void* pd_msg_cb_param;
@@ -647,7 +649,7 @@ int _mmplayer_pause(MMHandleType hplayer);
 int _mmplayer_resume(MMHandleType hplayer);
 int _mmplayer_set_position(MMHandleType hplayer, int format, int pos);
 int _mmplayer_get_position(MMHandleType hplayer, int format, unsigned long *pos);
-int _mmplayer_adjust_subtitle_postion(MMHandleType hplayer, int format,  int pos);
+int _mmplayer_adjust_subtitle_postion(MMHandleType hplayer, int format,  unsigned long pos);
 int _mmplayer_activate_section_repeat(MMHandleType hplayer, unsigned long start, unsigned long end);
 int _mmplayer_deactivate_section_repeat(MMHandleType hplayer);
 int _mmplayer_push_buffer(MMHandleType hplayer, unsigned char *buf, int size);
@@ -671,6 +673,10 @@ int _mmplayer_update_video_param(mm_player_t* player);
 int _mmplayer_set_audiobuffer_cb(MMHandleType hplayer, mm_player_audio_stream_callback callback, void *user_param);
 int _mmplayer_audio_effect_preset_apply(mm_player_t *player, MMAudioEffectPresetType effect_type);
 int _mmplayer_audio_effect_custom_apply(mm_player_t *player);
+int _mmplayer_set_display_zoom(MMHandleType hplayer, float level);
+int _mmplayer_get_display_zoom(MMHandleType hplayer, float *level);
+int _mmplayer_set_display_zoom_start_pos(MMHandleType hplayer, int x, int y);
+int _mmplayer_get_display_zoom_start_pos(MMHandleType hplayer, int *x, int *y);
 
 #ifdef __cplusplus
 	}
