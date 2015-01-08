@@ -2776,7 +2776,7 @@ __mmplayer_gst_create_pipeline(mm_player_t* player) // @
 	if ( __mmplayer_check_subtitle ( player ) )
 	{
 		if ( MM_ERROR_NONE != __mmplayer_gst_create_subtitle_src(player) )
-			debug_error("fail to create subtitle src\n")
+			debug_error("fail to create subtitle src\n");
 	}
 
 	/* set sync handler to get tag synchronously */
