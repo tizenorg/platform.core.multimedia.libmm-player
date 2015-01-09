@@ -677,6 +677,8 @@ int _mmplayer_set_display_zoom(MMHandleType hplayer, float level);
 int _mmplayer_get_display_zoom(MMHandleType hplayer, float *level);
 int _mmplayer_set_display_zoom_start_pos(MMHandleType hplayer, int x, int y);
 int _mmplayer_get_display_zoom_start_pos(MMHandleType hplayer, int *x, int *y);
+void __mmplayer_remove_g_source_from_context(guint source_id);
+
 
 #ifdef __cplusplus
 	}

@@ -141,7 +141,7 @@ static int  __mmplayer_realize_streaming_ext(mm_player_t* player);
 static int __mmplayer_unrealize_streaming_ext(mm_player_t *player);
 static int __mmplayer_start_streaming_ext(mm_player_t *player);
 static int __mmplayer_destroy_streaming_ext(mm_player_t* player);
-static void __mmplayer_remove_g_source_from_context(guint source_id);
+
 
 
 /*===========================================================================================
