@@ -3,7 +3,8 @@
  *
  * Copyright (c) 2000 - 2011 Samsung Electronics Co., Ltd. All rights reserved.
  *
- * Contact: JongHyuk Choi <jhchoi.choi@samsung.com>, Heechul Jeon <heechul.jeon@samsung.com>
+ * Contact: JongHyuk Choi <jhchoi.choi@samsung.com>, YeJin Cho <cho.yejin@samsung.com>,
+ * Seungbae Shin <seungbae.shin@samsung.com>, YoungHwan An <younghwan_.an@samsung.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +26,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unicode/ucsdet.h>
@@ -32,40 +34,53 @@
 #include <mm_debug.h>
 #include "mm_player_utils.h"
 
-bool util_exist_file_path(const char *file_path)
+/* for getting status of connecting external display */
+#include <vconf.h>
+#include <vconf-internal-sysman-keys.h>
+#include <vconf-internal-wifi-keys.h>
+
+int util_exist_file_path(const char *file_path)
 {
-	int fd = -1;
+	int fd = 0;
 	struct stat stat_results = {0, };
 
 	if (!file_path || !strlen(file_path))
-		return FALSE;
+		return MM_ERROR_PLAYER_FILE_NOT_FOUND;
 
 	fd = open (file_path, O_RDONLY);
 
 	if (fd < 0)
 	{
-		debug_error("failed to open %s, %s", file_path, strerror(errno));
-		return FALSE;
+		debug_error("failed to open file by %s (%d)", strerror(errno), errno);
+
+		if (EACCES == errno)
+//			return MM_ERROR_PLAYER_PERMISSION_DENIED;
+
+		return MM_ERROR_PLAYER_FILE_NOT_FOUND;
 	}
 
 	if (fstat(fd, &stat_results) < 0)
 	{
 		debug_error("failed to get file status");
 	}
+	else if (stat_results.st_size == 0)
+	{
+		debug_error("file size is zero");
+		close(fd);
+		return MM_ERROR_PLAYER_FILE_NOT_FOUND;
+	}
 	else
 	{
-		debug_warning("file size : %lld bytes", (long long)stat_results.st_size); //need to chech file validity
+		debug_warning("file size : %lld bytes", (long long)stat_results.st_size);
 	}
 
 	close(fd);
 
-	return TRUE;
+	return MM_ERROR_NONE;
 }
 
 bool util_write_file_backup(const char *backup_path, char *data_ptr, int data_size)
 {
-	debug_log("\n");
-
 	FILE *fp = NULL;
 	int wsize = 0;
 
@@ -91,8 +106,6 @@ bool util_write_file_backup(const char *backup_path, char *data_ptr, int data_si
 
 bool util_remove_file_backup(const char *backup_path)
 {
-	debug_log("\n");
-
 	if (!backup_path || !strlen(backup_path))
 		return FALSE;
 
@@ -110,8 +123,6 @@ bool util_remove_file_backup(const char *backup_path)
 //bool util_is_midi_type_by_mem(void *mem, int size)
 int util_is_midi_type_by_mem(void *mem, int size)
 {
-	debug_log("\n");
-
 	const char *p = (const char *)mem;
 
 	if (size < DETECTION_PREFIX_SIZE)
@@ -154,8 +165,6 @@ int util_is_midi_type_by_mem(void *mem, int size)
 //bool util_is_midi_type_by_file(const char *file_path)
 int util_is_midi_type_by_file(const char *file_path)
 {
-	debug_log("\n");
-
 	struct stat file_attrib;
 	FILE *fp = NULL;
 	char prefix[DETECTION_PREFIX_SIZE] = {0,};
@@ -205,38 +214,38 @@ __util_gst_pad_probe(GstPad *pad, GstBuffer *buffer, gpointer u_data)
 
 	/* show name as default */
 	parent = (GstElement*)gst_object_get_parent(GST_OBJECT(pad));
-	debug_warning("PAD PROBE : %s:%s\n", GST_ELEMENT_NAME(parent), GST_PAD_NAME(pad));
+	debug_log("PAD PROBE : %s:%s\n", GST_ELEMENT_NAME(parent), GST_PAD_NAME(pad));
 
 	/* show time stamp */
 	if ( flag & MM_PROBE_TIMESTAMP )
 	{
-		debug_warning("ts : %u:%02u:%02u.%09u\n",  GST_TIME_ARGS(GST_BUFFER_TIMESTAMP(buffer)));
+		debug_log("ts : %u:%02u:%02u.%09u\n",  GST_TIME_ARGS(GST_BUFFER_TIMESTAMP(buffer)));
 	}
 
 	/* show buffer size */
 	gst_buffer_map(buffer, &mapinfo, GST_MAP_READ);
 	if ( flag & MM_PROBE_BUFFERSIZE )
 	{
-		debug_warning("buffer size : %ud\n", mapinfo.size);
+		debug_log("buffer size : %ud\n", mapinfo.size);
 	}
 	gst_buffer_unmap(buffer, &mapinfo);
 
 	/* show buffer duration */
 	if ( flag & MM_PROBE_BUFFER_DURATION )
 	{
-		debug_warning("dur : %lld\n", GST_BUFFER_DURATION(buffer));
+		debug_log("dur : %lld\n", GST_BUFFER_DURATION(buffer));
 	}
 
 	/* show buffer caps */
 	if ( flag & MM_PROBE_CAPS )
 	{
-		debug_warning("caps : %s\n", gst_caps_to_string(gst_pad_get_current_caps(pad)));
+		MMPLAYER_LOG_GST_CAPS_TYPE(gst_pad_get_current_caps(pad));
 	}
 
 	/* drop buffer if flag is on */
 	if ( flag & MM_PROBE_DROP_BUFFER )
 	{
-		debug_warning("dropping\n");
+		debug_log("dropping\n");
 		ret = FALSE;
 	}
 
@@ -251,7 +260,7 @@ __util_gst_pad_probe(GstPad *pad, GstBuffer *buffer, gpointer u_data)
 		if ( clock )
 		{
 			now = gst_clock_get_time( clock );
-			debug_warning("clock time : %" GST_TIME_FORMAT "\n", GST_TIME_ARGS( now ));
+			debug_log("clock time : %" GST_TIME_FORMAT "\n", GST_TIME_ARGS( now ));
 		}
 	}
 
@@ -271,7 +280,7 @@ util_get_cookie_list ( const char *cookies )
 	if ( !cookies || !strlen(cookies) )
 		return NULL;
 
-	debug_log("cookies : %d[bytes] - %s \n", strlen(cookies), cookies);
+	secure_debug_log("cookies : %d[bytes] - %s \n", strlen(cookies), cookies);
 
 	temp = g_strdup(cookies);
 
@@ -286,7 +295,7 @@ util_get_cookie_list ( const char *cookies )
 		if ( cookie_list[i] && strlen(cookie_list[i]) )
 		{
 			g_strstrip(cookie_list[i]);
-			debug_log("cookie_list[%d] : %d[bytes] - %s \n", i, strlen(cookie_list[i]), cookie_list[i]);
+			secure_debug_log("cookie_list[%d] : %d[bytes] - %s \n", i, strlen(cookie_list[i]), cookie_list[i]);
 		}
 		else
 		{
@@ -309,7 +318,7 @@ bool util_check_valid_url ( const char *proxy )
 	return_val_if_fail ( proxy, FALSE );
 	return_val_if_fail ( strlen(proxy), FALSE );
 
-       if ( inet_aton(proxy, &proxy_addr) != 0 )
+	if ( inet_aton(proxy, &proxy_addr) != 0 )
 	{
 		debug_warning("invalid proxy is set. \n");
 		ret = FALSE;
@@ -325,7 +334,7 @@ util_is_sdp_file ( const char *path )
 	gboolean ret = FALSE;
 	gchar* uri = NULL;
 
-	debug_fenter();
+	MMPLAYER_FENTER();
 
 	return_val_if_fail ( path, FALSE );
 
@@ -353,7 +362,6 @@ util_is_sdp_file ( const char *path )
 	if ( ! ret )
 	{
 		/* FIXIT : do it soon */
-		debug_log("determining whether it's sdp or not with it's content is not implemented yet. ;)\n");
 	}
 
 	g_free( uri);
@@ -411,19 +419,20 @@ util_get_charset(const char *file_path)
 
 	const char* charset = NULL;
 	char *buf = NULL;
-	FILE* fin;
+	FILE* fin =0;
+	size_t n_size = 0;
 
 	fin = fopen(file_path, "r");
 	if (!fin)
 	{
-		debug_error("fail to open file %s\n", file_path);
+		secure_debug_error("fail to open file %s\n", file_path);
 		return NULL;
 	}
 
 	ucsd = ucsdet_open( &status );
 	if( U_FAILURE(status) ) {
 		debug_error("fail to ucsdet_open\n");
-		return NULL;
+		goto done;
 	}
 
 	ucsdet_enableInputFilter( ucsd, TRUE );
@@ -435,8 +444,10 @@ util_get_charset(const char *file_path)
 		goto done;
 	}
 
-	fread( buf, 1, 1024*1024, fin );
-	fclose(fin);
+	n_size = fread( buf, 1, 1024*1024, fin );
+
+	if (!n_size)
+		goto done;
 
 	ucsdet_setText( ucsd, buf, strlen(buf), &status );
 	if( U_FAILURE(status) ) {
@@ -457,7 +468,11 @@ util_get_charset(const char *file_path)
 	}
 
 done:
-	ucsdet_close( ucsd );
+	if(fin)
+		fclose(fin);
+
+	if(ucsd)
+		ucsdet_close( ucsd );
 
 	if (buf)
 		g_free(buf);
@@ -465,3 +480,122 @@ done:
 	return charset;
 }
 
+int
+util_get_is_connected_external_display(void)
+{
+  int is_connected_hdmi = -1;
+  int is_connected_mirroring = -1;
+
+#if 0
+	if (vconf_get_int(VCONFKEY_SYSMAN_HDMI, &is_connected_hdmi))
+		debug_error("[hdmi]vconf_set_int FAIL");
+	if (vconf_get_int(VCONFKEY_SCREEN_MIRRORING_STATE, &is_connected_mirroring))
+		debug_error("[mirroring]vconf_set_int FAIL");
+
+	/* if conneted with external display */
+	if (is_connected_mirroring == VCONFKEY_SCREEN_MIRRORING_CONNECTED) {
+		debug_warning ("connected with mirroring display");
+		return MMPLAYER_DISPLAY_MIRRORING_ACTIVE;
+	}
+	if (is_connected_hdmi == VCONFKEY_SYSMAN_HDMI_CONNECTED) {
+		debug_warning ("connected with external display");
+		return MMPLAYER_DISPLAY_HDMI_ACTIVE;
+	}
+	if ((is_connected_mirroring == VCONFKEY_SCREEN_MIRRORING_ACTIVATED || is_connected_mirroring == VCONFKEY_SCREEN_MIRRORING_DEACTIVATED) && is_connected_hdmi == VCONFKEY_SYSMAN_HDMI_DISCONNECTED) {
+		debug_warning ("non-connected status");
+		return MMPLAYER_DISPLAY_NULL;
+	}
+#endif
+	debug_error ("it is not registered (%d, %d)", is_connected_mirroring, is_connected_hdmi);
+	return -1;
+}
+
+gboolean util_is_miracast_connected(void)
+{
+	int is_connected = 0;
+
+	if (vconf_get_bool(VCONFKEY_MIRACAST_WFD_SOURCE_STATUS, &is_connected) ) {
+		debug_error("failed to get miracast status key");
+		return FALSE;
+	}
+
+	if (VCONFKEY_MIRACAST_WFD_SOURCE_ON == is_connected) {
+		debug_warning("miracast connected");
+		return TRUE;
+	}
+
+	return FALSE;
+}
+
+int util_get_pixtype(unsigned int fourcc)
+{
+	int pixtype = MM_PIXEL_FORMAT_INVALID;
+
+    /*
+	char *pfourcc = (char*)&fourcc;
+
+	debug_log("fourcc(%c%c%c%c)",
+	                 pfourcc[0], pfourcc[1], pfourcc[2], pfourcc[3]);
+    */
+
+
+	switch (fourcc) {
+	case GST_MAKE_FOURCC ('S', 'N', '1', '2'):
+	case GST_MAKE_FOURCC ('N', 'V', '1', '2'):
+		pixtype = MM_PIXEL_FORMAT_NV12;
+		break;
+	case GST_MAKE_FOURCC ('S', 'N', '2', '1'):
+	case GST_MAKE_FOURCC ('N', 'V', '2', '1'):
+		pixtype = MM_PIXEL_FORMAT_NV21;
+		break;
+	case GST_MAKE_FOURCC ('S', 'U', 'Y', 'V'):
+	case GST_MAKE_FOURCC ('Y', 'U', 'Y', 'V'):
+	case GST_MAKE_FOURCC ('Y', 'U', 'Y', '2'):
+		pixtype = MM_PIXEL_FORMAT_YUYV;
+		break;
+	case GST_MAKE_FOURCC ('S', 'Y', 'V', 'Y'):
+	case GST_MAKE_FOURCC ('U', 'Y', 'V', 'Y'):
+		pixtype = MM_PIXEL_FORMAT_UYVY;
+		break;
+	case GST_MAKE_FOURCC ('S', '4', '2', '0'):
+	case GST_MAKE_FOURCC ('I', '4', '2', '0'):
+		pixtype = MM_PIXEL_FORMAT_I420;
+		break;
+	case GST_MAKE_FOURCC ('Y', 'V', '1', '2'):
+		pixtype = MM_PIXEL_FORMAT_YV12;
+		break;
+	case GST_MAKE_FOURCC ('4', '2', '2', 'P'):
+		pixtype = MM_PIXEL_FORMAT_422P;
+		break;
+	case GST_MAKE_FOURCC ('R', 'G', 'B', 'P'):
+		pixtype = MM_PIXEL_FORMAT_RGB565;
+		break;
+	case GST_MAKE_FOURCC ('R', 'G', 'B', '3'):
+		pixtype = MM_PIXEL_FORMAT_RGB888;
+		break;
+	case GST_MAKE_FOURCC ('A', 'R', 'G', 'B'):
+	case GST_MAKE_FOURCC ('x', 'R', 'G', 'B'):
+		pixtype = MM_PIXEL_FORMAT_ARGB;
+		break;
+	case GST_MAKE_FOURCC ('B', 'G', 'R', 'A'):
+	case GST_MAKE_FOURCC ('B', 'G', 'R', 'x'):
+	case GST_MAKE_FOURCC ('S', 'R', '3', '2'):
+		pixtype = MM_PIXEL_FORMAT_RGBA;
+		break;
+	case GST_MAKE_FOURCC ('J', 'P', 'E', 'G'):
+	case GST_MAKE_FOURCC ('P', 'N', 'G', ' '):
+		pixtype = MM_PIXEL_FORMAT_ENCODED;
+		break;
+	/*FIXME*/
+	case GST_MAKE_FOURCC ('I', 'T', 'L', 'V'):
+		pixtype = MM_PIXEL_FORMAT_ITLV_JPEG_UYVY;
+		break;
+	default:
+		debug_error("Not supported fourcc type(%c%c%c%c)",
+		               fourcc, fourcc>>8, fourcc>>16, fourcc>>24);
+		pixtype = MM_PIXEL_FORMAT_INVALID;
+		break;
+	}
+
+	return pixtype;
+}

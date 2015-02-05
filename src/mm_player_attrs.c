@@ -3,7 +3,8 @@
  *
  * Copyright (c) 2000 - 2011 Samsung Electronics Co., Ltd. All rights reserved.
  *
- * Contact: JongHyuk Choi <jhchoi.choi@samsung.com>, YeJin Cho <cho.yejin@samsung.com>, YoungHwan An <younghwan_.an@samsung.com>
+ * Contact: JongHyuk Choi <jhchoi.choi@samsung.com>, YeJin Cho <cho.yejin@samsung.com>,
+ * YoungHwan An <younghwan_.an@samsung.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,8 +28,8 @@
 #include <vconf.h>
 #include <mm_attrs_private.h>
 #include <mm_attrs.h>
-
 #include <gst/video/videooverlay.h>
+#include "mm_player_utils.h"
 #include "mm_player_priv.h"
 #include "mm_player_attrs.h"
 
@@ -66,8 +67,6 @@ _mmplayer_get_attribute(MMHandleType handle,  char **err_attr_name, const char *
 	int result = MM_ERROR_NONE;
 	MMHandleType attrs = 0;
 
-	debug_fenter();
-
 	/* NOTE : Don't need to check err_attr_name because it can be set NULL */
 	/* if it's not want to know it. */
 	return_val_if_fail(attribute_name, MM_ERROR_COMMON_INVALID_ARGUMENT);
@@ -80,8 +79,6 @@ _mmplayer_get_attribute(MMHandleType handle,  char **err_attr_name, const char *
 	if ( result != MM_ERROR_NONE)
 		debug_error("failed to get %s attribute\n", attribute_name);
 
-	debug_fleave();
-
 	return result;
 }
 
@@ -90,8 +87,6 @@ _mmplayer_set_attribute(MMHandleType handle,  char **err_attr_name, const char *
 {
 	int result = MM_ERROR_NONE;
 	MMHandleType attrs = 0;
-
-	debug_fenter();
 
 	/* NOTE : Don't need to check err_attr_name because it can be set NULL */
 	/* if it's not want to know it. */
@@ -116,8 +111,6 @@ _mmplayer_set_attribute(MMHandleType handle,  char **err_attr_name, const char *
 		return result;
 	}
 
-	debug_fleave();
-
 	return result;
 }
 
@@ -127,8 +120,6 @@ _mmplayer_get_attributes_info(MMHandleType handle,  const char *attribute_name, 
 	int result = MM_ERROR_NONE;
 	MMHandleType attrs = 0;
 	MMAttrsInfo src_info = {0, };
-
-	debug_fenter();
 
 	return_val_if_fail(attribute_name, MM_ERROR_COMMON_INVALID_ARGUMENT);
 	return_val_if_fail(dst_info, MM_ERROR_COMMON_INVALID_ARGUMENT);
@@ -180,23 +171,17 @@ _mmplayer_get_attributes_info(MMHandleType handle,  const char *attribute_name, 
 		break;
 	}
 
-	debug_fleave();
-
 	return result;
 }
 
 int
 __mmplayer_apply_attribute(MMHandleType handle, const char *attribute_name)
 {
-	MMHandleType attrs = 0;
 	mm_player_t* player = 0;
-
-	debug_fenter();
 
 	return_val_if_fail(handle, MM_ERROR_COMMON_INVALID_ARGUMENT);
 	return_val_if_fail(attribute_name, MM_ERROR_COMMON_INVALID_ARGUMENT);
 
-	attrs = MM_PLAYER_GET_ATTRS(handle);
 	player = MM_PLAYER_CAST(handle);
 
 	if ( g_strrstr(attribute_name, "display") )
@@ -221,35 +206,34 @@ __mmplayer_apply_attribute(MMHandleType handle, const char *attribute_name)
 		}
 	}
 
-	debug_fleave();
-
 	return MM_ERROR_NONE;
 }
 
 MMHandleType
 _mmplayer_construct_attribute(MMHandleType handle)
 {
+	mm_player_t *player = NULL;
 	int idx = 0;
 	MMHandleType attrs = 0;
 	int num_of_attrs = 0;
 	mmf_attrs_construct_info_t *base = NULL;
-	gchar *system_ua = NULL;
+	//gchar *system_ua = NULL;
 	gchar *system_proxy = NULL;
 
-	debug_fenter();
-
 	return_val_if_fail (handle, 0);
+
+	player = MM_PLAYER_CAST(handle);
 
 	MMPlayerAttrsSpec player_attrs[] =
 	{
 		{
-			"profile_uri",			// name
+			"profile_uri",					// name
 			MM_ATTRS_TYPE_STRING,		// type
-			MM_ATTRS_FLAG_RW, 		// flag
-			(void *) NULL,			// default value
+			MM_ATTRS_FLAG_RW, 			// flag
+			(void *) NULL,				// default value
 			MM_ATTRS_VALID_TYPE_NONE,	// validity type
-			0,				// validity min value
-			0				// validity max value
+			0,							// validity min value
+			0							// validity max value
 		},
 		{
 			"profile_user_param",
@@ -349,6 +333,15 @@ _mmplayer_construct_attribute(MMHandleType handle)
 			MM_ATTRS_VALID_TYPE_NONE,
 			0,
 			0
+		},
+		{
+			"streaming_timeout",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) -1,	// DEFAULT_HTTP_TIMEOUT
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			-1,
+			MMPLAYER_MAX_INT
 		},
 		{
 			"subtitle_uri",
@@ -513,6 +506,15 @@ _mmplayer_construct_attribute(MMHandleType handle)
 			MMPLAYER_MAX_INT
 		},
 		{
+			"content_text_track_num",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) 0,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			0,
+			MMPLAYER_MAX_INT
+		},
+		{
 			"tag_artist",
 			MM_ATTRS_TYPE_STRING,
 			MM_ATTRS_FLAG_RW,
@@ -600,6 +602,42 @@ _mmplayer_construct_attribute(MMHandleType handle)
 			0
 		},
 		{
+			"display_src_crop_x",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) 0,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			0,
+			MMPLAYER_MAX_INT
+		},
+		{
+			"display_src_crop_y",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) 0,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			0,
+			MMPLAYER_MAX_INT
+		},
+		{
+			"display_src_crop_width",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) 0,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			0,
+			MMPLAYER_MAX_INT
+		},
+		{
+			"display_src_crop_height",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) 0,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			0,
+			MMPLAYER_MAX_INT
+		},
+		{
 			"display_roi_x",
 			MM_ATTRS_TYPE_INT,
 			MM_ATTRS_FLAG_RW,
@@ -636,6 +674,15 @@ _mmplayer_construct_attribute(MMHandleType handle)
 			MMPLAYER_MAX_INT
 		},
 		{
+			"display_roi_mode",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) MM_DISPLAY_METHOD_CUSTOM_ROI_FULL_SCREEN,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			MM_DISPLAY_METHOD_CUSTOM_ROI_FULL_SCREEN,
+			MM_DISPLAY_METHOD_CUSTOM_ROI_LETER_BOX
+		},
+		{
 			"display_rotation",
 			MM_ATTRS_TYPE_INT,
 			MM_ATTRS_FLAG_RW,
@@ -648,7 +695,7 @@ _mmplayer_construct_attribute(MMHandleType handle)
 			"display_visible",
 			MM_ATTRS_TYPE_INT,
 			MM_ATTRS_FLAG_RW,
-			(void *) TRUE,
+			(void *) FALSE,
 			MM_ATTRS_VALID_TYPE_INT_RANGE,
 			0,
 			1
@@ -702,7 +749,7 @@ _mmplayer_construct_attribute(MMHandleType handle)
 			"display_evas_surface_sink",
 			MM_ATTRS_TYPE_STRING,
 			MM_ATTRS_FLAG_READABLE,
-			(void *) PLAYER_INI()->videosink_element_evas,
+			(void *) player->ini.videosink_element_evas,
 			MM_ATTRS_VALID_TYPE_NONE,
 			0,
 			0
@@ -767,8 +814,8 @@ _mmplayer_construct_attribute(MMHandleType handle)
 			MM_ATTRS_FLAG_RW,
 			(void *) MM_SOUND_VOLUME_TYPE_MEDIA,
 			MM_ATTRS_VALID_TYPE_INT_RANGE,
-			MM_SOUND_VOLUME_TYPE_SYSTEM,
-			MM_SOUND_VOLUME_TYPE_CALL
+			0,
+			MMPLAYER_MAX_INT
 		},
 		{
 			"sound_route",
@@ -810,13 +857,22 @@ _mmplayer_construct_attribute(MMHandleType handle)
 			"sound_priority",
 			MM_ATTRS_TYPE_INT,
 			MM_ATTRS_FLAG_RW,
-			(void *) 0,			// 0: normal, 1: high 2: high with sound transition
+			(void *) 0,			// 0: normal, 1: high 2: high with sound transition 3: mix with others regardless of priority
 			MM_ATTRS_VALID_TYPE_INT_RANGE,
 			0,
-			2
+			3
 		},
 		{
-			"audio_latency_mode",
+			"sound_close_resource",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) 0,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			0,
+			1
+		},
+		{
+			"sound_latency_mode",
 			MM_ATTRS_TYPE_INT,
 			MM_ATTRS_FLAG_RW,
 			(void *) 1,			// 0: low latency, 1: middle latency 2: high latency
@@ -837,7 +893,7 @@ _mmplayer_construct_attribute(MMHandleType handle)
 			"pcm_extraction_samplerate",	// set samplerate for pcm extraction
 			MM_ATTRS_TYPE_INT,
 			MM_ATTRS_FLAG_RW,
-			(void *) 8000,				// hz
+			(void *) 44100,				// hz
 			MM_ATTRS_VALID_TYPE_INT_RANGE,
 			0,
 			MMPLAYER_MAX_INT
@@ -989,7 +1045,7 @@ _mmplayer_construct_attribute(MMHandleType handle)
 				mmf_attrs_set_valid_range (attrs, idx,
 						player_attrs[idx].value_min,
 						player_attrs[idx].value_max,
-                        (int)player_attrs[idx].default_value);
+						(int)(player_attrs[idx].default_value));
 			}
 			break;
 
@@ -1001,6 +1057,7 @@ _mmplayer_construct_attribute(MMHandleType handle)
 		}
 	}
 
+	#if 0
 	/* set proxy and user agent */
 	system_ua = vconf_get_str(VCONFKEY_ADMIN_UAGENT);
 	system_proxy = vconf_get_str(VCONFKEY_NETWORK_PROXY);
@@ -1010,6 +1067,7 @@ _mmplayer_construct_attribute(MMHandleType handle)
 			mm_attrs_set_string_by_name(attrs, "streaming_user_agent", system_ua);
 			g_free(system_ua);
 	}
+	#endif
 
 	if (system_proxy)
 	{
@@ -1020,16 +1078,12 @@ _mmplayer_construct_attribute(MMHandleType handle)
 	/* commit */
 	mmf_attrs_commit(attrs);
 
-	debug_fleave();
-
 	return attrs;
 }
 
 bool
 _mmplayer_deconstruct_attribute(MMHandleType handle) // @
 {
-	debug_fenter();
-
 	mm_player_t *player = MM_PLAYER_CAST(handle);
 
 	return_val_if_fail ( player, FALSE );
@@ -1039,8 +1093,6 @@ _mmplayer_deconstruct_attribute(MMHandleType handle) // @
 		mmf_attrs_free (player->attrs);
 		player->attrs = 0;
 	}
-
-	debug_fleave();
 
 	return TRUE;
 }

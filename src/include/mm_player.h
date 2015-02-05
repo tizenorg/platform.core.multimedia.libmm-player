@@ -3,7 +3,8 @@
  *
  * Copyright (c) 2000 - 2011 Samsung Electronics Co., Ltd. All rights reserved.
  *
- * Contact: JongHyuk Choi <jhchoi.choi@samsung.com>, YeJin Cho <cho.yejin@samsung.com>, YoungHwan An <younghwan_.an@samsung.com>
+ * Contact: JongHyuk Choi <jhchoi.choi@samsung.com>, YeJin Cho <cho.yejin@samsung.com>,
+ * Seungbae Shin <seungbae.shin@samsung.com>, YoungHwan An <younghwan_.an@samsung.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -49,12 +50,12 @@
 	by registering callback function.
 
 	@par
-	In case of streaming playback, network has to be opend by using datanetwork API. 
-	If proxy, cookies and the other attributes for streaming playback are needed, 
+	In case of streaming playback, network has to be opend by using datanetwork API.
+	If proxy, cookies and the other attributes for streaming playback are needed,
 	set those attributes using mm_player_set_attribute() before create player.
 
 	@par
-	The subtitle for local video playback is supported. Set "subtitle_uri" attribute 
+	The subtitle for local video playback is supported. Set "subtitle_uri" attribute
 	using mm_player_set_attribute() before the application creates the player.
 	Then the application could receive MMMessageParamType which includes subtitle string and duration.
 
@@ -68,7 +69,7 @@
 
 	@par
 	Most of functions which change player state work as synchronous. But, mm_player_start() should be used
-	asynchronously. Both mm_player_pause() and mm_player_resume() should also be used asynchronously 
+	asynchronously. Both mm_player_pause() and mm_player_resume() should also be used asynchronously
 	in the case of streaming data.
 	So, application have to confirm the result of those APIs through message callback function.
 
@@ -274,6 +275,11 @@
 	<td>range</td>
 	</tr>
 	<tr>
+	<td>"streaming_timeout"</td>
+	<td>int</td>
+	<td>range</td>
+	</tr>
+	<tr>
 	<td>"display_overlay"</td>
 	<td>data</td>
 	<td>N/A</td>
@@ -292,7 +298,7 @@
 
 	@par
 	Following attributes are supported for playing stream data. Those value can be readable only and valid after starting playback.\n
-	Please use mm_fileinfo for local playback. 
+	Please use mm_fileinfo for local playback.
 
 	@par
 	<div><table>
@@ -417,8 +423,8 @@
 /**
  * MM_PLAYER_CONTENT_DURATION:
  *
- * get the duration (int) as millisecond, It's guaranteed after calling mm_player_start() or 
- * receiving MM_MESSAGE_BEGIN_OF_STREAM. 
+ * get the duration (int) as millisecond, It's guaranteed after calling mm_player_start() or
+ * receiving MM_MESSAGE_BEGIN_OF_STREAM.
  *
  */
 #define MM_PLAYER_CONTENT_DURATION			"content_duration"
@@ -432,16 +438,16 @@
 /**
  * MM_PLAYER_VIDEO_WIDTH:
  *
- * get the video width (int), It's guaranteed after calling mm_player_start() or 
- * receiving MM_MESSAGE_BEGIN_OF_STREAM. 
+ * get the video width (int), It's guaranteed after calling mm_player_start() or
+ * receiving MM_MESSAGE_BEGIN_OF_STREAM.
  *
  */
 #define MM_PLAYER_VIDEO_WIDTH				"content_video_width"
 /**
  * MM_PLAYER_VIDEO_HEIGHT:
  *
- * get the video height (int), It's guaranteed after calling mm_player_start() or 
- * receiving MM_MESSAGE_BEGIN_OF_STREAM. 
+ * get the video height (int), It's guaranteed after calling mm_player_start() or
+ * receiving MM_MESSAGE_BEGIN_OF_STREAM.
  *
  */
 #define MM_PLAYER_VIDEO_HEIGHT				"content_video_height"
@@ -471,7 +477,7 @@
 /**
  * MM_PLAYER_PLAYBACK_COUNT
  *
- * can set playback count (int), Default value is 1 and -1 is for infinity playing until releasing it. 
+ * can set playback count (int), Default value is 1 and -1 is for infinity playing until releasing it.
  *
  */
 #define MM_PLAYER_PLAYBACK_COUNT				"profile_play_count"
@@ -530,6 +536,12 @@
  * set the streaming proxy port (int)
  */
 #define MM_PLAYER_STREAMING_PROXY_PORT		"streaming_proxy_port"
+/**
+ * MM_PLAYER_STREAMING_TIMEOUT
+ *
+ * set the streaming timeout (int)
+ */
+#define MM_PLAYER_STREAMING_TIMEOUT			"streaming_timeout"
 /**
  * MM_PLAYER_VIDEO_CODEC
  *
@@ -639,6 +651,19 @@
  */
 #define MM_PLAYER_PD_MODE						"pd_mode"
 
+#define BUFFER_MAX_PLANE_NUM (4)
+
+typedef struct {
+	MMPixelFormatType format;       		/**< image format */
+	int width;                      			/**< width of video buffer */
+	int height;                     			/**< height of video buffer */
+	unsigned int timestamp;         		/**< timestamp of stream buffer (msec)*/
+	unsigned int length_total; 			/**< total length of stream buffer (in byte)*/
+	void *data;
+	void *bo[BUFFER_MAX_PLANE_NUM];  /**< TBM buffer object */
+	void *internal_buffer;          		/**< Internal buffer pointer */
+}MMPlayerVideoStreamDataType;
+
 /**
  * Enumerations of player state.
  */
@@ -712,10 +737,53 @@ typedef enum {
  * Enumeration of track types
  */
 typedef enum {
-	MM_PLAYER_TRACK_TYPE_AUDIO,
+	MM_PLAYER_TRACK_TYPE_AUDIO = 0,
+#ifdef _USE_M_V_INPUT_SELECTOR_
 	MM_PLAYER_TRACK_TYPE_VIDEO,
-       MM_PLAYER_TRACK_TYPE_TEXT
+#endif
+	MM_PLAYER_TRACK_TYPE_TEXT,
+	MM_PLAYER_TRACK_TYPE_MAX
 }MMPlayerTrackType;
+
+/**
+ * Enumeration of runtime buffering mode
+ */
+typedef enum {
+	MM_PLAYER_BUFFERING_MODE_ADAPTIVE = 0,	/**< default, If buffering is occurred, player will consider the bandwidth to adjust buffer setting. */
+	MM_PLAYER_BUFFERING_MODE_FIXED,			/**< player will set buffer size with this fixed size value. */
+	MM_PLAYER_BUFFERING_MODE_SLINK,			/**< If buffering is occurred, player will adjust buffer setting and no more buffering will be occurred again. */
+	MM_PLAYER_BUFFERING_MODE_MAX = MM_PLAYER_BUFFERING_MODE_SLINK,
+}MMPlayerBufferingMode;
+
+/**
+ * Enumeration of audio channel for video share
+ */
+typedef enum
+{
+	MM_PLAYER_AUDIO_CH_MONO_LEFT = 0,
+	MM_PLAYER_AUDIO_CH_MONO_RIGHT,
+	MM_PLAYER_AUDIO_CH_STEREO,
+} MMPlayerAudioChannel;
+
+typedef enum
+{
+	MM_PLAYER_SOUND_RESOURCE_PRELISTENING_RINGTONE = 0,
+	MM_PLAYER_SOUND_RESOURCE_PRELISTENING_NOTIFICATION,
+	MM_PLAYER_SOUND_RESOURCE_PRELISTENING_ALARM,
+	MM_PLAYER_SOUND_RESOURCE_PRELISTENING_MEDIA,
+} MMPlayerSoundResource;
+
+/**
+ * Edge Properties of the text.
+ */
+typedef enum {
+	MM_PLAYER_EDGE_NO,
+	MM_PLAYER_EDGE_RAISED,
+	MM_PLAYER_EDGE_DEPRESSED,
+	MM_PLAYER_EDGE_UNIFORM,
+	MM_PLAYER_EDGE_DROPSHADOW
+} MMPlayerSubtitleEdge;
+
 
 /**
  * Attribute validity structure
@@ -787,6 +855,18 @@ typedef struct {
 typedef bool	(*mm_player_audio_stream_callback) (void *stream, int stream_size, void *user_param);
 
 
+/**
+ * selected subtitle track number callback function type.
+ *
+ * @param	track_num	[in]	Track number of subtitle
+ * @param	user_param	[in]	User defined parameter
+ *
+ *
+ * @return	This callback function have to return MM_ERROR_NONE.
+ */
+typedef bool		(*mm_player_track_selected_subtitle_language_callback)(int track_num, void *user_param);
+
+
 /*===========================================================================================
 |                                                                                           |
 |  GLOBAL FUNCTION PROTOTYPES                                        |
@@ -804,28 +884,28 @@ typedef bool	(*mm_player_audio_stream_callback) (void *stream, int stream_size, 
  * @return	This function returns zero on success, or negative value with error code. \n
  *			Please refer 'mm_error.h' to know it in detail.
  * @pre		None
- * @post 	MM_PLAYER_STATE_NULL 
+ * @post 	MM_PLAYER_STATE_NULL
  * @see		mm_player_destroy
  * @remark	You can create multiple handles on a context at the same time. \n
  *			However, player cannot guarantee proper operation because of limitation of resources, \n
- * 			such as audio device or display device.  
+ * 			such as audio device or display device.
  *
  * @par Example
  * @code
 char *g_err_attr_name = NULL;
 
-if (mm_player_create(&g_player) != MM_ERROR_NONE) 
+if (mm_player_create(&g_player) != MM_ERROR_NONE)
 {
-	printf("failed to create player\n");
+	debug_error("failed to create player\n");
 }
 
 if (mm_player_set_attribute(g_player,
 						&g_err_attr_name,
 						"profile_uri", filename, strlen(filename),
 						"display_overlay", (void*)&g_win.xid, sizeof(g_win.xid),
-						NULL) != MM_ERROR_NONE) 
+						NULL) != MM_ERROR_NONE)
 {
-	printf("failed to set %s attribute\n", g_err_attr_name);
+	debug_error("failed to set %s attribute\n", g_err_attr_name);
 	free(g_err_attr_name);
 }
 
@@ -836,25 +916,25 @@ int mm_player_create(MMHandleType *player);
 
 /**
  * This function releases player object and all resources which were created by mm_player_create(). \n
- * And, player handle will also be destroyed. 
+ * And, player handle will also be destroyed.
  *
  * @param	player		[in]	Handle of player
  *
  * @return	This function returns zero on success, or negative value with error code.
  * @pre		Player state may be MM_PLAYER_STATE_NULL. \n
- * 			But, it can be called in any state. 
+ * 			But, it can be called in any state.
  * @post		Because handle is released, there is no any state.
  * @see		mm_player_create
  * @remark	This method can be called with a valid player handle from any state to \n
  *			completely shutdown the player operation.
- * 
+ *
  * @par Example
  * @code
-if (mm_player_destroy(g_player) != MM_ERROR_NONE) 
+if (mm_player_destroy(g_player) != MM_ERROR_NONE)
 {
-	printf("failed to destroy player\n");
+	debug_error("failed to destroy player\n");
 }
- * @endcode 
+ * @endcode
  */
 int mm_player_destroy(MMHandleType player);
 
@@ -867,14 +947,14 @@ int mm_player_destroy(MMHandleType player);
  * @return	This function returns zero on success, or negative value with error code.
  *
  * @pre		Player state should be MM_PLAYER_STATE_NULL.
- * @post		Player state will be MM_PLAYER_STATE_READY. 
+ * @post		Player state will be MM_PLAYER_STATE_READY.
  * @see		mm_player_unrealize
  * @remark 	None
  * @par Example
  * @code
-if (mm_player_realize(g_player) != MM_ERROR_NONE) 
+if (mm_player_realize(g_player) != MM_ERROR_NONE)
 {
-	printf("failed to realize player\n");
+	debug_error("failed to realize player\n");
 }
  * @endcode
  */
@@ -883,30 +963,30 @@ int mm_player_realize(MMHandleType player) ;
 /**
  * This function uninitializes player object. So, resources and allocated memory \n
  * will be freed. And, gstreamer pipeline is also destroyed. So, if you want to play \n
- * other contents, player should be created again after destruction or realized with new uri. 
+ * other contents, player should be created again after destruction or realized with new uri.
  *
  * @param	player		[in]	Handle of player
  *
  * @return	This function returns zero on success, or negative value with error code.
  * @pre		Player state may be MM_PLAYER_STATE_READY to unrealize. \n
- * 			But, it can be called in any state.  
+ * 			But, it can be called in any state.
  * @post		Player state will be MM_PLAYER_STATE_NULL.
  * @see		mm_player_realize
  * @remark	This method can be called with a valid player handle from any state.
- * 
+ *
  * @par Example
  * @code
-if (mm_player_unrealize(g_player) != MM_ERROR_NONE) 
+if (mm_player_unrealize(g_player) != MM_ERROR_NONE)
 {
-	printf("failed to unrealize player\n");
+	debug_error("failed to unrealize player\n");
 }
- * @endcode 
+ * @endcode
  */
 int mm_player_unrealize(MMHandleType player);
 
 /**
  * This function is to get current state of player. \n
- * Application have to check current state before doing some action. 
+ * Application have to check current state before doing some action.
  *
  * @param	player		[in]	Handle of player
  * @param	state       [out] current state of player on success
@@ -917,25 +997,25 @@ int mm_player_unrealize(MMHandleType player);
  * @remark 	None
  * @par Example
  * @code
-if (mm_player_get_state(g_player, &state) != MM_ERROR_NONE) 
+if (mm_player_get_state(g_player, &state) != MM_ERROR_NONE)
 {
-	printf("failed to get state\n");
-} 
- * @endcode 
+	debug_error("failed to get state\n");
+}
+ * @endcode
  */
 int mm_player_get_state(MMHandleType player, MMPlayerStateType *state);
 
 /**
  * This function is to set relative volume of player. \n
  * So, It controls logical volume value. \n
- * But, if developer want to change system volume, mm sound api should be used. 
+ * But, if developer want to change system volume, mm sound api should be used.
  *
  * @param	player		[in]	Handle of player
  * @param	volume		[in]	Volume factor of each channel
  *
  * @return	This function returns zero on success, or negative value with error code.
  * @see		MMPlayerVolumeType, mm_player_get_volume
- * @remark	The range of factor range is from 0 to 1.0. (1.0 = 100%) And, default value is 1.0. 
+ * @remark	The range of factor range is from 0 to 1.0. (1.0 = 100%) And, default value is 1.0.
  * @par Example
  * @code
 MMPlayerVolumeType volume;
@@ -946,9 +1026,9 @@ for (i = 0; i < MM_VOLUME_CHANNEL_NUM; i++)
 
 if (mm_player_set_volume(g_player, &volume) != MM_ERROR_NONE)
 {
-    printf("failed to set volume\n");
+    debug_error("failed to set volume\n");
 }
- * @endcode 
+ * @endcode
  */
 int mm_player_set_volume(MMHandleType player, MMPlayerVolumeType *volume);
 
@@ -959,7 +1039,7 @@ int mm_player_set_volume(MMHandleType player, MMPlayerVolumeType *volume);
  * @param	volume		[out]	Volume factor of each channel.
  *
  * @return	This function returns zero on success, or negative value with error code.
- * 
+ *
  * @see		MMPlayerVolumeType, mm_player_set_volume
  * @remark 	None
  * @par Example
@@ -969,12 +1049,12 @@ int i;
 
 if (mm_player_get_volume(g_player, &volume) != MM_ERROR_NONE)
 {
-        printf("failed to get volume\n");
+        debug_warning("failed to get volume\n");
 }
 
 for (i = 0; i < MM_VOLUME_CHANNEL_NUM; i++)
-	printf("channel[%d] = %d \n", i, volume.level[i]);
- * @endcode 
+	debug_log("channel[%d] = %d \n", i, volume.level[i]);
+ * @endcode
  */
 int mm_player_get_volume(MMHandleType player, MMPlayerVolumeType *volume);
 
@@ -989,23 +1069,23 @@ int mm_player_get_volume(MMHandleType player, MMPlayerVolumeType *volume);
  * @remark
  *
  * @pre		Player state may be MM_PLAYER_STATE_READY.
- * @post		Player state will be MM_PLAYER_STATE_PLAYING. 
- * @see		mm_player_stop 
+ * @post		Player state will be MM_PLAYER_STATE_PLAYING.
+ * @see		mm_player_stop
  * @remark 	None
- * @par Example 
- * @code	
-if (mm_player_start(g_player) != MM_ERROR_NONE) 
+ * @par Example
+ * @code
+if (mm_player_start(g_player) != MM_ERROR_NONE)
 {
-	printf("failed to start player\n");
+	debug_error("failed to start player\n");
 }
- * @endcode 
+ * @endcode
  */
 int mm_player_start(MMHandleType player);
 
 /**
  * This function is to stop playing media contents and it's different with pause. \n
  * If mm_player_start() is called after this, content will be started again from the beginning. \n
- * So, it can be used to close current playback.  
+ * So, it can be used to close current playback.
  *
  * @param	player		[in]	Handle of player
  *
@@ -1013,15 +1093,15 @@ int mm_player_start(MMHandleType player);
  *
  * @pre		Player state may be MM_PLAYER_STATE_PLAYING.
  * @post		Player state will be MM_PLAYER_STATE_READY.
- * @see		mm_player_start 
+ * @see		mm_player_start
  * @remark 	None
- * @par Example 
+ * @par Example
  * @code
-if (mm_player_stop(g_player) != MM_ERROR_NONE) 
+if (mm_player_stop(g_player) != MM_ERROR_NONE)
 {
-	printf("failed to stop player\n");
+	debug_error("failed to stop player\n");
 }
- * @endcode 
+ * @endcode
  */
 int mm_player_stop(MMHandleType player);
 
@@ -1030,19 +1110,19 @@ int mm_player_stop(MMHandleType player);
  *
  * @param	player		[in]	Handle of player.
  *
- * @return	This function returns zero on success, or negative value with error code. 
+ * @return	This function returns zero on success, or negative value with error code.
  *
  * @pre		Player state may be MM_PLAYER_STATE_PLAYING.
  * @post		Player state will be MM_PLAYER_STATE_PAUSED.
- * @see		mm_player_resume 
+ * @see		mm_player_resume
  * @remark 	None
- * @par Example 
+ * @par Example
  * @code
-if (mm_player_pause(g_player) != MM_ERROR_NONE) 
+if (mm_player_pause(g_player) != MM_ERROR_NONE)
 {
-	printf("failed to pause player\n");
+	debug_error("failed to pause player\n");
 }
- * @endcode 
+ * @endcode
  */
 int mm_player_pause(MMHandleType player);
 
@@ -1055,38 +1135,38 @@ int mm_player_pause(MMHandleType player);
  *
  * @pre		Player state may be MM_PLAYER_STATE_PAUSED.
  * @post		Player state will be MM_PLAYER_STATE_PLAYING.
- * @see		mm_player_pause 
- * @remark 	None 
- * @par Example 
+ * @see		mm_player_pause
+ * @remark 	None
+ * @par Example
  * @code
-if (mm_player_resume(g_player) != MM_ERROR_NONE) 
+if (mm_player_resume(g_player) != MM_ERROR_NONE)
 {
-	printf("failed to resume player\n");
+	debug_error("failed to resume player\n");
 }
- * @endcode 
+ * @endcode
  */
 int mm_player_resume(MMHandleType player);
 
 /**
  * This function is to set the position for playback. \n
  * So, it can be seeked to requested position. \n
- * 
+ *
  * @param	player		[in]	Handle of player
  * @param	format		[in]	Format of position.
  * @param	pos			[in]	Position for playback
  *
  * @return	This function returns zero on success, or negative value with error code.
  * @see		MMPlayerPosFormatType, mm_player_get_position
- * @remark  the unit of time-based format is millisecond and other case is percent.  
- * @par Example 
+ * @remark  the unit of time-based format is millisecond and other case is percent.
+ * @par Example
  * @code
 int position = 1000; //1sec
 
 if (mm_player_set_position(g_player, MM_PLAYER_POS_FORMAT_TIME, position) != MM_ERROR_NONE)
 {
-	g_print("failed to set position\n");
-} 
- * @endcode 
+	debug_error("failed to set position\n");
+}
+ * @endcode
  */
 int mm_player_set_position(MMHandleType player, MMPlayerPosFormatType format, int pos);
 
@@ -1099,8 +1179,8 @@ int mm_player_set_position(MMHandleType player, MMPlayerPosFormatType format, in
  *
  * @return	This function returns zero on success, or negative value with errors
  * @see		MMPlayerPosFormatType, mm_player_set_position
- * @remark	the unit of time-based format is millisecond and other case is percent.  
- * @par Example 
+ * @remark	the unit of time-based format is millisecond and other case is percent.
+ * @par Example
  * @code
 int position = 0;
 int duration = 0;
@@ -1109,8 +1189,8 @@ mm_player_get_position(g_player, MM_PLAYER_POS_FORMAT_TIME, &position);
 
 mm_player_get_attribute(g_player, &g_err_name, "content_duration", &duration, NULL);
 
-printf("pos: [%d/%d] msec\n", position, duration);
- * @endcode 
+debug_log("pos: [%d/%d] msec\n", position, duration);
+ * @endcode
  */
 int mm_player_get_position(MMHandleType player, MMPlayerPosFormatType format, int *pos);
 
@@ -1124,15 +1204,15 @@ int mm_player_get_position(MMHandleType player, MMPlayerPosFormatType format, in
  *
  * @return	This function returns zero on success, or negative value with errors
  * @see		MMPlayerPosFormatType, mm_player_set_position
- * @remark	the unit of time-based format is millisecond and other case is percent.  
- * @par Example 
+ * @remark	the unit of time-based format is millisecond and other case is percent.
+ * @par Example
  * @code
 int start_pos = 0, stop_pos = 0;
 
 mm_player_get_buffer_position(g_player, MM_PLAYER_POS_FORMAT_PERCENT, &start_pos, &stop_pos );
 
-printf("buffer position: [%d] ~ [%d] \%\n", start_pos, stop_pos );
- * @endcode 
+debug_log("buffer position: [%d] ~ [%d] \%\n", start_pos, stop_pos );
+ * @endcode
  */
 int mm_player_get_buffer_position(MMHandleType player, MMPlayerPosFormatType format, int *start_pos, int *stop_pos);
 
@@ -1148,7 +1228,7 @@ int mm_player_get_buffer_position(MMHandleType player, MMPlayerPosFormatType for
  * @return	This function returns zero on success, or negative value with error code.
  * @see		mm_player_deactivate_section_repeat
  * @remark	None
- * @par Example 
+ * @par Example
  * @code
 int position;
 int endtime = 4000; //msec
@@ -1156,7 +1236,7 @@ int endtime = 4000; //msec
 mm_player_get_position(g_player, MM_PLAYER_POS_FORMAT_TIME, &position);
 
 mm_player_activate_section_repeat(g_player, position, position+endtime);
- * @endcode 
+ * @endcode
  */
 int mm_player_activate_section_repeat(MMHandleType player, int start_pos, int end_pos);
 
@@ -1167,20 +1247,20 @@ int mm_player_activate_section_repeat(MMHandleType player, int start_pos, int en
  *
  * @return	This function returns zero on success, or negative value with error code.
  * @see		mm_player_activate_section_repeat
- * @remark	None 
- * @par Example 
+ * @remark	None
+ * @par Example
  * @code
 if ( mm_player_deactivate_section_repeat(g_player) != MM_ERROR_NONE)
 {
-	printf("failed to deactivate section repeat\n");
-} 
- * @endcode 
+	debug_warning("failed to deactivate section repeat\n");
+}
+ * @endcode
  */
 int mm_player_deactivate_section_repeat(MMHandleType player);
 
 /**
  * This function sets callback function for receiving messages from player.
- * So, player can notify warning, error and normal cases to application. 
+ * So, player can notify warning, error and normal cases to application.
  *
  * @param	player		[in]	Handle of player.
  * @param	callback	[in]	Message callback function.
@@ -1188,29 +1268,29 @@ int mm_player_deactivate_section_repeat(MMHandleType player);
  *
  * @return	This function returns zero on success, or negative value with error code.
  * @see		MMMessageCallback
- * @remark	None 
- * @par Example 
+ * @remark	None
+ * @par Example
  * @code
-int msg_callback(int message, MMMessageParamType *param, void *user_param) 
+int msg_callback(int message, MMMessageParamType *param, void *user_param)
 {
 	switch (message)
 	{
 		case MM_MESSAGE_ERROR:
 			//do something
 			break;
-		
+
 	 	case MM_MESSAGE_END_OF_STREAM:
 	 		//do something
 	    	  	break;
-	      
+
 		case MM_MESSAGE_STATE_CHANGED:
 			//do something
 	    		break;
-	    	
+
 		case MM_MESSAGE_BEGIN_OF_STREAM:
 			//do something
 	    		break;
-	    	
+
 		default:
 			break;
 	}
@@ -1218,7 +1298,7 @@ int msg_callback(int message, MMMessageParamType *param, void *user_param)
 }
 
 mm_player_set_message_callback(g_player, msg_callback, (void*)g_player);
- * @endcode 
+ * @endcode
  */
 int mm_player_set_message_callback(MMHandleType player, MMMessageCallback callback, void *user_param);
 
@@ -1236,16 +1316,16 @@ int mm_player_set_message_callback(MMHandleType player, MMMessageCallback callba
  * @return	This function returns zero on success, or negative value with error
  *			code.
  * @see		mm_player_audio_stream_callback
- * @remark	It can be used for audio playback only.  
- * @par Example 
+ * @remark	It can be used for audio playback only.
+ * @par Example
  * @code
 bool audio_callback(void *stream, int stream_size, void *user_param)
 {
-	printf("audio stream callback\n");
+	debug_log("audio stream callback\n");
 	return TRUE;
 }
 mm_player_set_audio_stream_callback(g_player, audio_callback, NULL);
- * @endcode 
+ * @endcode
  */
  int mm_player_set_audio_stream_callback(MMHandleType player, mm_player_audio_stream_callback callback, void *user_param);
 
@@ -1258,13 +1338,13 @@ mm_player_set_audio_stream_callback(g_player, audio_callback, NULL);
  * @return	This function returns zero on success, or negative value with error code
  * @see		mm_player_get_mute
  * @remark	None
- * @par Example 
+ * @par Example
  * @code
 if (mm_player_set_mute(g_player, TRUE) != MM_ERROR_NONE)
 {
-	printf("failed to set mute\n");
-} 
- * @endcode 
+	debug_warning("failed to set mute\n");
+}
+ * @endcode
  */
 int mm_player_set_mute(MMHandleType player, int mute);
 
@@ -1277,17 +1357,17 @@ int mm_player_set_mute(MMHandleType player, int mute);
  * @return	This function returns zero on success, or negative value with error code
  * @see		mm_player_set_mute
  * @remark	None
- * @par Example 
+ * @par Example
  * @code
 int mute;
- 
+
 if (mm_player_get_mute(g_player, &mute) != MM_ERROR_NONE)
 {
-	printf("failed to get mute\n");
+	debug_warning("failed to get mute\n");
 }
 
-printf("mute status:%d\n", mute);
- * @endcode 
+debug_log("mute status:%d\n", mute);
+ * @endcode
  */
 int mm_player_get_mute(MMHandleType player, int *mute);
 
@@ -1309,13 +1389,21 @@ int pos;
 pos = 5000;
 if (mm_player_adjust_subtitle_position(g_player, MM_PLAYER_POS_FORMAT_TIME, pos) != MM_ERROR_NONE)
 {
-	printf("failed to adjust subtitle postion.\n");
+	debug_warning("failed to adjust subtitle postion.\n");
 }
  * @endcode
  */
 
 int mm_player_adjust_subtitle_position(MMHandleType player, MMPlayerPosFormatType format, int pos);
 
+/**
+ * This function is to set the offset in timestamps of video so as to bring the a/v sync
+ * @param      player          Handle of player
+ * @param      offset          offset to be set in milliseconds(can be positive or negative both)
+ * postive offset to make video lag
+ * negative offset to make video lead
+ */
+int mm_player_adjust_video_position(MMHandleType player,int offset);
 /**
  * This function is to set subtitle silent status. So, subtitle can show or hide during playback \n
  * by this value. But, one subtitle file should be set with "subtitle_uri" attribute before calling mm_player_realize(); \n
@@ -1328,22 +1416,22 @@ int mm_player_adjust_subtitle_position(MMHandleType player, MMPlayerPosFormatTyp
  * @param	silent	[in]	silent(integer value except 0) or not silent(0)
  *
  * @return	This function returns zero on success, or negative value with error
- *			code 
+ *			code
  * @see		mm_player_get_subtitle_silent, MM_MESSAGE_UPDATE_SUBTITLE
- * @remark	None 
- * @par Example 
+ * @remark	None
+ * @par Example
  * @code
 mm_player_set_attribute(g_player,
 					&g_err_name,
 					"subtitle_uri", g_subtitle_uri, strlen(g_subtitle_uri),
 					NULL
 					);
-							
+
 if (mm_player_set_subtitle_silent(g_player, TRUE) != MM_ERROR_NONE)
 {
-	printf("failed to set subtitle silent\n");
-} 
- * @endcode 
+	debug_warning("failed to set subtitle silent\n");
+}
+ * @endcode
  */
 int mm_player_set_subtitle_silent(MMHandleType player, int silent);
 
@@ -1354,18 +1442,18 @@ int mm_player_set_subtitle_silent(MMHandleType player, int silent);
  * @param	silent	[out]	subtitle silent property
  *
  * @return	This function returns zero on success, or negative value with error
- *			code 
+ *			code
  * @see		mm_player_set_subtitle_silent, MM_MESSAGE_UPDATE_SUBTITLE
- * @remark	None 
- * @par Example 
+ * @remark	None
+ * @par Example
  * @code
 int silent = FALSE;
- 
+
 if (mm_player_get_subtitle_silent(g_player, &silent) != MM_ERROR_NONE)
 {
-	printf("failed to set subtitle silent\n");
+	debug_warning("failed to set subtitle silent\n");
 }
- * @endcode 
+ * @endcode
  */
 int mm_player_get_subtitle_silent(MMHandleType player, int *silent);
 
@@ -1383,22 +1471,22 @@ int mm_player_get_subtitle_silent(MMHandleType player, int *silent);
  *
  * @see		mm_player_get_attribute
  * @remark  	This function must be terminated by NULL argument.
- * 			And, if this function is failed, err_attr_name param must be free. 
- * @par Example 
+ * 			And, if this function is failed, err_attr_name param must be free.
+ * @par Example
  * @code
 char *g_err_attr_name = NULL;
 
-if (mm_player_set_attribute(g_player, 
-						&g_err_attr_name, 
+if (mm_player_set_attribute(g_player,
+						&g_err_attr_name,
 						"profile_uri", filename, strlen(filename),
 						"profile_play_count", count,
 						NULL) != MM_ERROR_NONE)
 {
-	printf("failed to set %s attribute\n", g_err_attr_name);
+	debug_warning("failed to set %s attribute\n", g_err_attr_name);
 	free(g_err_attr_name);
 }
 
- * @endcode 
+ * @endcode
  */
 int mm_player_set_attribute(MMHandleType player,  char **err_attr_name, const char *first_attribute_name, ...)G_GNUC_NULL_TERMINATED;
 
@@ -1415,17 +1503,17 @@ int mm_player_set_attribute(MMHandleType player,  char **err_attr_name, const ch
  *			code.
  * @see		mm_player_set_attribute
  * @remark	This function must be terminated by NULL argument.
- *			And, if this function is failed, err_attr_name param must be free. 
- * @par Example 
+ *			And, if this function is failed, err_attr_name param must be free.
+ * @par Example
  * @code
 char *g_err_attr_name = NULL;
 
 if (mm_player_get_attribute(g_player, &g_err_attr_name, "content_duration", &duration, NULL) != MM_ERROR_NONE)
 {
-	printf("failed to set %s attribute\n", g_err_attr_name);
+	debug_warning("failed to set %s attribute\n", g_err_attr_name);
 	free(g_err_attr_name);
 }
- * @endcode 
+ * @endcode
  */
 int mm_player_get_attribute(MMHandleType player,  char **err_attr_name, const char *first_attribute_name, ...)G_GNUC_NULL_TERMINATED;
 
@@ -1441,23 +1529,23 @@ int mm_player_get_attribute(MMHandleType player,  char **err_attr_name, const ch
  *
  * @see		mm_player_set_attribute, mm_player_get_attribute
  * @remark	None
- * @par Example 
+ * @par Example
  * @code
 if (mm_player_get_attribute_info (g_player, "display_method", &method_info) != MM_ERROR_NONE)
 {
-	printf("failed to get info\n");
+	debug_warning("failed to get info\n");
 }
 
-printf("type:%d \n", method_info.type); //int, double..
-printf("flag:%d \n", method_info.flag); //readable, writable..
-printf("validity type:%d \n", method_info.validity_type); //range, array..
+debug_log("type:%d \n", method_info.type); //int, double..
+debug_log("flag:%d \n", method_info.flag); //readable, writable..
+debug_log("validity type:%d \n", method_info.validity_type); //range, array..
 
 if (method_info. validity_type == MM_PLAYER_ATTRS_VALID_TYPE_INT_RANGE)
 {
-	printf("range min:%d\n", method_info.int_range.min);
-	printf("range max:%d\n", method_info.int_range.max);
+	debug_log("range min:%d\n", method_info.int_range.min);
+	debug_log("range max:%d\n", method_info.int_range.max);
 }
- * @endcode 
+ * @endcode
  */
 int mm_player_get_attribute_info(MMHandleType player,  const char *attribute_name, MMPlayerAttrsInfo *info);
 
@@ -1479,7 +1567,7 @@ guint64 total_size = 0LLU;
 
 if (mm_player_get_pd_status(g_player, &current_pos, &total_size, NULL) != MM_ERROR_NONE)
 {
-	printf("current download pos = %llu, total size = %llu\n", current_pos, total_size);
+	debug_log("current download pos = %llu, total size = %llu\n", current_pos, total_size);
 }
  * @endcode
  */
@@ -1502,10 +1590,10 @@ int msg_callback(int message, MMMessageParamType *param, void *user_param)
 	switch (message)
 	{
 		case MM_MESSAGE_PD_DOWNLOADER_START:
-			printf("Progressive download is started...\n");
+			debug_log("Progressive download is started...\n");
 			break;
 	 	case MM_MESSAGE_PD_DOWNLOADER_END:
-	 		printf("Progressive download is ended...\n");
+	 		debug_log("Progressive download is ended...\n");
 	    	  	break;
 		default:
 			break;
@@ -1522,7 +1610,7 @@ int mm_player_set_pd_message_callback(MMHandleType player, MMMessageCallback cal
  * This function is to get the track count
  *
  * @param	player		[in]	handle of player.
- * @param   	track_type	[in] 	type of the track type
+ * @param   	track			[in] 	type of the track type
  * @param   	info			[out]	the count of the track
  *
  * @return	This function returns zero on success, or negative value with error
@@ -1536,42 +1624,94 @@ gint audio_count = 0;
 
 if (mm_player_get_track_count (g_player, MM_PLAYER_TRACK_TYPE_AUDIO, &audio_count) != MM_ERROR_NONE)
 {
-	printf("failed to get audio track count\n");
+	debug_warning("failed to get audio track count\n");
 }
 
-printf("audio track count : %d \n", audio_count);
+debug_log("audio track count : %d \n", audio_count);
  * @endcode
  */
-int mm_player_get_track_count(MMHandleType player,  MMPlayerTrackType track_type, int *count);
+int mm_player_get_track_count(MMHandleType player,  MMPlayerTrackType type, int *count);
 
 /**
- * This function is to ignore session
+ * This function is to select the track
  *
- * @param player  [in] handle of player
+ * @param	player		[in]	handle of player.
+ * @param   	type			[in] 	type of the track type
+ * @param   	index		[in]	the index of the track
  *
- * @return This function returns MM_ERROR_NONE on success, or negative value with error code.
- */
-int mm_player_ignore_session(MMHandleType player);
-
-/**
- * This function is to set zoom level.
- *
- * @param       player         [in]    handle of player.
- * @param       level           [in]    level of zoom
- *
- * @return      This function returns zero on success, or negative value with error
- *                      code.
+ * @return	This function returns zero on success, or negative value with error
+ *			code.
  *
  * @see
- * @remark      None
+ * @remark	None
  */
-int mm_player_set_display_zoom(MMHandleType player, float level);
+int mm_player_select_track(MMHandleType player, MMPlayerTrackType type, int index);
+#ifdef _MULTI_TRACK
+/**
+ * This function is to add the track when user want multi subtitle
+ *
+ * @param	player		[in]	handle of player.
+ * @param   	index		[in]	the index of the track
+ *
+ * @return	This function returns zero on success, or negative value with error
+ *			code.
+ *
+ * @see
+ * @remark	None
+ */
+int mm_player_track_add_subtitle_language(MMHandleType player, int index);
 
 /**
- * This function is to get zoom level.
+ * This function is to remove the track when user want multi subtitle
+ *
+ * @param	player		[in]	handle of player.
+ * @param   	index		[in]	the index of the track
+ *
+ * @return	This function returns zero on success, or negative value with error
+ *			code.
+ *
+ * @see
+ * @remark	None
+ */
+int mm_player_track_remove_subtitle_language(MMHandleType player, int index);
+
+/**
+ * This function is to notify which sutitle track is in use
+ *
+ * @param	player		[in]	handle of player.
+ * @param   	callback			[in] 	callback function to register
+ * @param   	user_data	[in]	user data to be passed to the callback function
+ *
+ * @return	This function returns zero on success, or negative value with error
+ *			code.
+ *
+ * @see
+ * @remark	None
+ */
+int mm_player_track_foreach_selected_subtitle_language(MMHandleType player, mm_player_track_selected_subtitle_language_callback callback, void *user_param);
+#endif
+/**
+ * This function is to get the track language
+ *
+ * @param	player		[in]	handle of player.
+ * @param   	type			[in] 	type of the track type
+ * @param   	index		[in]	the index of the track
+ * @param   	code			[out] language code in ISO 639-1(string)
+ *
+ * @return	This function returns zero on success, or negative value with error
+ *			code.
+ *
+ * @see
+ * @remark	None
+ */
+int mm_player_get_track_language_code(MMHandleType player,  MMPlayerTrackType type, int index, char **code);
+
+/**
+ * This function is to get the current running track
  *
  * @param       player          [in]    handle of player.
- * @param       type             [out]  current level of zoom
+ * @param       type                    [in]    type of the track type
+ * @param       index           [out]    the index of the track
  *
  * @return      This function returns zero on success, or negative value with error
  *                      code.
@@ -1579,12 +1719,56 @@ int mm_player_set_display_zoom(MMHandleType player, float level);
  * @see
  * @remark      None
  */
-int mm_player_get_display_zoom(MMHandleType player, float *level);
+
+int mm_player_get_current_track(MMHandleType hplayer, MMPlayerTrackType type, int *index);
+
+/**
+ * This function is to set the buffer size for streaming playback. \n
+ *
+ * @param	player		[in]	Handle of player
+ * @param	second		[in]	Size of initial buffer
+ *
+ * @return	This function returns zero on success, or negative value with error code.
+ * @remark  None
+ * @par Example
+ * @code
+gint second = 10; //10sec
+
+if (mm_player_set_prepare_buffering_time(g_player, second) != MM_ERROR_NONE)
+{
+	debug_error("failed to set buffer size\n");
+}
+ * @endcode
+ */
+
+int mm_player_set_prepare_buffering_time(MMHandleType player, int second);
+
+/**
+ * This function is to set the runtime buffering mode for streaming playback. \n
+ *
+ * @param	player		[in]	Handle of player
+ * @param	mode		[in]	mode of runtime buffering
+ * @param	second		[in]	max size of buffering
+ *
+ * @return	This function returns zero on success, or negative value with error code.
+ * @remark  None
+ * @par Example
+ * @code
+
+if (mm_player_set_runtime_buffering_mode(g_player, MM_PLAYER_BUFFERING_MODE_ADAPTIVE, 10) != MM_ERROR_NONE)
+{
+	debug_error("failed to set buffering mode\n");
+}
+ * @endcode
+ */
+
+int mm_player_set_runtime_buffering_mode(MMHandleType player, MMPlayerBufferingMode mode, int second);
 
 /**
  * This function is to set the start position of zoom
  *
- * @param       player           [in]    handle of player
+ * @param       player          [in]    handle of player
+ * @param       level           [in]    level of zoom
  * @param       x             	[in]    start x position
  * @param       y           	[in]  	start y position
  *
@@ -1594,12 +1778,13 @@ int mm_player_get_display_zoom(MMHandleType player, float *level);
  * @see
  * @remark      None
  */
-int mm_player_set_display_zoom_start_position(MMHandleType player, int x, int y);
+int mm_player_set_display_zoom(MMHandleType player, float level, int x, int y);
 
 /**
  * This function is to get the start position of zoom
  *
  * @param       player           [in]    handle of player
+ * @param       type            [out]    current level of zoom
  * @param       x             	[out]    start x position
  * @param       y           	[out]    start y position
  *
@@ -1609,7 +1794,147 @@ int mm_player_set_display_zoom_start_position(MMHandleType player, int x, int y)
  * @see
  * @remark      None
  */
-int mm_player_get_display_zoom_start_position(MMHandleType player, int *x, int *y);
+int mm_player_get_display_zoom(MMHandleType player, float *level, int *x, int *y);
+
+/**
+ * This function is to set the subtitle path
+ *
+ * @param       player  [in]    handle of player
+ * @param       path    [in]    subtitle path
+ *
+ * @return      This function returns zero on success, or negative value with error code.
+ *
+ * @see
+ * @remark      None
+ */
+int mm_player_set_external_subtitle_path(MMHandleType player, const char* path);
+
+/**
+ * This function is to change clock provider to system clock
+ *
+ * @param       player  [in]    handle of player
+ * @return      This function returns zero on success, or negative value with error code.
+ *
+ * @see
+ * @remark      None
+ */
+int mm_player_use_system_clock(MMHandleType player);
+
+/**
+ * This function is to set the clock which is from master player
+ *
+ * @param       player  [in]    handle of player
+ * @param       clock	[in]	clock of master player
+ * @param       clock_delta [in]	clock difference between master and slave
+ * @param       video_time	[in]	current playing position
+ * @param       media_clock	[in]	media clock information
+ * @param       audio_time	[in]	audio timestamp information
+ * @return      This function returns zero on success, or negative value with error code.
+ *
+ * @see
+ * @remark      None
+ */
+int mm_player_set_video_share_master_clock(MMHandleType player, long long clock, long long clock_delta, long long video_time, long long media_clock, long long audio_time);
+/**
+ * This function is to get the master clock
+ *
+ * @param       player		[in]    handle of player
+ * @param       video_time	[out]	current playing position
+ * @param       media_clock	[out]	media clock information
+ * @param       audio_time	[out]	audio timestamp information
+ * @return      This function returns zero on success, or negative value with error code.
+ *
+ * @see
+ * @remark      None
+ */
+int mm_player_get_video_share_master_clock(MMHandleType player, long long *video_time, long long *media_clock, long long *audio_time);
+/**
+ * This function is to set audio channel
+ *
+ * @param       player		[in]    handle of player
+ * @param       ch			[in]	audio channel
+ * @return      This function returns zero on success, or negative value with error code.
+ *
+ * @see
+ * @remark      None
+ */
+int mm_player_gst_set_audio_channel(MMHandleType player, MMPlayerAudioChannel ch);
+
+/**
+ * This function is to get the content angle
+ *
+ * @param       player		[in]    handle of player
+ * @param       angle		[out]	orignal angle from content
+ * @return      This function returns zero on success, or negative value with error code.
+ *
+ * @see
+ * @remark      None
+ */
+int mm_player_get_video_rotate_angle(MMHandleType player, int *angle);
+
+/**
+ * This function is to set download mode of video hub
+ *
+ * @param       player		[in]    handle of player
+ * @param       mode		[in]	download mode
+ * @return      This function returns zero on success, or negative value with error code.
+ *
+ * @see
+ * @remark      None
+ */
+int mm_player_set_video_hub_download_mode(MMHandleType player, bool mode);
+
+/**
+ * This function is to set using sync handler.
+ *
+ * @param       player		[in]    handle of player
+ * @param       enable		[in]	enable/disable
+ * @return      This function returns zero on success, or negative value with error code.
+ *
+ * @see
+ * @remark      None
+ */
+int mm_player_enable_sync_handler(MMHandleType player, bool enable);
+
+/**
+ * This function is to set uri.
+ *
+ * @param       player		[in]    handle of player
+ * @param       uri 		[in]    uri
+ * @return      This function returns zero on success, or negative value with error code.
+ *
+ * @see
+ * @remark      None
+ */
+int mm_player_set_uri(MMHandleType player, const char *uri);
+
+/**
+ * This function is to set next uri.
+ *
+ * @param       player		[in]    handle of player
+ * @param       uri 		[in]    uri
+ * @return      This function returns zero on success, or negative value with error code.
+ *
+ * @see
+ * @remark      None
+ */
+int mm_player_set_next_uri(MMHandleType player, const char *uri);
+
+/**
+ * This function is to get next uri.
+ *
+ * @param       player		[in]    handle of player
+ * @param       uri 		[out]   uri
+ * @return      This function returns zero on success, or negative value with error code.
+ *
+ * @see
+ * @remark      None
+ */
+int mm_player_get_next_uri(MMHandleType player, char **uri);
+
+int mm_player_enable_media_packet_video_stream(MMHandleType player, bool enable);
+
+
 /**
 	@}
  */

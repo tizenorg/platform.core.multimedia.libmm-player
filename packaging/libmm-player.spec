@@ -1,23 +1,24 @@
 Name:       libmm-player
 Summary:    Multimedia Framework Player Library
-Version:    0.2.27
-Release:    1
-Group:      System/Libraries
+Version:    0.5.56
+Release:    0
+Group:      Multimedia/Libraries
 License:    Apache-2.0
 URL:        http://source.tizen.org
 Source0:    %{name}-%{version}.tar.gz
 Source1001:     libmm-player.manifest
-BuildRequires:  pkgconfig
-BuildRequires:  pkgconfig(mm-ta)
+Requires(post):  /sbin/ldconfig
+Requires(postun):  /sbin/ldconfig
 BuildRequires:  pkgconfig(mm-common)
 BuildRequires:  pkgconfig(mm-sound)
 BuildRequires:  pkgconfig(gstreamer-1.0)
 BuildRequires:  pkgconfig(gstreamer-plugins-base-1.0)
 BuildRequires:  pkgconfig(gstreamer-video-1.0)
 BuildRequires:  pkgconfig(gstreamer-app-1.0)
-BuildRequires:  pkgconfig(mm-session)
+BuildRequires:  pkgconfig(appcore-efl)
+BuildRequires:  pkgconfig(elementary)
 BuildRequires:  pkgconfig(mmutil-imgp)
-BuildRequires:  pkgconfig(audio-session-mgr)
+BuildRequires:  pkgconfig(evas)
 BuildRequires:  pkgconfig(iniparser)
 BuildRequires:  pkgconfig(vconf)
 BuildRequires:  pkgconfig(icu-i18n)
@@ -38,14 +39,18 @@ Multimedia Framework Player Library files (DEV).
 cp %{SOURCE1001} .
 
 %build
-CFLAGS="${CFLAGS} -DEXPORT_API=\"__attribute__((visibility(\\\"default\\\")))\" $GSTREAMER_API" ; export CFLAGS
-LDFLAGS="${LDFLAGS=} -Wl,--rpath=%{_libdir} -lgstvideo-1.0 -Wl,--hash-style=both -Wl,--as-needed"; export LDFLAGS
-
+CFLAGS+="  -Wall -D_FILE_OFFSET_BITS=64 -DEXPORT_API=\"__attribute__((visibility(\\\"default\\\")))\" "; export CFLAGS
+LDFLAGS+="-Wl,--rpath=%{_prefix}/lib -Wl,--hash-style=both -Wl,--as-needed"; export LDFLAGS
 ./autogen.sh
+# always enable sdk build. This option should go away
+CFLAGS=$CFLAGS LDFLAGS=$LDFLAGS ./configure --enable-sdk --prefix=%{_prefix} --disable-static
 %configure --disable-static
-%__make -j1
+#%__make -j1
+make %{?jobs:-j%jobs}
 
 %install
+mkdir -p %{buildroot}%{_datadir}/license
+cp -rf LICENSE.APLv2 %{buildroot}%{_datadir}/license/%{name}
 %make_install
 
 %post -p /sbin/ldconfig
@@ -56,6 +61,7 @@ LDFLAGS="${LDFLAGS=} -Wl,--rpath=%{_libdir} -lgstvideo-1.0 -Wl,--hash-style=both
 %manifest %{name}.manifest
 %defattr(-,root,root,-)
 %{_libdir}/*.so.*
+%{_datadir}/license/%{name}
 
 %files devel
 %manifest %{name}.manifest

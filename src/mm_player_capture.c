@@ -3,7 +3,8 @@
  *
  * Copyright (c) 2000 - 2011 Samsung Electronics Co., Ltd. All rights reserved.
  *
- * Contact: JongHyuk Choi <jhchoi.choi@samsung.com>, YeJin Cho <cho.yejin@samsung.com>, YoungHwan An <younghwan_.an@samsung.com>
+ * Contact: JongHyuk Choi <jhchoi.choi@samsung.com>, YeJin Cho <cho.yejin@samsung.com>,
+ * Seungbae Shin <seungbae.shin@samsung.com>, YoungHwan An <younghwan_.an@samsung.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,8 +25,10 @@
 |  INCLUDE FILES																			|
 |  																							|
 ========================================================================================== */
+#include "mm_player_utils.h"
 #include "mm_player_capture.h"
 #include "mm_player_priv.h"
+#include "mm_player_utils.h"
 
 #include <mm_util_imgp.h>
 #include <gst/video/video-info.h>
@@ -54,18 +57,18 @@ _mmplayer_initialize_video_capture(mm_player_t* player)
 {
 	return_val_if_fail ( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
 	/* create capture mutex */
-	player->capture_thread_mutex = g_mutex_new();
-	if ( ! player->capture_thread_mutex )
+	g_mutex_init(&player->capture_thread_mutex);
+	if ( !(&player->capture_thread_mutex) )
 	{
-		debug_critical("Cannot create capture mutex");
+		debug_error("Cannot create capture mutex");
 		goto ERROR;
 	}
 
 	/* create capture cond */
-	player->capture_thread_cond = g_cond_new();
-	if ( ! player->capture_thread_cond )
+	g_cond_init(&player->capture_thread_cond);
+	if (!(&player->capture_thread_cond) )
 	{
-		debug_critical("Cannot create capture cond");
+		debug_error("Cannot create capture cond");
 		goto ERROR;
 	}
 
@@ -73,7 +76,8 @@ _mmplayer_initialize_video_capture(mm_player_t* player)
 
 	/* create video capture thread */
 	player->capture_thread =
-		g_thread_create (__mmplayer_capture_thread, (gpointer)player, TRUE, NULL);
+		g_thread_try_new ("capture_thread",__mmplayer_capture_thread, (gpointer)player, NULL);
+
 	if ( ! player->capture_thread )
 	{
 		goto ERROR;
@@ -83,11 +87,11 @@ _mmplayer_initialize_video_capture(mm_player_t* player)
 
 ERROR:
 	/* capture thread */
-	if ( player->capture_thread_mutex )
-		g_mutex_free ( player->capture_thread_mutex );
+	if ( &player->capture_thread_mutex )
+		g_mutex_clear(&player->capture_thread_mutex );
 
-	if ( player->capture_thread_cond )
-		g_cond_free ( player->capture_thread_cond );
+	if (&player->capture_thread_cond )
+		g_cond_clear (&player->capture_thread_cond );
 
 	return MM_ERROR_PLAYER_INTERNAL;
 }
@@ -97,19 +101,19 @@ _mmplayer_release_video_capture(mm_player_t* player)
 {
 	return_val_if_fail ( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
 	/* release capture thread */
-	if ( player->capture_thread_cond &&
-		 player->capture_thread_mutex &&
+	if ( &player->capture_thread_cond &&
+		 &player->capture_thread_mutex &&
 		 player->capture_thread )
 	{
-		g_mutex_lock(player->capture_thread_mutex);
+		g_mutex_lock(&player->capture_thread_mutex);
 		player->capture_thread_exit = TRUE;
-		g_cond_signal( player->capture_thread_cond );
-		g_mutex_unlock(player->capture_thread_mutex);
+		g_cond_signal( &player->capture_thread_cond );
+		g_mutex_unlock(&player->capture_thread_mutex);
 
 		debug_log("waitting for capture thread exit");
 		g_thread_join ( player->capture_thread );
-		g_mutex_free ( player->capture_thread_mutex );
-		g_cond_free ( player->capture_thread_cond );
+		g_mutex_clear(&player->capture_thread_mutex );
+		g_cond_clear(&player->capture_thread_cond );
 		debug_log("capture thread released");
 	}
 
@@ -123,7 +127,7 @@ _mmplayer_do_video_capture(MMHandleType hplayer)
 	int ret = MM_ERROR_NONE;
 	GstPad *pad = NULL;
 
-	debug_fenter();
+	MMPLAYER_FENTER();
 
 	return_val_if_fail(player && player->pipeline, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
@@ -135,29 +139,45 @@ _mmplayer_do_video_capture(MMHandleType hplayer)
 	}
 
 	/* check if video pipeline is linked or not */
-	if (!player->pipeline->videobin || !player->sent_bos)
+	if (!player->pipeline->videobin)
 	{
 		debug_warning("not ready to capture");
 		return MM_ERROR_PLAYER_INVALID_STATE;
 	}
 
+	/* check if drm file */
+	if (player->is_drm_file)
+	{
+		debug_warning("not supported in drm file");
+		return MM_ERROR_PLAYER_DRM_OUTPUT_PROTECTION;
+	}
+
 	pad = gst_element_get_static_pad(player->pipeline->videobin[MMPLAYER_V_SINK].gst, "sink" );
+
 	if (player->state != MM_PLAYER_STATE_PLAYING)
 	{
 		if (player->state == MM_PLAYER_STATE_PAUSED) // get last buffer from video sink
 		{
 			GstSample *sample = NULL;
+
+			gst_element_get_state(player->pipeline->mainbin[MMPLAYER_M_PIPE].gst, NULL, NULL, 5 * GST_SECOND); //5 seconds
+
 			g_object_get(player->pipeline->videobin[MMPLAYER_V_SINK].gst, "last-sample", &sample, NULL);
+
 			if (sample)
 			{
-			GstBuffer *buf = NULL;
-			buf = gst_sample_get_buffer(sample);
-			if (buf)
-			{
-				ret = __mmplayer_get_video_frame_from_buffer(player, pad, buf);
-				gst_buffer_unref(buf);
-			}
-			gst_sample_unref(sample);
+				GstBuffer *buf = NULL;
+				buf = gst_sample_get_buffer(sample);
+
+				if (buf)
+				{
+					ret = __mmplayer_get_video_frame_from_buffer(player, pad, buf);
+				}
+				else
+				{
+					debug_warning("failed to get video frame");
+				}
+				gst_sample_unref(sample);
 			}
 			return ret;
 		}
@@ -169,15 +189,118 @@ _mmplayer_do_video_capture(MMHandleType hplayer)
 	}
 
 	/* register probe */
-	player->video_capture_cb_probe_id = gst_pad_add_probe (pad, GST_PAD_PROBE_TYPE_BUFFER,
+	player->video_capture_cb_probe_id = gst_pad_add_probe(pad, GST_PAD_PROBE_TYPE_BUFFER,
 		__mmplayer_video_capture_probe, player, NULL);
 
 	gst_object_unref(GST_OBJECT(pad));
 	pad = NULL;
-	debug_fleave();
+
+	MMPLAYER_FLEAVE();
 
 	return ret;
 }
+
+int
+__mmplayer_handle_orientation (mm_player_t* player, int orientation, int format)
+{
+    unsigned char *src_buffer = NULL;
+    int ret = MM_ERROR_NONE;
+    unsigned char *dst_frame = NULL;
+    unsigned int dst_width = 0;
+    unsigned int dst_height = 0;
+    unsigned int dst_size = 0;
+    mm_util_img_rotate_type rot_enum = MM_UTIL_ROTATE_NUM;
+
+	player->capture.orientation = orientation;
+
+    if (orientation == 90 || orientation == 270)
+    {
+		dst_width = player->captured.h[0];
+		dst_height = player->captured.w[0];
+		debug_log ("interchange width & height");
+    }
+    else if (orientation == 180)
+    {
+		dst_width = player->captured.w[0];
+		dst_height = player->captured.h[0];
+    }
+    else if (orientation == 0)
+    {
+		debug_error ("no need handle orientation : %d", orientation);
+		player->capture.width = player->captured.w[0];
+		player->capture.height = player->captured.h[0];
+		return MM_ERROR_NONE;
+    }
+    else
+    {
+		debug_error ("wrong orientation value...");
+    }
+
+    /* height & width will be interchanged for 90 and 270 orientation */
+    ret = mm_util_get_image_size(format, dst_width, dst_height, &dst_size);
+    if (ret != MM_ERROR_NONE)
+    {
+		debug_error("failed to get destination frame size");
+		return ret;
+    }
+
+    debug_log ("before rotation : dst_width = %d and dst_height = %d", dst_width, dst_height);
+
+    dst_frame = (unsigned char*) malloc (dst_size);
+    if (!dst_frame)
+    {
+      debug_error("failed to allocate memory");
+      return MM_ERROR_PLAYER_NO_FREE_SPACE;
+    }
+
+    src_buffer = (unsigned char*)player->capture.data;
+
+	/* convert orientation degree into enum here */
+	switch(orientation)
+	{
+		case 0:
+			rot_enum = MM_UTIL_ROTATE_0;
+		break;
+		case 90:
+			rot_enum = MM_UTIL_ROTATE_90;
+		break;
+		case 180:
+			rot_enum = MM_UTIL_ROTATE_180;
+		break;
+		case 270:
+			rot_enum = MM_UTIL_ROTATE_270;
+		break;
+		default:
+			debug_error("wrong rotate value");
+		break;
+	}
+
+    debug_log ("source buffer for rotation = %p and rotation = %d", src_buffer, rot_enum);
+
+    ret = mm_util_rotate_image (src_buffer, player->captured.w[0], player->captured.h[0], format,
+      dst_frame, &dst_width, &dst_height, rot_enum);
+    if (ret != MM_ERROR_NONE)
+    {
+      debug_error("failed to do rotate image");
+      return ret;
+    }
+
+    debug_log ("after rotation same stride: dst_width = %d and dst_height = %d", dst_width, dst_height);
+
+    g_free (src_buffer);
+
+    player->capture.data = dst_frame;
+    player->capture.size = dst_size;
+	player->capture.orientation = orientation;
+	player->capture.width = dst_width;
+	player->capture.height= dst_height;
+
+    player->captured.w[0] = player->captured.s[0] = dst_width;
+    player->captured.h[0] = player->captured.e[0] = dst_height;
+
+    return ret;
+}
+
 
 static gpointer
 __mmplayer_capture_thread(gpointer data)
@@ -186,6 +309,8 @@ __mmplayer_capture_thread(gpointer data)
 	MMMessageParamType msg = {0, };
 	unsigned char * linear_y_plane = NULL;
 	unsigned char * linear_uv_plane = NULL;
+	int orientation = 0;
+	int ret = 0;
 
 	return_val_if_fail(player, NULL);
 
@@ -193,8 +318,8 @@ __mmplayer_capture_thread(gpointer data)
 	{
 		debug_log("capture thread started. waiting for signal");
 
-		g_mutex_lock(player->capture_thread_mutex);
-		g_cond_wait( player->capture_thread_cond, player->capture_thread_mutex );
+		g_mutex_lock(&player->capture_thread_mutex);
+		g_cond_wait(&player->capture_thread_cond, &player->capture_thread_mutex );
 
 		if ( player->capture_thread_exit )
 		{
@@ -213,26 +338,6 @@ __mmplayer_capture_thread(gpointer data)
 			int linear_y_plane_size;
 			int linear_uv_plane_size;
 			unsigned char * src_buffer = NULL;
-
-			debug_log("w[0]=%d, w[1]=%d", player->captured.w[0], player->captured.w[1]);
-			debug_log("h[0]=%d, h[1]=%d", player->captured.h[0], player->captured.h[1]);
-			debug_log("s[0]=%d, s[1]=%d", player->captured.s[0], player->captured.s[1]);
-			debug_log("e[0]=%d, e[1]=%d", player->captured.e[0], player->captured.e[1]);
-			debug_log("a[0]=%p, a[1]=%p", player->captured.a[0], player->captured.a[1]);
-
-			#if 0
-			if (mm_attrs_get_int_by_name(player->attrs, "content_video_width", &(player->captured.w[0])) != MM_ERROR_NONE)
-			{
-				debug_error("failed to get content width attribute");
-				goto ERROR;
-			}
-
-			if (mm_attrs_get_int_by_name(player->attrs, "content_video_height", &(player->captured.h[0])) != MM_ERROR_NONE)
-			{
-				debug_error("failed to get content height attribute");
-				goto ERROR;
-			}
-			#endif
 
 			linear_y_plane_size = (player->captured.w[0] * player->captured.h[0]);
 			linear_uv_plane_size = (player->captured.w[0] * player->captured.h[0]/2);
@@ -281,11 +386,87 @@ __mmplayer_capture_thread(gpointer data)
 			MMPLAYER_FREEIF(src_buffer);
 			MMPLAYER_FREEIF(linear_y_plane);
 			MMPLAYER_FREEIF(linear_uv_plane);
+		} else if (MM_PLAYER_COLORSPACE_NV12 == player->video_cs) {
+			#define MM_ALIGN(x, a)       (((x) + (a) - 1) & ~((a) - 1))
+			int ret = 0;
+			char *src_buffer = NULL;
+			/* using original width otherwises, app can't know aligned to resize */
+			int width_align = player->captured.w[0];//MM_ALIGN(player->captured.w[0], 8);
+			int src_buffer_size = width_align * player->captured.h[0] * 3/2;
+			int i, j;
+			char*temp = NULL;
+			char*dst_buf = NULL;
+
+			if (!src_buffer_size) {
+				debug_error("invalid data size");
+				goto ERROR;
+			}
+
+			src_buffer = (char*) g_try_malloc(src_buffer_size);
+
+			if (!src_buffer) {
+				msg.code = MM_ERROR_PLAYER_NO_FREE_SPACE;
+				goto ERROR;
+			}
+
+			memset(src_buffer, 0x00, src_buffer_size);
+
+			temp = player->captured.a[0];
+			dst_buf = src_buffer;
+
+			/* set Y plane */
+			for (i = 0; i < player->captured.h[0]; i++) {
+				memcpy(dst_buf, temp, width_align);
+				dst_buf += width_align;
+				temp += player->captured.s[0];
+			}
+
+			temp = player->captured.a[1];
+
+			/* set UV plane*/
+			for (j = 0; j < player->captured.h[1]; j++) {
+				memcpy(dst_buf, temp, width_align);
+				dst_buf += width_align;
+				temp += player->captured.s[0];
+			}
+
+			/* free captured buf */
+			MMPLAYER_FREEIF(player->captured.a[0]);
+			MMPLAYER_FREEIF(player->captured.a[1]);
+
+			/* NV12 -> RGB888 */
+			ret = __mm_player_convert_colorspace(player, (unsigned char*)src_buffer, MM_UTIL_IMG_FMT_NV12,
+				width_align, player->captured.h[0], MM_UTIL_IMG_FMT_RGB888);
+			if (ret != MM_ERROR_NONE)
+			{
+				debug_error("failed to convert nv12 linear");
+				goto ERROR;
+			}
+
+		}
+
+		ret = _mmplayer_get_video_rotate_angle ((MMHandleType)player, &orientation);
+		if (ret != MM_ERROR_NONE)
+		{
+			debug_error("failed to get rotation angle");
+			goto ERROR;
+		}
+
+		debug_log ("orientation value = %d", orientation);
+
+		ret = __mmplayer_handle_orientation (player, orientation, MM_UTIL_IMG_FMT_RGB888);
+		if (ret != MM_ERROR_NONE)
+		{
+			debug_error("failed to convert nv12 linear");
+			goto ERROR;
 		}
 
 		player->capture.fmt = MM_PLAYER_COLORSPACE_RGB888;
 		msg.data = &player->capture;
 		msg.size = player->capture.size;
+//		msg.captured_frame.width = player->capture.width;
+//		msg.captured_frame.height = player->capture.height;
+//		msg.captured_frame.orientation = player->capture.orientation;
 
 		if (player->cmd >= MMPLAYER_COMMAND_START)
 		{
@@ -293,7 +474,7 @@ __mmplayer_capture_thread(gpointer data)
 			debug_log("returned from capture message callback");
 		}
 
-		g_mutex_unlock(player->capture_thread_mutex);
+		g_mutex_unlock(&player->capture_thread_mutex);
 
 		//MMPLAYER_FREEIF(player->capture.data);
 		continue;
@@ -309,12 +490,12 @@ ERROR:
 
 		msg.union_type = MM_MSG_UNION_CODE;
 
-		g_mutex_unlock(player->capture_thread_mutex);
+		g_mutex_unlock(&player->capture_thread_mutex);
 		MMPLAYER_POST_MSG( player, MM_MESSAGE_VIDEO_NOT_CAPTURED, &msg );
 	}
 	return NULL;
 EXIT:
-	g_mutex_unlock(player->capture_thread_mutex);
+	g_mutex_unlock(&player->capture_thread_mutex);
 	return NULL;
 }
 
@@ -330,12 +511,12 @@ __mmplayer_get_video_frame_from_buffer(mm_player_t* player, GstPad *pad, GstBuff
 	gint src_height = 0;
 	GstCaps *caps = NULL;
 	GstStructure *structure = NULL;
-    GstMapInfo mapinfo = GST_MAP_INFO_INIT;
-    GstMemory *memory = 0;
+	GstMapInfo mapinfo = GST_MAP_INFO_INIT;
+	GstMemory *memory = NULL;
 	mm_util_img_format src_fmt = MM_UTIL_IMG_FMT_YUV420;
 	mm_util_img_format dst_fmt = MM_UTIL_IMG_FMT_RGB888; // fixed
 
-	debug_fenter();
+	MMPLAYER_FENTER();
 
 	return_val_if_fail ( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
 	return_val_if_fail ( buffer, MM_ERROR_INVALID_ARGUMENT );
@@ -344,7 +525,7 @@ __mmplayer_get_video_frame_from_buffer(mm_player_t* player, GstPad *pad, GstBuff
 	caps = gst_pad_get_current_caps(pad);
 
 	return_val_if_fail ( caps, MM_ERROR_INVALID_ARGUMENT );
-	debug_log("caps to capture: %s\n", gst_caps_to_string(caps));
+	MMPLAYER_LOG_GST_CAPS_TYPE(caps);
 
 	structure = gst_caps_get_structure (caps, 0);
 
@@ -368,10 +549,10 @@ __mmplayer_get_video_frame_from_buffer(mm_player_t* player, GstPad *pad, GstBuff
 			player->video_cs = MM_PLAYER_COLORSPACE_NV12_TILED;
 
 			/* get video frame info from proved buffer */
-			memory = gst_buffer_get_memory(buffer, 1);
+//			memory = gst_buffer_get_memory(buffer, 1);
+			memory = gst_buffer_get_all_memory(buffer);
 			gst_memory_map(memory, &mapinfo, GST_MAP_READ);
 			proved = (MMPlayerMPlaneImage *)mapinfo.data;
-			gst_memory_unmap(memory, &mapinfo);
 
 			if ( !proved || !proved->a[0] || !proved->a[1] )
 				return MM_ERROR_PLAYER_INTERNAL;
@@ -379,59 +560,105 @@ __mmplayer_get_video_frame_from_buffer(mm_player_t* player, GstPad *pad, GstBuff
 			yplane_size = proved->y_size;
 			uvplane_size = proved->uv_size;
 
-			debug_msg ("yplane_size=%d, uvplane_size=%d\n",yplane_size,uvplane_size);
+			debug_msg ("yplane_size=%d, uvplane_size=%d\n", yplane_size, uvplane_size);
 			memset(&player->captured, 0x00, sizeof(MMPlayerMPlaneImage));
 			memcpy(&player->captured, proved, sizeof(MMPlayerMPlaneImage));
 
 			player->captured.a[0] = g_try_malloc(yplane_size);
-			if ( !player->captured.a[0] )
+			if ( !player->captured.a[0] ) {
+				gst_memory_unmap(memory, &mapinfo);
 				return MM_ERROR_SOUND_NO_FREE_SPACE;
+			}
 
 			player->captured.a[1] = g_try_malloc(uvplane_size);
-			if ( !player->captured.a[1] )
+			if ( !player->captured.a[1] ) {
+				gst_memory_unmap(memory, &mapinfo);
 				return MM_ERROR_SOUND_NO_FREE_SPACE;
+			}
 
 			memcpy(player->captured.a[0], proved->a[0], yplane_size);
 			memcpy(player->captured.a[1], proved->a[1], uvplane_size);
+
+			gst_memory_unmap(memory, &mapinfo);
+
 			goto DONE;
 		}
 		else
 		{
 			GstVideoInfo format_info;
 			gst_video_info_from_caps(&format_info, caps);
-			switch (GST_VIDEO_INFO_FORMAT(&format_info))
+
+			switch(GST_VIDEO_INFO_FORMAT(&format_info))
 			{
 				case GST_VIDEO_FORMAT_I420:
 					src_fmt = MM_UTIL_IMG_FMT_I420;
 					break;
-
 				case GST_VIDEO_FORMAT_BGRA:
 					src_fmt = MM_UTIL_IMG_FMT_BGRA8888;
 					break;
-
 				case GST_VIDEO_FORMAT_BGRx:
 					src_fmt = MM_UTIL_IMG_FMT_BGRX8888;
 					break;
-
 				default:
 					goto UNKNOWN;
 					break;
 			}
 		}
+
+		#if 0
+		case GST_MAKE_FOURCC ('S', 'N', '1', '2'):
+		{
+			MMPlayerMPlaneImage *proved = NULL;
+			player->video_cs = MM_PLAYER_COLORSPACE_NV12;
+
+			/* get video frame info from proved buffer */
+			proved = (MMPlayerMPlaneImage *)GST_BUFFER_MALLOCDATA(buffer);
+
+			if (!proved || !proved->a[0] || !proved->a[1])
+				return MM_ERROR_PLAYER_INTERNAL;
+
+			memset(&player->captured, 0x00, sizeof(MMPlayerMPlaneImage));
+			memcpy(&player->captured, proved, sizeof(MMPlayerMPlaneImage));
+
+			player->captured.y_size = proved->s[0] * proved->h[0]; // must get data including padding
+			player->captured.uv_size = proved->s[0] * proved->h[1];
+
+			debug_msg ("y plane_size : %d, uv plane_size : %d", player->captured.y_size, player->captured.uv_size);
+
+			player->captured.a[0] = g_try_malloc(player->captured.y_size);
+
+			if ( !player->captured.a[0] ) {
+				return MM_ERROR_SOUND_NO_FREE_SPACE;
+			}
+
+			player->captured.a[1] = g_try_malloc(player->captured.uv_size);
+
+			if ( !player->captured.a[1] ) {
+				return MM_ERROR_SOUND_NO_FREE_SPACE;
+			}
+
+			memcpy(player->captured.a[0], proved->a[0], player->captured.y_size);
+			memcpy(player->captured.a[1], proved->a[1], player->captured.uv_size);
+
+			goto DONE;
+		}
+		break;
+		#endif
 	}
 	else
 	{
-	goto UNKNOWN;
+		goto UNKNOWN;
 	}
+
 	gst_buffer_map(buffer, &mapinfo, GST_MAP_READ);
 	__mm_player_convert_colorspace(player, mapinfo.data, src_fmt, src_width, src_height, dst_fmt);
 	gst_buffer_unmap(buffer, &mapinfo);
 
 DONE:
 	/* do convert colorspace */
-	g_cond_signal( player->capture_thread_cond );
+	g_cond_signal( &player->capture_thread_cond );
 
-	debug_fleave();
+	MMPLAYER_FLEAVE();
 
 	return MM_ERROR_NONE;
 
@@ -447,26 +674,26 @@ __mmplayer_video_capture_probe (GstPad *pad, GstPadProbeInfo *info, gpointer u_d
 	GstBuffer *buffer = NULL;
 	int ret = MM_ERROR_NONE;
 
-	return_val_if_fail ( info->data, GST_PAD_PROBE_REMOVE);
-	debug_fenter();
+	return_val_if_fail (info->data, GST_PAD_PROBE_REMOVE);
+	MMPLAYER_FENTER();
 
 	buffer = gst_pad_probe_info_get_buffer(info);
 	ret = __mmplayer_get_video_frame_from_buffer(player, pad, buffer);
 
 	if ( ret != MM_ERROR_NONE)
 	{
-		debug_error("faild to get video frame. %x\n", ret);
+		debug_error("failed to get video frame");
 		return GST_PAD_PROBE_REMOVE;
 	}
 
 	/* remove probe to be called at one time */
 	if (player->video_capture_cb_probe_id)
 	{
-		gst_pad_remove_probe (pad, player->video_capture_cb_probe_id);
+		gst_pad_remove_probe(pad, player->video_capture_cb_probe_id);
 		player->video_capture_cb_probe_id = 0;
 	}
 
-	debug_fleave();
+	MMPLAYER_FLEAVE();
 
 	return GST_PAD_PROBE_OK;
 }
@@ -487,7 +714,7 @@ __mm_player_convert_colorspace(mm_player_t* player, unsigned char* src_data, mm_
 		return MM_ERROR_PLAYER_INTERNAL;
 	}
 
-	debug_log("width: %d, height: %d to capture, dest size: %d\n", src_w, src_h, dst_size);
+	secure_debug_log("width: %d, height: %d to capture, dest size: %d\n", src_w, src_h, dst_size);
 
 	dst_data = (unsigned char*)g_malloc0(dst_size);
 
@@ -533,7 +760,7 @@ static int
 __tile_4x2_read(int x_size, int y_size, int x_pos, int y_pos)
 {
     int pixel_x_m1, pixel_y_m1;
-    int roundup_x, roundup_y;
+    int roundup_x;
     int linear_addr0, linear_addr1, bank_addr ;
     int x_addr;
     int trans_addr;
@@ -542,7 +769,6 @@ __tile_4x2_read(int x_size, int y_size, int x_pos, int y_pos)
     pixel_y_m1 = y_size -1;
 
     roundup_x = ((pixel_x_m1 >> 7) + 1);
-    roundup_y = ((pixel_x_m1 >> 6) + 1);
 
     x_addr = x_pos >> 2;
 

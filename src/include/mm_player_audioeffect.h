@@ -32,6 +32,9 @@
 #define MM_AUDIO_EFFECT_EQ_BAND_NUM_MAX		10
 #define MM_AUDIO_EFFECT_CUSTOM_LEVEL_INIT	0
 
+#define MM_AUDIO_EFFECT_SQUARE_VALUE_MAX	4
+#define MM_AUDIO_EFFECT_SQUARE_VALUE_MIN	0
+
 /**
 	@addtogroup PLAYER_INTERNAL
 
@@ -61,6 +64,10 @@ typedef enum {
 	MM_AUDIO_EFFECT_PRESET_HIPHOP,       /**<  Preset type HipHop */
 	MM_AUDIO_EFFECT_PRESET_RNB,          /**<  Preset type R&B */
 	MM_AUDIO_EFFECT_PRESET_FLAT,         /**<  Preset type Flat */
+	MM_AUDIO_EFFECT_PRESET_TUBE,         /**<  Preset type Tube */
+	MM_AUDIO_EFFECT_PRESET_VIRT71,       /**<  Preset type Virtual 7.1 */
+	MM_AUDIO_EFFECT_PRESET_STUDIO,       /**<  Preset type Studio */
+	MM_AUDIO_EFFECT_PRESET_CLUB,         /**<  Preset type Club */
 	MM_AUDIO_EFFECT_PRESET_NUM,          /**<  Number of Preset type */
 } MMAudioEffectPresetType;
 
@@ -84,6 +91,7 @@ typedef enum {
 	MM_AUDIO_EFFECT_TYPE_NONE,
 	MM_AUDIO_EFFECT_TYPE_PRESET,
 	MM_AUDIO_EFFECT_TYPE_CUSTOM,
+	MM_AUDIO_EFFECT_TYPE_SQUARE,
 } MMAudioEffectType;
 
 
@@ -92,7 +100,14 @@ typedef enum {
  */
 typedef enum {
 	MM_AUDIO_EFFECT_OUTPUT_SPK,    /**< Speaker out */
-	MM_AUDIO_EFFECT_OUTPUT_EAR     /**< Earjack out */
+	MM_AUDIO_EFFECT_OUTPUT_EAR,    /**< Earjack out */
+	MM_AUDIO_EFFECT_OUTPUT_OTHERS, /**< MIRRORING out */
+	MM_AUDIO_EFFECT_OUTPUT_BT,
+	MM_AUDIO_EFFECT_OUTPUT_DOCK,
+	MM_AUDIO_EFFECT_OUTPUT_MULTIMEDIA_DOCK,
+	MM_AUDIO_EFFECT_OUTPUT_USB_AUDIO,
+	MM_AUDIO_EFFECT_OUTPUT_HDMI,
+	MM_AUDIO_EFFECT_OUTPUT_NUM
 } MMAudioEffectOutputMode;
 
 
@@ -105,6 +120,8 @@ typedef struct {
 	int *custom_ext_level_for_plugin;   /**< for custom type, level value list of Extension effects*/
 	int custom_eq_level[MM_AUDIO_EFFECT_EQ_BAND_NUM_MAX];   /**< for custom type, EQ info*/
 	int custom_ext_level[MM_AUDIO_EFFECT_CUSTOM_NUM-1];     /**< for custom type, Extension effect info*/
+	int square_row;    /**< for square type, square row configure*/
+	int square_col;    /**< for square type, square col configure*/
 } MMAudioEffectInfo;
 
 
@@ -148,20 +165,6 @@ int mm_player_get_foreach_present_supported_effect_type(MMHandleType player, MMA
  * @since
  */
 int mm_player_audio_effect_bypass (MMHandleType hplayer);
-
-/**
- * This function is to apply preset effect.
- *
- * @param	hplayer		[in]	Handle of player.
- * @param	type		[in]	Preset type effect.
- *
- * @return	This function returns zero on success, or negative value with error code.
- *
- * @remark
- * @see		MMAudioEffectPresetType
- * @since
- */
-int mm_player_audio_effect_preset_apply(MMHandleType hplayer, MMAudioEffectPresetType type);
 
 /**
  * This function is to apply custom effect(Equalizer and Extension effects).
