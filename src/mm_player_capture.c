@@ -58,19 +58,10 @@ _mmplayer_initialize_video_capture(mm_player_t* player)
 	return_val_if_fail ( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
 	/* create capture mutex */
 	g_mutex_init(&player->capture_thread_mutex);
-	if ( !(&player->capture_thread_mutex) )
-	{
-		debug_error("Cannot create capture mutex");
-		goto ERROR;
-	}
 
 	/* create capture cond */
 	g_cond_init(&player->capture_thread_cond);
-	if (!(&player->capture_thread_cond) )
-	{
-		debug_error("Cannot create capture cond");
-		goto ERROR;
-	}
+
 
 	player->capture_thread_exit = FALSE;
 
@@ -87,11 +78,9 @@ _mmplayer_initialize_video_capture(mm_player_t* player)
 
 ERROR:
 	/* capture thread */
-	if ( &player->capture_thread_mutex )
-		g_mutex_clear(&player->capture_thread_mutex );
+	g_mutex_clear(&player->capture_thread_mutex );
 
-	if (&player->capture_thread_cond )
-		g_cond_clear (&player->capture_thread_cond );
+	g_cond_clear (&player->capture_thread_cond );
 
 	return MM_ERROR_PLAYER_INTERNAL;
 }
@@ -101,9 +90,7 @@ _mmplayer_release_video_capture(mm_player_t* player)
 {
 	return_val_if_fail ( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
 	/* release capture thread */
-	if ( &player->capture_thread_cond &&
-		 &player->capture_thread_mutex &&
-		 player->capture_thread )
+	if (player->capture_thread)
 	{
 		g_mutex_lock(&player->capture_thread_mutex);
 		player->capture_thread_exit = TRUE;
@@ -314,11 +301,12 @@ __mmplayer_capture_thread(gpointer data)
 
 	return_val_if_fail(player, NULL);
 
+	g_mutex_lock(&player->capture_thread_mutex);
+
 	while (!player->capture_thread_exit)
 	{
 		debug_log("capture thread started. waiting for signal");
 
-		g_mutex_lock(&player->capture_thread_mutex);
 		g_cond_wait(&player->capture_thread_cond, &player->capture_thread_mutex );
 
 		if ( player->capture_thread_exit )

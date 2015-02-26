@@ -57,29 +57,12 @@ int mm_player_create(MMHandleType *player)
 	/* create player lock */
 	g_mutex_init(&new_player->cmd_lock);
 
-	if (!(&new_player->cmd_lock))
-	{
-		debug_error("failed to create player lock\n");
-		goto ERROR;
-	}
-
 	/* create player lock */
 	g_mutex_init(&new_player->playback_lock);
 
-	if (!(&new_player->playback_lock) )
-	{
-		debug_error("failed to create playback_lock\n");
-		goto ERROR;
-	}
 
 	/* create msg callback lock */
 	g_mutex_init(&new_player->msg_cb_lock);
-
-	if (!(&new_player->msg_cb_lock))
-	{
-		debug_error("failed to create msg cb lock\n");
-		goto ERROR;
-	}
 
 	/* load ini files */
 	result = mm_player_ini_load(&new_player->ini);
@@ -114,15 +97,8 @@ ERROR:
 
 	if ( new_player )
 	{
-		if (&new_player->cmd_lock)
-		{
-			g_mutex_clear(&new_player->cmd_lock);
-		}
-
-		if (&new_player->playback_lock)
-		{
-			g_mutex_clear(&new_player->playback_lock);
-		}
+		g_mutex_clear(&new_player->cmd_lock);
+		g_mutex_clear(&new_player->playback_lock);
 
 		_mmplayer_destroy( (MMHandleType)new_player );
 
@@ -145,15 +121,8 @@ int  mm_player_destroy(MMHandleType player)
 
 	MMPLAYER_CMD_UNLOCK( player );
 
-	if (&((mm_player_t*)player)->cmd_lock)
-	{
-		g_mutex_clear(&((mm_player_t*)player)->cmd_lock);
-	}
-
-	if (&((mm_player_t*)player)->playback_lock)
-	{
-		g_mutex_clear(&((mm_player_t*)player)->playback_lock);
-	}
+	g_mutex_clear(&((mm_player_t*)player)->cmd_lock);
+	g_mutex_clear(&((mm_player_t*)player)->playback_lock);
 
 	memset( (mm_player_t*)player, 0x00, sizeof(mm_player_t) );
 

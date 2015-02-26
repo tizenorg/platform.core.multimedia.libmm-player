@@ -182,7 +182,7 @@ int		__mmplayer_switch_audio_sink (mm_player_t* player);
 static gboolean __mmplayer_gst_remove_fakesink(mm_player_t* player, MMPlayerGstElement* fakesink);
 static int		__mmplayer_check_state(mm_player_t* player, enum PlayerCommandState command);
 static GstPadProbeReturn __mmplayer_audio_stream_probe (GstPad *pad, GstPadProbeInfo *info, gpointer u_data);
-//static gboolean __mmplayer_video_stream_probe (GstPad *pad, GstBuffer *buffer, gpointer u_data);
+static GstPadProbeReturn __mmplayer_video_stream_probe (GstPad *pad, GstPadProbeInfo *info, gpointer u_data);
 static GstPadProbeReturn __mmplayer_subtitle_adjust_position_probe (GstPad *pad, GstPadProbeInfo *info, gpointer u_data);
 static int __mmplayer_change_selector_pad (mm_player_t* player, MMPlayerTrackType type, int index);
 
@@ -288,6 +288,8 @@ void __mmplayer_inc_cb_score(mm_player_t* player);
 void __mmplayer_post_proc_reset(mm_player_t* player);
 void __mmplayer_device_change_trigger_post_process(mm_player_t* player);
 static int __mmplayer_gst_create_plain_text_elements(mm_player_t* player);
+static guint32 _mmplayer_convert_fourcc_string_to_value(const gchar* format_name);
+
 
 
 /*===========================================================================================
@@ -3125,10 +3127,8 @@ __mmplayer_gst_decode_pad_added (GstElement *elem, GstPad *pad, gpointer data)
 				goto ERROR;
 			}
 
-#if 0
 			if (player->set_mode.media_packet_video_stream)
-				player->video_cb_probe_id = gst_pad_add_probe (sinkpad, GST_PAD_PROBE_TYPE_BUFFER, G_CALLBACK (__mmplayer_video_stream_probe), player, NULL);
-#endif
+				player->video_cb_probe_id = gst_pad_add_probe (sinkpad, GST_PAD_PROBE_TYPE_BUFFER, __mmplayer_video_stream_probe, player, NULL);
 
 			g_object_set (G_OBJECT (fakesink), "async", TRUE, NULL);
 			g_object_set (G_OBJECT (fakesink), "sync", TRUE, NULL);
@@ -5434,25 +5434,35 @@ __mmplayer_audio_stream_probe (GstPad *pad, GstPadProbeInfo *info, gpointer u_da
 	return GST_PAD_PROBE_OK;
 }
 
+static guint32 _mmplayer_convert_fourcc_string_to_value(const gchar* format_name)
+{
+    return format_name[0] | (format_name[1] << 8) | (format_name[2] << 16) | (format_name[3] << 24);
+}
 
-#if 0
-static gboolean
-__mmplayer_video_stream_probe (GstPad *pad, GstBuffer *buffer, gpointer user_data)
+static GstPadProbeReturn
+__mmplayer_video_stream_probe (GstPad *pad, GstPadProbeInfo *info, gpointer user_data)
 {
 	GstCaps *caps = NULL;
 	MMPlayerVideoStreamDataType stream;
 	MMPlayerMPlaneImage *scmn_imgb = NULL;
+	GstMemory *dataBlock = NULL;
+	GstMemory *metaBlock = NULL;
+	GstMapInfo mapinfo = GST_MAP_INFO_INIT;
 	GstStructure *structure = NULL;
 	unsigned int fourcc = 0;
 	mm_player_t* player = (mm_player_t*)user_data;
+	GstBuffer *buffer = GST_PAD_PROBE_INFO_BUFFER(info);
 
-	caps = gst_buffer_get_caps(buffer);
+	return_val_if_fail(buffer, GST_PAD_PROBE_DROP);
+	return_val_if_fail(gst_buffer_n_memory(buffer)  , GST_PAD_PROBE_DROP);
+
+	caps = gst_pad_get_current_caps(pad);
 	if (caps == NULL) {
 		debug_error( "Caps is NULL." );
-		return TRUE;
+		return GST_PAD_PROBE_OK;
 	}
 
-	//MMPLAYER_LOG_GST_CAPS_TYPE(caps);
+	MMPLAYER_LOG_GST_CAPS_TYPE(caps);
 
 	/* clear stream data structure */
 	memset(&stream, 0x0, sizeof(MMPlayerVideoStreamDataType));
@@ -5460,7 +5470,7 @@ __mmplayer_video_stream_probe (GstPad *pad, GstBuffer *buffer, gpointer user_dat
 	structure = gst_caps_get_structure( caps, 0 );
 	gst_structure_get_int(structure, "width", &(stream.width));
 	gst_structure_get_int(structure, "height", &(stream.height));
-	gst_structure_get_fourcc(structure, "format", &fourcc);
+	fourcc = _mmplayer_convert_fourcc_string_to_value(gst_structure_get_string(structure, "format"));
 	stream.format = util_get_pixtype(fourcc);
 	gst_caps_unref( caps );
 	caps = NULL;
@@ -5476,14 +5486,17 @@ __mmplayer_video_stream_probe (GstPad *pad, GstBuffer *buffer, gpointer user_dat
 	}
 
 	/* set size and timestamp */
-	stream.length_total = GST_BUFFER_SIZE(buffer);
-	stream.timestamp = (unsigned int)(GST_BUFFER_TIMESTAMP(buffer)/1000000); /* nano sec -> mili sec */
+	dataBlock = gst_buffer_peek_memory(buffer, 0);
+	stream.length_total = gst_memory_get_sizes(dataBlock, NULL, NULL);
+	stream.timestamp = (unsigned int)(GST_BUFFER_PTS(buffer)/1000000); /* nano sec -> mili sec */
 
-	//check zero-copy
-	if (player->set_mode.video_zc
-		&& player->set_mode.media_packet_video_stream
-		&& GST_BUFFER_MALLOCDATA(buffer)) {
-		scmn_imgb = (MMPlayerMPlaneImage *)GST_BUFFER_MALLOCDATA(buffer);
+	/* check zero-copy */
+	if (player->set_mode.video_zc &&
+		player->set_mode.media_packet_video_stream &&
+		gst_buffer_n_memory(buffer) > 1) {
+		metaBlock = gst_buffer_peek_memory(buffer, 1);
+		gst_memory_map(metaBlock, &mapinfo, GST_MAP_READ);
+		scmn_imgb = (MMPlayerMPlaneImage *)mapinfo.data;
 	}
 
 	/* set tbm bo */
@@ -5501,16 +5514,22 @@ __mmplayer_video_stream_probe (GstPad *pad, GstBuffer *buffer, gpointer user_dat
 		/* set gst buffer */
 		stream.internal_buffer = buffer;
 	} else {
-		stream.data = GST_BUFFER_DATA(buffer);
+		gst_memory_map(dataBlock, &mapinfo, GST_MAP_READWRITE);
+		stream.data = mapinfo.data;
 	}
 
 	if (player->video_stream_cb) {
 		player->video_stream_cb(&stream, player->video_stream_cb_user_param);
 	}
 
-	return TRUE;
+	if (metaBlock) {
+		gst_memory_unmap(metaBlock, &mapinfo);
+	}else {
+		gst_memory_unmap(dataBlock, &mapinfo);
+	}
+
+	return GST_PAD_PROBE_OK;
 }
-#endif
 
 static int
 __mmplayer_gst_create_video_filters(mm_player_t* player, GList** bucket, gboolean use_video_stream)
@@ -8809,6 +8828,7 @@ __mmplayer_asm_callback(int handle, ASM_event_sources_t event_src, ASM_sound_com
 				cb_res = ASM_CB_RES_PAUSE;
 			}
 			break;
+
 		case ASM_COMMAND_RESUME:
 			{
 				debug_warning("Got msg from asm to Resume. So, application can resume. code (%d) \n", event_src);
@@ -8821,6 +8841,7 @@ __mmplayer_asm_callback(int handle, ASM_event_sources_t event_src, ASM_sound_com
 				goto DONE;
 			}
 			break;
+
 		default:
 			break;
 	}
@@ -8878,52 +8899,23 @@ _mmplayer_create_player(MMHandleType handle) // @
 
 	/* create lock. note that g_tread_init() has already called in gst_init() */
 	g_mutex_init(&player->fsink_lock);
-	if (!(&player->fsink_lock) )
-	{
-		debug_error("Cannot create mutex for command lock\n");
-		goto ERROR;
-	}
 
 	/* create repeat mutex */
 	g_mutex_init(&player->repeat_thread_mutex);
-	if (!(&player->repeat_thread_mutex))
-	{
-		debug_error("Cannot create repeat mutex\n");
-		goto ERROR;
-	}
 
 	/* create repeat cond */
 	g_cond_init(&player->repeat_thread_cond);
-	if (!(&player->repeat_thread_cond))
-	{
-		debug_error("Cannot create repeat cond\n");
-		goto ERROR;
-	}
 
 	/* create repeat thread */
 	player->repeat_thread =
 		g_thread_try_new ("repeat_thread", __mmplayer_repeat_thread, (gpointer)player, NULL);
-	if ( ! player->repeat_thread )
-	{
-		debug_error("failed to create repeat thread");
-		goto ERROR;
-	}
+
 
 	/* create next play mutex */
 	g_mutex_init(&player->next_play_thread_mutex);
-	if (!(&player->next_play_thread_mutex))
-	{
-		debug_error("Cannot create next_play mutex\n");
-		goto ERROR;
-	}
 
 	/* create next play cond */
 	g_cond_init(&player->next_play_thread_cond);
-	if (! (&player->next_play_thread_cond))
-	{
-		debug_error("Cannot create next_play cond\n");
-		goto ERROR;
-	}
 
 	/* create next play thread */
 	player->next_play_thread =
@@ -8998,13 +8990,10 @@ _mmplayer_create_player(MMHandleType handle) // @
 
 ERROR:
 	/* free lock */
-	if ( &player->fsink_lock )
-		g_mutex_clear(&player->fsink_lock );
+	g_mutex_clear(&player->fsink_lock );
 
 	/* free thread */
-	if ( &player->repeat_thread_cond &&
-		 &player->repeat_thread_mutex &&
-		 player->repeat_thread )
+	if ( player->repeat_thread )
 	{
 		player->repeat_thread_exit = TRUE;
 		g_cond_signal( &player->repeat_thread_cond );
@@ -9019,16 +9008,11 @@ ERROR:
 	/* clear repeat thread mutex/cond if still alive
 	 * this can happen if only thread creating has failed
 	 */
-	if ( &player->repeat_thread_mutex )
-		g_mutex_clear(&player->repeat_thread_mutex );
-
-	if ( &player->repeat_thread_cond )
-		g_cond_clear ( &player->repeat_thread_cond );
+	g_mutex_clear(&player->repeat_thread_mutex );
+	g_cond_clear ( &player->repeat_thread_cond );
 
 	/* free next play thread */
-	if ( &player->next_play_thread_cond &&
-		 &player->next_play_thread_mutex &&
-		 player->next_play_thread )
+	if ( player->next_play_thread )
 	{
 		player->next_play_thread_exit = TRUE;
 		g_cond_signal( &player->next_play_thread_cond );
@@ -9043,11 +9027,9 @@ ERROR:
 	/* clear next play thread mutex/cond if still alive
 	 * this can happen if only thread creating has failed
 	 */
-	if ( &player->next_play_thread_mutex )
-		g_mutex_clear(&player->next_play_thread_mutex );
+	g_mutex_clear(&player->next_play_thread_mutex );
 
-	if ( &player->next_play_thread_cond )
-		g_cond_clear ( &player->next_play_thread_cond );
+	g_cond_clear ( &player->next_play_thread_cond );
 
 	/* release attributes */
 	_mmplayer_deconstruct_attribute(handle);
@@ -9208,9 +9190,7 @@ _mmplayer_destroy(MMHandleType handle) // @
 	__mmplayer_destroy_streaming_ext(player);
 
 	/* release repeat thread */
-	if ( &player->repeat_thread_cond &&
-		 &player->repeat_thread_mutex &&
-		 player->repeat_thread )
+	if ( player->repeat_thread )
 	{
 		player->repeat_thread_exit = TRUE;
 		g_cond_signal( &player->repeat_thread_cond );
@@ -9223,9 +9203,7 @@ _mmplayer_destroy(MMHandleType handle) // @
 	}
 
 	/* release next play thread */
-	if (&player->next_play_thread_cond &&
-		 &player->next_play_thread_mutex &&
-		 player->next_play_thread )
+	if ( player->next_play_thread )
 	{
 	
 		MMPLAYER_PLAYBACK_LOCK(player);
@@ -9307,11 +9285,9 @@ _mmplayer_destroy(MMHandleType handle) // @
 	__mmplayer_release_factories( player );
 
 	/* release lock */
-	if ( &player->fsink_lock )
-		g_mutex_clear(&player->fsink_lock );
+	g_mutex_clear(&player->fsink_lock );
 
-	if ( &player->msg_cb_lock )
-		g_mutex_clear(&player->msg_cb_lock );
+	g_mutex_clear(&player->msg_cb_lock );
 
 	MMPLAYER_FLEAVE();
 
@@ -12815,12 +12791,6 @@ __mmplayer_gst_decode_drained(GstElement *bin, gpointer data)
 		return;
 	}
 
-	if ( !(&player->cmd_lock) )
-	{
-		debug_warning("can't get cmd lock\n");
-		return;
-	}
-
 	if (!g_mutex_trylock(&player->cmd_lock))
 	{
 		debug_warning("Fail to get cmd lock");
@@ -15850,6 +15820,7 @@ int _mmplayer_remove_audio_parser_decoder(mm_player_t* player,GstPad *inpad)
 		{
 			gst_object_unref(peer);
 			result = MM_ERROR_NONE;
+            g_free(Element_name);
 			break;
 		}
 		factory_name = GST_OBJECT_NAME(factory);
@@ -15857,6 +15828,7 @@ int _mmplayer_remove_audio_parser_decoder(mm_player_t* player,GstPad *inpad)
 		if(pad == NULL)
 		{
 			result = MM_ERROR_PLAYER_INTERNAL;
+            g_free(Element_name);
 			break;
 		}
 		gst_object_unref(peer);
@@ -15868,6 +15840,7 @@ int _mmplayer_remove_audio_parser_decoder(mm_player_t* player,GstPad *inpad)
 				gst_object_unref(peer);
 				gst_object_unref(pad);
 				result = MM_ERROR_PLAYER_INTERNAL;
+                g_free(Element_name);
 				break;
 			}
 		}
