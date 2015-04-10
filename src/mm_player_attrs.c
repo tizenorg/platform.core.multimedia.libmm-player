@@ -718,6 +718,53 @@ _mmplayer_construct_attribute(MMHandleType handle)
 			0,
 			0
 		},
+#ifdef HAVE_WAYLAND
+		{
+			"wl_display",
+			MM_ATTRS_TYPE_DATA,
+			MM_ATTRS_FLAG_RW,
+			(void *) NULL,
+			MM_ATTRS_VALID_TYPE_NONE,
+			0,
+			0
+		},
+		{
+			"wl_window_render_x",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) 0,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			0,
+			MMPLAYER_MAX_INT
+		},
+		{
+			"wl_window_render_y",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) 0,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			0,
+			MMPLAYER_MAX_INT
+		},
+		{
+			"wl_window_render_width",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) 0,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			0,
+			MMPLAYER_MAX_INT
+		},
+		{
+			"wl_window_render_height",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) 0,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			0,
+			MMPLAYER_MAX_INT
+		},
+#endif
 		{
 			"display_overlay_user_data",
 			MM_ATTRS_TYPE_DATA,

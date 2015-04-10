@@ -53,3 +53,8 @@ libmmfplayer_la_LIBADD += $(MMLOG_LIBS)
 if IS_SDK
 libmmfplayer_la_CFLAGS += -DIS_SDK
 endif
+
+if WAYLAND_SUPPORT
+libmmfplayer_la_CFLAGS += $(GST_WAYLAND_CFLAGS)
+libmmfplayer_la_LIBADD += $(GST_WAYLAND_LIBS)
+endif

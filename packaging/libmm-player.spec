@@ -1,7 +1,10 @@
+%bcond_with wayland
+%bcond_with x
+
 Name:       libmm-player
 Summary:    Multimedia Framework Player Library
 Version:    0.5.56
-Release:    1
+Release:    2
 Group:      Multimedia/Libraries
 License:    Apache-2.0
 URL:        http://source.tizen.org
@@ -13,6 +16,9 @@ BuildRequires:  pkgconfig(mm-common)
 BuildRequires:  pkgconfig(mm-sound)
 BuildRequires:  pkgconfig(gstreamer-1.0)
 BuildRequires:  pkgconfig(gstreamer-plugins-base-1.0)
+%if %{with wayland}
+BuildRequires:  pkgconfig(gstreamer-wayland-1.0)
+%endif
 BuildRequires:  pkgconfig(gstreamer-video-1.0)
 BuildRequires:  pkgconfig(gstreamer-app-1.0)
 BuildRequires:  pkgconfig(appcore-efl)
@@ -39,12 +45,24 @@ Multimedia Framework Player Library files (DEV).
 cp %{SOURCE1001} .
 
 %build
-CFLAGS+="  -Wall -D_FILE_OFFSET_BITS=64 -DEXPORT_API=\"__attribute__((visibility(\\\"default\\\")))\" "; export CFLAGS
+%if %{with x}
+CFLAGS+="  -Wall -D_FILE_OFFSET_BITS=64 -DHAVE_X11 -DEXPORT_API=\"__attribute__((visibility(\\\"default\\\")))\" "; export CFLAGS
+%endif
+%if %{with wayland}
+CFLAGS+="  -Wall -D_FILE_OFFSET_BITS=64 -DHAVE_WAYLAND -DEXPORT_API=\"__attribute__((visibility(\\\"default\\\")))\" "; export CFLAGS
+%endif
 LDFLAGS+="-Wl,--rpath=%{_prefix}/lib -Wl,--hash-style=both -Wl,--as-needed"; export LDFLAGS
 ./autogen.sh
 # always enable sdk build. This option should go away
 CFLAGS=$CFLAGS LDFLAGS=$LDFLAGS ./configure --enable-sdk --prefix=%{_prefix} --disable-static
-%configure --disable-static
+%configure \
+%if %{with x}
+--disable-static
+%endif
+%if %{with wayland}
+--disable-static \
+--enable-wayland
+%endif
 #%__make -j1
 make %{?jobs:-j%jobs}
 
