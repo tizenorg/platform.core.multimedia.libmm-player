@@ -798,36 +798,34 @@ __mmplayer_device_change_trigger_post_process(mm_player_t* player)
  * To avoid this issue, we do reset avsystem or seek as workaroud.
  */
 static void
-__mmplayer_sound_active_device_changed_cb_func (mm_sound_device_in device_in, mm_sound_device_out device_out, void *user_data)
+__mmplayer_sound_device_info_changed_cb_func (MMSoundDevice_t device_h, int changed_info_type, void *user_data)
 {
+	int ret;
+	mm_sound_device_type_e device_type;
 	mm_player_t* player = (mm_player_t*) user_data;
 
 	return_if_fail( player );
 
-	debug_warning("active audio device is changed, device_in(0x%x), device_out(0x%x)", device_in, device_out);
+	debug_warning("device_info_changed_cb is called, device_h[0x%x], changed_info_type[%d]\n", device_h, changed_info_type);
 
 	__mmplayer_inc_cb_score(player);
+
+	/* get device type with device_h*/
+	ret = mm_sound_get_device_type(device_h, &device_type);
+	if (ret) {
+		debug_error("failed to mm_sound_get_device_type()\n");
+	}
 
 	/* do pause and resume only if video is playing  */
 	if ( player->videodec_linked && MMPLAYER_CURRENT_STATE(player) == MM_PLAYER_STATE_PLAYING )
 	{
-		switch (device_out)
+		switch (device_type)
 		{
-			case MM_SOUND_DEVICE_OUT_BT_A2DP:
-			case MM_SOUND_DEVICE_OUT_WIRED_ACCESSORY:
-			{
-				player->post_proc.need_pause_and_resume = TRUE;
-			}
-			break;
-
-			case MM_SOUND_DEVICE_OUT_SPEAKER:
-			{
-				player->post_proc.need_pause_and_resume = TRUE;
-			}
-			break;
-
-			case MM_SOUND_DEVICE_OUT_HDMI:
-//			case MM_SOUND_DEVICE_OUT_MIRRORING:
+			case MM_SOUND_DEVICE_TYPE_BLUETOOTH:
+			case MM_SOUND_DEVICE_TYPE_AUDIOJACK:
+			case MM_SOUND_DEVICE_TYPE_BUILTIN_SPEAKER:
+			case MM_SOUND_DEVICE_TYPE_HDMI:
+			case MM_SOUND_DEVICE_TYPE_MIRRORING:
 			{
 				player->post_proc.need_pause_and_resume = TRUE;
 			}
@@ -7358,10 +7356,11 @@ __mmplayer_gst_destroy_pipeline(mm_player_t* player) // @
 	__mmplayer_cancel_eos_timer( player );
 
 	/* remove sound cb */
-//	if ( MM_ERROR_NONE != mm_sound_remove_active_device_changed_callback(MM_PLAYER_NAME))
-//	{
-//		debug_error("failed to mm_sound_remove_active_device_changed_callback");
-//	}
+	/* remove sound cb */
+	if ( MM_ERROR_NONE != mm_sound_remove_device_information_changed_callback())
+	{
+		debug_error("failed to mm_sound_remove_device_information_changed_callback()");
+	}
 
 	/* cleanup gst stuffs */
 	if ( player->pipeline )
@@ -8979,10 +8978,9 @@ _mmplayer_create_player(MMHandleType handle) // @
 	}
 #endif
 	/* to add active device callback */
-//	if ( MM_ERROR_NONE != mm_sound_add_active_device_changed_callback(MM_PLAYER_NAME, __mmplayer_sound_active_device_changed_cb_func, (void*)player))
-	if ( MM_ERROR_NONE != mm_sound_add_active_device_changed_callback(__mmplayer_sound_active_device_changed_cb_func, (void*)player))
+	if ( MM_ERROR_NONE != mm_sound_add_device_information_changed_callback(MM_SOUND_DEVICE_STATE_ACTIVATED_FLAG, __mmplayer_sound_device_info_changed_cb_func, (void*)player))
 	{
-		debug_error("failed mm_sound_add_active_device_changed_callback \n");
+		debug_error("failed mm_sound_add_device_information_changed_callback \n");
 	}
 
 	if (MMPLAYER_IS_HTTP_PD(player))
