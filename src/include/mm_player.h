@@ -34,6 +34,7 @@
 
 #include <mm_types.h>
 #include <mm_message.h>
+#include <media_packet.h>
 
 #ifdef __cplusplus
 	extern "C" {
@@ -659,9 +660,11 @@ typedef struct {
 	int height;                     			/**< height of video buffer */
 	unsigned int timestamp;         		/**< timestamp of stream buffer (msec)*/
 	unsigned int length_total; 			/**< total length of stream buffer (in byte)*/
-	void *data;
+	void *data[BUFFER_MAX_PLANE_NUM];
 	void *bo[BUFFER_MAX_PLANE_NUM];  /**< TBM buffer object */
 	void *internal_buffer;          		/**< Internal buffer pointer */
+	int stride[BUFFER_MAX_PLANE_NUM];		/**< stride of plane */
+	int elevation[BUFFER_MAX_PLANE_NUM];  	/**< elevation of plane */
 }MMPlayerVideoStreamDataType;
 
 /**
@@ -738,9 +741,7 @@ typedef enum {
  */
 typedef enum {
 	MM_PLAYER_TRACK_TYPE_AUDIO = 0,
-#ifdef _USE_M_V_INPUT_SELECTOR_
 	MM_PLAYER_TRACK_TYPE_VIDEO,
-#endif
 	MM_PLAYER_TRACK_TYPE_TEXT,
 	MM_PLAYER_TRACK_TYPE_MAX
 }MMPlayerTrackType;
@@ -773,6 +774,7 @@ typedef enum
 	MM_PLAYER_SOUND_RESOURCE_PRELISTENING_MEDIA,
 } MMPlayerSoundResource;
 
+
 /**
  * Edge Properties of the text.
  */
@@ -784,6 +786,26 @@ typedef enum {
 	MM_PLAYER_EDGE_DROPSHADOW
 } MMPlayerSubtitleEdge;
 
+/**
+ * Enumeration of media stream buffer status
+ */
+typedef enum
+{
+	MM_PLAYER_MEDIA_STREAM_BUFFER_UNDERRUN,
+	MM_PLAYER_MEDIA_STREAM_BUFFER_OVERFLOW,
+} MMPlayerMediaStreamBufferStatus;
+
+/**
+ * Enumeration for stream type.
+ */
+typedef enum
+{
+	MM_PLAYER_STREAM_TYPE_DEFAULT,	/**< Container type */
+	MM_PLAYER_STREAM_TYPE_AUDIO,	/**< Audio element stream type */
+	MM_PLAYER_STREAM_TYPE_VIDEO,	/**< Video element stream type */
+	MM_PLAYER_STREAM_TYPE_TEXT,     /**< Text type */
+	MM_PLAYER_STREAM_TYPE_MAX,
+} MMPlayerStreamType;
 
 /**
  * Attribute validity structure
@@ -842,6 +864,57 @@ typedef struct {
 	float	level[MM_VOLUME_CHANNEL_NUM];	/**< Relative volume factor for each channels */
 } MMPlayerVolumeType;
 
+#ifdef TEST_ES
+/**
+ * Video stream info in external demux case
+ *
+**/
+typedef struct _VideoStreamInfo
+{
+	const char *mime;
+	unsigned int framerate_num;
+	unsigned int framerate_den;
+	unsigned int width;
+	unsigned int height;
+	unsigned char *codec_extradata;
+	unsigned int extradata_size;
+	unsigned int version;
+}MMPlayerVideoStreamInfo;
+
+/**
+ * Audio stream info in external demux case
+ *
+**/
+typedef struct _AudioStreamInfo
+{
+	const char *mime;
+	unsigned int channels;
+	unsigned int sample_rate;
+	unsigned char *codec_extradata;
+	unsigned int extradata_size;
+	unsigned int version;
+	unsigned int user_info;
+
+	/* for pcm */
+//	unsigned int width;
+//	unsigned int depth;
+//	unsigned int endianness;
+//	bool signedness;
+}MMPlayerAudioStreamInfo;
+
+/**
+ * Subtitle stream info in external demux case
+ *
+**/
+typedef struct _SubtitleStreamInfo
+{
+	const char *mime;
+	unsigned int codec_tag;
+	void *context;  //for smpte text
+}MMPlayerSubtitleStreamInfo;
+
+#endif
+
 /**
  * Audio stream callback function type.
  *
@@ -865,6 +938,37 @@ typedef bool	(*mm_player_audio_stream_callback) (void *stream, int stream_size, 
  * @return	This callback function have to return MM_ERROR_NONE.
  */
 typedef bool		(*mm_player_track_selected_subtitle_language_callback)(int track_num, void *user_param);
+
+/**
+ * Buffer underrun / overflow data callback function type.
+ *
+ * @param	status     [in] buffer status
+ * @param	user_param [in] User defined parameter which is passed when set
+ *       	                to enough data callback or need data callback
+ *
+ * @return	This callback function have to return MM_ERROR_NONE.
+ */
+typedef bool	(*mm_player_media_stream_buffer_status_callback) (MMPlayerStreamType type, MMPlayerMediaStreamBufferStatus status, void *user_param);
+
+/**
+ * Buffer seek data callback function type.
+ *
+ * @param	offset     [in] offset for the buffer playback
+ * @param	user_param [in] User defined parameter which is passed when set
+ *       	                to seek data callback
+ *
+ * @return	This callback function have to return MM_ERROR_NONE.
+ */
+typedef bool	(*mm_player_media_stream_seek_data_callback) (MMPlayerStreamType type, unsigned long long offset, void *user_param);
+
+/**
+ * Called to notify the stream changed.
+ *
+ * @param user_data [in] The user data passed from the callback registration function
+ *
+ * @return	This callback function have to return MM_ERROR_NONE.
+ */
+typedef bool	(*mm_player_stream_changed_callback) (void *user_param);
 
 
 /*===========================================================================================
@@ -1934,6 +2038,203 @@ int mm_player_get_next_uri(MMHandleType player, char **uri);
 
 int mm_player_enable_media_packet_video_stream(MMHandleType player, bool enable);
 
+/**
+ * This function is to increase reference count of internal buffer.
+ *
+ * @param       buffer 		[in]   video callback internal buffer
+ * @return      This function returns buffer point;
+ *
+ * @see
+ * @remark      None
+ */
+void * mm_player_media_packet_video_stream_internal_buffer_ref(void *buffer);
+
+/**
+ * This function is to decrease reference count of internal buffer.
+ *
+ * @param       buffer 		[in]   video callback internal buffer
+ * @return      None;
+ *
+ * @see
+ * @remark      None
+ */
+void mm_player_media_packet_video_stream_internal_buffer_unref(void *buffer);
+
+#ifdef TEST_ES
+
+/**mm_player_submit_packet
+ * This function is to submit buffer to appsrc.  \n
+ * @param	player			[in]    Handle of player.
+ * @param	buf             [in]    buffer to be submit in appsrc in external feeder case.
+ * @param	len				[in]	length of buffer.
+ * @param	pts				[in]	timestamp of buffer.
+ * @param	streamtype		[in]	stream type of buffer.
+ * @return      This function returns zero on success, or negative value with error code.
+ * @par Example
+ *
+ * @endcode
+ */
+int mm_player_submit_packet(MMHandleType player, media_packet_h packet);
+
+/**mm_player_set_video_info
+ * This function is to set caps of src pad of video appsrc in external feeder case.  \n
+ * @param       player                          [in]    Handle of player.
+ * @param       media_format_h               	[in]    Video stream info.
+ * @return      This function returns zero on success, or negative value with error code.
+ * @par Example
+ *
+ * @endcode
+ */
+
+int mm_player_set_video_info (MMHandleType player, media_format_h format);
+
+/**mm_player_set_audio_info
+ * This function is to set caps of src pad of Audio appsrc in external feeder case.  \n
+ * @param       player                       [in]    Handle of player.
+ * @param       media_format_h               [in]    Audio stream info.
+ * @return      This function returns zero on success, or negative value with error code.
+ * @par Example
+ *
+ * @endcode
+ */
+
+int mm_player_set_audio_info (MMHandleType player, media_format_h format);
+
+/**mm_player_set_subtitle_info
+ * This function is to set caps of src pad of subtitle appsrc in external feeder case.  \n
+ * @param       player                          [in]    Handle of player.
+ * @param       subtitle_stream_info               [in]    Subtitle stream info.
+ * @return      This function returns zero on success, or negative value with error code.
+ * @par Example
+ *
+ * @endcode
+ */
+
+int mm_player_set_subtitle_info (MMHandleType player, MMPlayerSubtitleStreamInfo *info);
+
+/**
+ * This function set callback function for receiving need or enough data message from player.
+ *
+ * @param       player          [in]    Handle of player.
+ * @param       type            [in]    stream type
+ * @param       callback        [in]    data callback function for stream type.
+ * @param       user_param      [in]    User parameter.
+ *
+ * @return      This function returns zero on success, or negative value with error
+ *                      code.
+ * @remark
+ * @see
+ * @since
+ */
+int mm_player_set_media_stream_buffer_status_callback(MMHandleType player, MMPlayerStreamType type, mm_player_media_stream_buffer_status_callback callback, void * user_param);
+
+/**
+ * This function set callback function for receiving seek data message from player.
+ *
+ * @param       player          [in]    Handle of player.
+ * @param       type            [in]    stream type
+ * @param       callback        [in]    Seek data callback function for stream type.
+ * @param       user_param      [in]    User parameter.
+ *
+ * @return      This function returns zero on success, or negative value with error
+ *                      code.
+ * @remark
+ * @see
+ * @since
+ */
+int mm_player_set_media_stream_seek_data_callback(MMHandleType player, MMPlayerStreamType type, mm_player_media_stream_seek_data_callback callback, void * user_param);
+
+/**
+ * This function is to set max size of buffer(appsrc).
+ *
+ * @param       player          [in]    Handle of player.
+ * @param       type            [in]    stream type
+ * @param       max_size        [in]    max bytes of buffer.
+ *
+ * @return      This function returns zero on success, or negative value with error
+ *                      code.
+ * @remark
+ * @see
+ * @since
+ */
+int mm_player_set_media_stream_buffer_max_size(MMHandleType player, MMPlayerStreamType type, unsigned long long max_size);
+
+/**
+ * This function is to get max size of buffer(appsrc).
+ *
+ * @param       player          [in]    Handle of player.
+ * @param       type            [in]    stream type
+ * @param       max_size        [out]   max bytes of buffer.
+ *
+ * @return      This function returns zero on success, or negative value with error
+ *                      code.
+ * @remark
+ * @see
+ * @since
+ */
+int mm_player_get_media_stream_buffer_max_size(MMHandleType player, MMPlayerStreamType type, unsigned long long *max_size);
+
+/**
+ * This function is to set min percent of buffer(appsrc).
+ *
+ * @param       player          [in]    Handle of player.
+ * @param       type            [in]    stream type
+ * @param       min_percent     [in]    min percent of buffer.
+ *
+ * @return      This function returns zero on success, or negative value with error
+ *                      code.
+ * @remark
+ * @see
+ * @since
+ */
+int mm_player_set_media_stream_buffer_min_percent(MMHandleType player, MMPlayerStreamType type, unsigned min_percent);
+
+/**
+ * This function is to get min percent of buffer(appsrc).
+ *
+ * @param       player          [in]    Handle of player.
+ * @param       type            [in]    stream type
+ * @param       min_percent     [out]   min percent of buffer.
+ *
+ * @return      This function returns zero on success, or negative value with error
+ *                      code.
+ * @remark
+ * @see
+ * @since
+ */
+int mm_player_get_media_stream_buffer_min_percent(MMHandleType player, MMPlayerStreamType type, unsigned int *min_percent);
+
+/**
+ * This function set callback function for changing audio stream from player. \n
+ * It's only supported when audio stream is included in file. \n
+ *
+ * @param	player   [in] Handle of player.
+ * @param	callback [in] Audio stream changed callback function.
+ * @param	user_param [in] User parameter.
+ *
+ * @return	This function returns zero on success, or negative value with error
+ *			code.
+ * @see		mm_player_stream_changed_callback
+ * @since
+ */
+int mm_player_set_audio_stream_changed_callback(MMHandleType player, mm_player_stream_changed_callback callback, void *user_param);
+
+/**
+ * This function set callback function for changing video stream from player. \n
+ * It's only supported when video stream is included in file. \n
+ *
+ * @param	player   [in] Handle of player.
+ * @param	callback [in] Video stream changed callback function.
+ * @param	user_param [in] User parameter.
+ *
+ * @return	This function returns zero on success, or negative value with error
+ *			code.
+ * @see		mm_player_stream_changed_callback
+ * @since
+ */
+int mm_player_set_video_stream_changed_callback(MMHandleType player, mm_player_stream_changed_callback callback, void *user_param);
+
+#endif
 
 /**
 	@}

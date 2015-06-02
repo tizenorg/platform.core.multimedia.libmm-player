@@ -62,7 +62,6 @@ typedef struct __mm_player_ini
 	gchar videosink_element_fake[PLAYER_INI_MAX_STRLEN];
 	gchar name_of_audio_resampler[PLAYER_INI_MAX_STRLEN];
 	gchar name_of_audiosink[PLAYER_INI_MAX_STRLEN];
-	gchar name_of_drmsrc[PLAYER_INI_MAX_STRLEN];
 	gchar name_of_video_converter[PLAYER_INI_MAX_STRLEN];
 	gboolean skip_rescan;
 	gboolean generate_dot;
@@ -72,7 +71,6 @@ typedef struct __mm_player_ini
 	gint localplayback_state_change_timeout;
 	gint delay_before_repeat;
 	gint eos_delay;
-	gboolean multiple_codec_supported;
 
 	gchar gst_param[5][PLAYER_INI_MAX_PARAM_STRLEN];
 	gchar exclude_element_keyword[PLAYER_INI_MAX_ELEMENT][PLAYER_INI_MAX_STRLEN];
@@ -114,17 +112,6 @@ typedef struct __mm_player_ini
 	guint rtsp_buffering_time;
 	guint rtsp_rebuffering_time;
 	gboolean rtsp_do_typefinding;
-	gboolean rtsp_error_concealment; /* testing purpose */
-
-	/* hw accelation */
-	gboolean use_video_hw_accel;
-
-	/* priority */
-	gboolean use_priority_setting;
-	gint demux_priority;
-	gint audiosink_priority;
-	gint videosink_priority;
-	gint ringbuffer_priority;
 
 	/* dump buffer for debug */
 	gchar dump_element_keyword[PLAYER_INI_MAX_ELEMENT][PLAYER_INI_MAX_STRLEN];
@@ -157,18 +144,16 @@ typedef struct __mm_player_ini
 #define DEFAULT_PROVIDE_CLOCK_FOR_MOVIE		FALSE
 #define DEFAULT_DELAY_BEFORE_REPEAT	 		50 /* msec */
 #define DEFAULT_EOS_DELAY 				150 /* msec */
-#define DEFAULT_DRMSRC					"drmsrc"
 #define DEFAULT_VIDEOSINK_X				"xvimagesink"
 #define DEFAULT_VIDEOSINK_EVAS				"evasimagesink"
 #define DEFAULT_VIDEOSINK_FAKE				"fakesink"
 #define DEFAULT_AUDIORESAMPLER			"audioresample"
-#define DEFAULT_AUDIOSINK				"avsysaudiosink"
+#define DEFAULT_AUDIOSINK				"pulsesink"
 #define DEFAULT_GST_PARAM				""
 #define DEFAULT_EXCLUDE_KEYWORD				""
 #define DEFAULT_ASYNC_START				TRUE
 #define DEFAULT_DISABLE_SEGTRAP				TRUE
 #define DEFAULT_VIDEO_CONVERTER				""
-#define DEFAULT_MULTIPLE_CODEC_SUPPORTED 		TRUE
 #define DEFAULT_LIVE_STATE_CHANGE_TIMEOUT 		30 /* sec */
 #define DEFAULT_LOCALPLAYBACK_STATE_CHANGE_TIMEOUT 	10 /* sec */
 /* http streaming */
@@ -183,15 +168,6 @@ typedef struct __mm_player_ini
 #define DEFAULT_RTSP_BUFFERING			5000 	/* msec */
 #define DEFAULT_RTSP_REBUFFERING		15000 	/* msec */
 #define DEFAULT_RTSP_DO_TYPEFINDING		FALSE
-#define DEFAULT_RTSP_ERROR_CONCEALMENT		TRUE
-/* hw accel */
-#define DEFAULT_USE_VIDEO_HW_ACCEL	FALSE
-/* priority */
-#define DEFAULT_USE_PRIORITY_SETTING	FALSE
-#define DEFAULT_PRIORITY_DEMUX		96
-#define DEFAULT_PRIORITY_VIDEO_SINK	97
-#define DEFAULT_PRIORITY_AUDIO_SINK	98
-#define DEFAULT_PRIORITY_RINGBUFFER	99
 
 /* dump buffer for debug */
 #define DEFAULT_DUMP_ELEMENT_KEYWORD				""
@@ -204,8 +180,6 @@ typedef struct __mm_player_ini
 "\
 [general] \n\
 \n\
-use sink handler = yes \n\
-\n\
 disable segtrap = yes ; same effect with --gst-disable-segtrap \n\
 \n\
 ; set default video sink but, it can be replaced with others selected by application\n\
@@ -214,9 +188,7 @@ videosink element = 2 \n\
 \n\
 video converter element = \n\
 \n\
-audiosink element = avsysaudiosink \n\
-\n\
-drmsrc element = drmsrc \n\
+audiosink element = pulsesink \n\
 \n\
 ; if yes. gstreamer will not update registry \n\
 skip rescan = yes \n\
@@ -227,8 +199,6 @@ delay before repeat = 50 ; msec\n\
 element exclude keyword = \n\
 \n\
 async start = yes \n\
-\n\
-multiple codec supported = yes \n\
 \n\
 ; parameters for initializing gstreamer \n\
 gstparam1 = \n\
@@ -277,25 +247,6 @@ rtsp buffering time = 5000; msec \n\
 rtsp rebuffering time = 15000; msec \n\
 \n\
 rtsp do typefinding = no; if no, caps on rtspsrc:src pad will be used for autoplugging \n\
-\n\
-rtsp error concealment = yes \n\
-\n\
-\n\
-[hw accelation] \n\
-use video hw accel = yes \n\
-\n\
-\n\
-[priority] \n\
-\n\
-use priority setting = no \n\
-\n\
-demux = 95 \n\
-\n\
-videosink = 96 \n\
-\n\
-audiosink = 97\n\
-\n\
-ringbuffer = 98 \n\
 \n\
 "
 

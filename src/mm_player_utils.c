@@ -510,23 +510,6 @@ util_get_is_connected_external_display(void)
 	return -1;
 }
 
-gboolean util_is_miracast_connected(void)
-{
-	int is_connected = 0;
-
-	if (vconf_get_bool(VCONFKEY_MIRACAST_WFD_SOURCE_STATUS, &is_connected) ) {
-		debug_error("failed to get miracast status key");
-		return FALSE;
-	}
-
-	if (VCONFKEY_MIRACAST_WFD_SOURCE_ON == is_connected) {
-		debug_warning("miracast connected");
-		return TRUE;
-	}
-
-	return FALSE;
-}
-
 int util_get_pixtype(unsigned int fourcc)
 {
 	int pixtype = MM_PIXEL_FORMAT_INVALID;
@@ -543,6 +526,9 @@ int util_get_pixtype(unsigned int fourcc)
 	case GST_MAKE_FOURCC ('S', 'N', '1', '2'):
 	case GST_MAKE_FOURCC ('N', 'V', '1', '2'):
 		pixtype = MM_PIXEL_FORMAT_NV12;
+		break;
+	case GST_MAKE_FOURCC ('S', 'T', '1', '2'):
+		pixtype = MM_PIXEL_FORMAT_NV12T;
 		break;
 	case GST_MAKE_FOURCC ('S', 'N', '2', '1'):
 	case GST_MAKE_FOURCC ('N', 'V', '2', '1'):

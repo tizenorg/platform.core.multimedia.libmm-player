@@ -233,7 +233,10 @@ debug_log("-- prev %s, current %s, pending %s, target %s --\n", \
 #define MMPLAYER_IS_HTTP_LIVE_STREAMING(x_player)  __is_http_live_streaming(x_player)
 #define MMPLAYER_IS_LIVE_STREAMING(x_player)  	__is_live_streaming(x_player)
 #define MMPLAYER_IS_DASH_STREAMING(x_player)  	__is_dash_streaming(x_player)
-#define MMPLAYER_IS_SMOOTH_STREAMING(x_player)   __is_smooth_streaming(x_player)
+#define MMPLAYER_IS_SMOOTH_STREAMING(x_player)	__is_smooth_streaming(x_player)
+#ifdef TEST_ES
+#define MMPLAYER_IS_ES_BUFF_SRC(x_player)		__is_es_buff_src(x_player)
+#endif
 
 #define MMPLAYER_URL_HAS_DASH_SUFFIX(x_player) __has_suffix(x_player, "mpd")
 #define MMPLAYER_URL_HAS_HLS_SUFFIX(x_player) __has_suffix(x_player, "m3u8")
@@ -261,7 +264,6 @@ enum
 };
 
 bool util_is_sdp_file ( const char *path );
-int64_t uti_get_time ( void );
 int util_get_rank_increase ( const char *factory_class );
 int util_factory_rank_compare(GstPluginFeature *f1, GstPluginFeature *f2); // @
 int util_exist_file_path(const char *file_path);
@@ -274,7 +276,6 @@ bool util_check_valid_url ( const char *proxy );
 const char* util_get_charset(const char *file_path);
 
 int util_get_is_connected_external_display(void);
-gboolean util_is_miracast_connected(void);
 int util_get_pixtype(unsigned int fourcc);
 
 #ifdef __cplusplus

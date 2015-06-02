@@ -112,37 +112,16 @@ typedef struct
 	unsigned int orientation;				/* content orientation */
 }MMPlayerVideoCapture;
 
-/**
- * Buffer need data callback function type.
- *
- * @param	size		[in]	size required for the buffer playback
- * @param	user_param	[in]	User defined parameter which is passed when set
- *								to need data callback
- *
- * @return	This callback function have to return MM_ERROR_NONE.
- */
-typedef bool	(*mm_player_buffer_need_data_callback) (unsigned int size, void *user_param);
-
-/**
- * Buffer enough data callback function type.
- *
- * @param	user_param	[in]	User defined parameter which is passed when set
- *								to enough data callback
- *
- * @return	This callback function have to return MM_ERROR_NONE.
- */
-typedef bool	(*mm_player_buffer_enough_data_callback) (void *user_param);
-
-/**
- * Buffer seek data callback function type.
- *
- * @param	offset			[in]	offset for the buffer playback
- * @param	user_param		[in]	User defined parameter which is passed when set
- *									to seek data callback
- *
- * @return	This callback function have to return MM_ERROR_NONE.
- */
-typedef bool	(*mm_player_buffer_seek_data_callback) (unsigned long long offset, void *user_param);
+typedef struct
+{
+	void *data;
+	int data_size;
+	int channel;
+	int bitrate;
+	int depth;
+	bool is_little_endian;
+	guint64 channel_mask;
+}MMPlayerAudioStreamDataType;
 
 /**
  * Video stream callback function type.
@@ -182,6 +161,16 @@ typedef bool	(*mm_player_video_capture_callback) (void *stream, int stream_size,
 typedef bool	(*mm_player_video_frame_render_error_callback) (void *error_id, void *user_param);
 
 /**
+ * Audio stream callback function type.
+ *
+ * @param	stream		[in]	Reference pointer to audio frame data
+ * @param	user_param	[in]	User defined parameter which is passed when set
+ *								audio stream callback
+ *
+ * @return	This callback function have to return MM_ERROR_NONE.
+ */
+typedef bool	(*mm_player_audio_stream_callback_ex) (MMPlayerAudioStreamDataType *stream, void *user_param);
+/**
  * This function is to set play speed for playback.
  *
  * @param	player		[in]	Handle of player.
@@ -213,6 +202,22 @@ int mm_player_set_play_speed(MMHandleType player, float rate);
 int mm_player_set_video_stream_callback(MMHandleType player, mm_player_video_stream_callback callback, void *user_param);
 
 /**
+ * This function set callback function for receiving audio stream from player.
+ *
+ * @param	player		[in]	Handle of player.
+ * @param	sync		[in]	sync Sync on the clock.
+ * @param	callback		[in]	audio stream callback function.
+ * @param	user_param	[in]	User parameter.
+ *
+ * @return	This function returns zero on success, or negative value with error
+ *			code.
+ * @remark
+ * @see		mm_player_audio_stream_callback_ex
+ * @since
+ */
+int mm_player_set_audio_stream_callback_ex(MMHandleType player, bool sync, mm_player_audio_stream_callback_ex callback, void *user_param);
+
+/**
  * This function set callback function for rendering error information of video render plug-in.
  *
  * @param	player		[in]	Handle of player.
@@ -242,51 +247,6 @@ int mm_player_set_video_frame_render_error_callback(MMHandleType player, mm_play
  * @since
  */
 int mm_player_do_video_capture(MMHandleType player);
-
-/**
- * This function set callback function for receiving need data message from player.
- *
- * @param	player		[in]	Handle of player.
- * @param	callback	[in]	Need data callback function.
- * @param	user_param	[in]	User parameter.
- *
- * @return	This function returns zero on success, or negative value with error
- *			code.
- * @remark
- * @see		mm_player_set_buffer_enough_data_callback
- * @since
- */
-int mm_player_set_buffer_need_data_callback(MMHandleType player, mm_player_buffer_need_data_callback callback , void *user_param);
-
-/**
- * This function set callback function for receiving enough data message from player.
- *
- * @param	player		[in]	Handle of player.
- * @param	callback	[in]	Enough data callback function.
- * @param	user_param	[in]	User parameter.
- *
- * @return	This function returns zero on success, or negative value with error
- *			code.
- * @remark
- * @see		mm_player_set_buffer_need_data_callback
- * @since
- */
-int mm_player_set_buffer_enough_data_callback(MMHandleType player, mm_player_buffer_enough_data_callback callback, void *user_param);
-
-/**
- * This function set callback function for receiving seek data message from player.
- *
- * @param	player		[in]	Handle of player.
- * @param	callback	[in]	Seek data callback function.
- * @param	user_param	[in]	User parameter.
- *
- * @return	This function returns zero on success, or negative value with error
- *			code.
- * @remark
- * @see
- * @since
- */
-int mm_player_set_buffer_seek_data_callback(MMHandleType player, mm_player_buffer_seek_data_callback callback, void *user_param);
 
 /**
  * This function set callback function for putting data into player.

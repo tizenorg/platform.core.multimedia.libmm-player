@@ -865,6 +865,24 @@ _mmplayer_construct_attribute(MMHandleType handle)
 			MMPLAYER_MAX_INT
 		},
 		{
+			"sound_stream_type",
+			MM_ATTRS_TYPE_STRING,
+			MM_ATTRS_FLAG_RW,
+			(void *) NULL,
+			MM_ATTRS_VALID_TYPE_NONE,
+			0,
+			0
+		},
+		{
+			"sound_stream_index",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			0,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			0,
+			MMPLAYER_MAX_INT
+		},
+		{
 			"sound_route",
 			MM_ATTRS_TYPE_INT,
 			MM_ATTRS_FLAG_RW,

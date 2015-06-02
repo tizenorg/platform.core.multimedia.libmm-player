@@ -176,14 +176,12 @@ mm_player_ini_load(mm_player_ini_t* ini)
 		ini->localplayback_state_change_timeout = iniparser_getint(dict, "general:localplayback state change timeout", DEFAULT_LOCALPLAYBACK_STATE_CHANGE_TIMEOUT);
 		ini->eos_delay = iniparser_getint(dict, "general:eos delay", DEFAULT_EOS_DELAY);
 		ini->async_start = iniparser_getboolean(dict, "general:async start", DEFAULT_ASYNC_START);
-		ini->multiple_codec_supported = iniparser_getboolean(dict, "general:multiple codec supported", DEFAULT_MULTIPLE_CODEC_SUPPORTED);
 
 		ini->delay_before_repeat = iniparser_getint(dict, "general:delay before repeat", DEFAULT_DELAY_BEFORE_REPEAT);
 
 		MMPLAYER_INI_GET_STRING(dict, ini->videosink_element_x, "general:videosink element x", DEFAULT_VIDEOSINK_X);
 		MMPLAYER_INI_GET_STRING(dict, ini->videosink_element_evas, "general:videosink element evas", DEFAULT_VIDEOSINK_EVAS);
 		MMPLAYER_INI_GET_STRING(dict, ini->videosink_element_fake, "general:videosink element fake", DEFAULT_VIDEOSINK_FAKE);
-		MMPLAYER_INI_GET_STRING(dict, ini->name_of_drmsrc, "general:drmsrc element", DEFAULT_DRMSRC );
 		MMPLAYER_INI_GET_STRING(dict, ini->name_of_audio_resampler, "general:audio resampler element", DEFAULT_AUDIORESAMPLER );
 		MMPLAYER_INI_GET_STRING(dict, ini->name_of_audiosink, "general:audiosink element", DEFAULT_AUDIOSINK );
 		MMPLAYER_INI_GET_STRING(dict, ini->name_of_video_converter, "general:video converter element", DEFAULT_VIDEO_CONVERTER );
@@ -210,17 +208,6 @@ mm_player_ini_load(mm_player_ini_t* ini)
 		ini->rtsp_buffering_time = iniparser_getint(dict, "rtsp streaming:rtsp buffering time", DEFAULT_RTSP_BUFFERING);
 		ini->rtsp_rebuffering_time = iniparser_getint(dict, "rtsp streaming:rtsp rebuffering time", DEFAULT_RTSP_REBUFFERING);
 		ini->rtsp_do_typefinding = iniparser_getboolean(dict, "rtsp streaming:rtsp do typefinding", DEFAULT_RTSP_DO_TYPEFINDING);
-		ini->rtsp_error_concealment = iniparser_getboolean(dict, "rtsp streaming:rtsp error concealment", DEFAULT_RTSP_ERROR_CONCEALMENT);
-
-		/* hw accelation */
-		ini->use_video_hw_accel = iniparser_getboolean(dict, "hw accelation:use video hw accel", DEFAULT_USE_VIDEO_HW_ACCEL);
-
-		/* priority */
-		ini->use_priority_setting = iniparser_getboolean(dict, "priority:use priority setting", DEFAULT_USE_PRIORITY_SETTING);
-		ini->demux_priority = iniparser_getint(dict, "priority:demux", DEFAULT_PRIORITY_DEMUX);
-		ini->videosink_priority = iniparser_getint(dict, "priority:videosink", DEFAULT_PRIORITY_VIDEO_SINK);
-		ini->audiosink_priority = iniparser_getint(dict, "priority:audiosink", DEFAULT_PRIORITY_AUDIO_SINK);
-		ini->ringbuffer_priority = iniparser_getint(dict, "priority:ringbuffer", DEFAULT_PRIORITY_RINGBUFFER);
 
 		/* dump buffer for debug */
 		__get_element_list(ini,
@@ -244,11 +231,9 @@ mm_player_ini_load(mm_player_ini_t* ini)
 		ini->live_state_change_timeout = DEFAULT_LIVE_STATE_CHANGE_TIMEOUT;
 		ini->localplayback_state_change_timeout = DEFAULT_LOCALPLAYBACK_STATE_CHANGE_TIMEOUT;
 		ini->eos_delay = DEFAULT_EOS_DELAY;
-		ini->multiple_codec_supported = DEFAULT_MULTIPLE_CODEC_SUPPORTED;
 		ini->async_start = DEFAULT_ASYNC_START;
 		ini->delay_before_repeat = DEFAULT_DELAY_BEFORE_REPEAT;
 
-		strncpy( ini->name_of_drmsrc, DEFAULT_DRMSRC, PLAYER_INI_MAX_STRLEN - 1 );
 		strncpy( ini->name_of_audio_resampler, DEFAULT_AUDIORESAMPLER, PLAYER_INI_MAX_STRLEN -1 );
 		strncpy( ini->name_of_audiosink, DEFAULT_AUDIOSINK, PLAYER_INI_MAX_STRLEN -1 );
 		strncpy( ini->name_of_video_converter, DEFAULT_VIDEO_CONVERTER, PLAYER_INI_MAX_STRLEN -1 );
@@ -277,17 +262,6 @@ mm_player_ini_load(mm_player_ini_t* ini)
 		ini->rtsp_buffering_time = DEFAULT_RTSP_BUFFERING;
 		ini->rtsp_rebuffering_time = DEFAULT_RTSP_REBUFFERING;
 		ini->rtsp_do_typefinding = DEFAULT_RTSP_DO_TYPEFINDING;
-		ini->rtsp_error_concealment = DEFAULT_RTSP_ERROR_CONCEALMENT;
-
-		/* hw accelation */
-		ini->use_video_hw_accel = DEFAULT_USE_VIDEO_HW_ACCEL;
-
-		/* priority  */
-		ini->use_priority_setting = DEFAULT_USE_PRIORITY_SETTING;
-		ini->demux_priority = DEFAULT_PRIORITY_DEMUX;
-		ini->videosink_priority = DEFAULT_PRIORITY_VIDEO_SINK;
-		ini->audiosink_priority = DEFAULT_PRIORITY_AUDIO_SINK;
-		ini->ringbuffer_priority = DEFAULT_PRIORITY_RINGBUFFER;
 
 		/* dump buffer for debug */
 		__get_element_list(ini, DEFAULT_DUMP_ELEMENT_KEYWORD, KEYWORD_DUMP);
@@ -313,12 +287,10 @@ mm_player_ini_load(mm_player_ini_t* ini)
 	debug_log("localplayback_state_change_timeout(sec) : %d\n", ini->localplayback_state_change_timeout);
 	debug_log("eos_delay(msec) : %d\n", ini->eos_delay);
 	debug_log("delay_before_repeat(msec) : %d\n", ini->delay_before_repeat);
-	debug_log("name_of_drmsrc : %s\n", ini->name_of_drmsrc);
 	debug_log("name_of_audioresampler : %s\n", ini->name_of_audio_resampler);
 	debug_log("name_of_audiosink : %s\n", ini->name_of_audiosink);
 	debug_log("name_of_video_converter : %s\n", ini->name_of_video_converter);
 	debug_log("async_start : %d\n", ini->async_start);
-	debug_log("multiple_codec_supported : %d\n", ini->multiple_codec_supported);
 
 	debug_log("gst_param1 : %s\n", ini->gst_param[0]);
 	debug_log("gst_param2 : %s\n", ini->gst_param[1]);
@@ -349,17 +321,6 @@ mm_player_ini_load(mm_player_ini_t* ini)
 	debug_log("rtsp_buffering_time(msec) : %d\n", ini->rtsp_buffering_time);
 	debug_log("rtsp_rebuffering_time(msec) : %d\n", ini->rtsp_rebuffering_time);
 	debug_log("rtsp_do_typefinding : %d \n", ini->rtsp_do_typefinding);
-	debug_log("rtsp_error_concealment : %d \n", ini->rtsp_error_concealment);
-
-	/* hw accel */
-	debug_log("use_video_hw_accel : %d\n", ini->use_video_hw_accel);
-
-	/* priority */
-	debug_log("use_priority_setting : %d\n", ini->use_priority_setting);
-	debug_log("demux_priority : %d\n", ini->demux_priority);
-	debug_log("audiosink_priority : %d\n", ini->audiosink_priority);
-	debug_log("videosink_priority : %d\n", ini->videosink_priority);
-	debug_log("ringbuffer_priority : %d\n", ini->ringbuffer_priority);
 
 	return MM_ERROR_NONE;
 }

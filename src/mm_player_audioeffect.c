@@ -32,8 +32,10 @@ mm_player_get_foreach_present_supported_effect_type(MMHandleType hplayer, MMAudi
 {
 	mm_player_t *player = NULL;
 	int result = MM_ERROR_NONE;
-	mm_sound_device_in device_in = MM_SOUND_DEVICE_IN_NONE;
-	mm_sound_device_out device_out = MM_SOUND_DEVICE_OUT_NONE;
+	mm_sound_device_flags_e flags = MM_SOUND_DEVICE_IO_DIRECTION_OUT_FLAG | MM_SOUND_DEVICE_STATE_ACTIVATED_FLAG;
+	MMSoundDeviceList_t device_list;
+	MMSoundDevice_t device_h = NULL;
+	mm_sound_device_type_e device_type;
 	int i = 0;
 
 	MMPLAYER_FENTER();
@@ -43,10 +45,30 @@ mm_player_get_foreach_present_supported_effect_type(MMHandleType hplayer, MMAudi
 	player = MM_PLAYER_CAST(hplayer);
 
 	/* get status if speaker is activated */
-	result = mm_sound_get_active_device(&device_in, &device_out);
+	/* (1) get current device list */
+	result = mm_sound_get_current_device_list(flags, &device_list);
+
 	if ( result ) {
+		debug_error("mm_sound_get_current_device_list() failed [%x]!!", result);
 		MMPLAYER_FLEAVE();
-		debug_error("mm_sound_get_active_device() failed [%x]!!", result);
+		return result;
+	}
+
+	/* (2) get device handle of device list */
+	result = mm_sound_get_next_device (device_list, &device_h);
+
+	if ( result ) {
+		debug_error("mm_sound_get_next_device() failed [%x]!!", result);
+		MMPLAYER_FLEAVE();
+		return result;
+	}
+
+	/* (3) get device type */
+	result = mm_sound_get_device_type(device_h, &device_type);
+
+	if ( result ) {
+		debug_error("mm_sound_get_device_type() failed [%x]!!", result);
+		MMPLAYER_FLEAVE();
 		return result;
 	}
 
@@ -57,7 +79,7 @@ mm_player_get_foreach_present_supported_effect_type(MMHandleType hplayer, MMAudi
 		{
 			if (player->ini.audio_effect_preset_list[i] )
 			{
-				if (device_out == MM_SOUND_DEVICE_OUT_SPEAKER &&
+				if (device_type == MM_SOUND_DEVICE_TYPE_BUILTIN_SPEAKER &&
 					player->ini.audio_effect_preset_earphone_only_list[i])
 				{
 					continue;
@@ -76,7 +98,7 @@ mm_player_get_foreach_present_supported_effect_type(MMHandleType hplayer, MMAudi
 		{
 			if (player->ini.audio_effect_custom_list[i] )
 			{
-				if (device_out == MM_SOUND_DEVICE_OUT_SPEAKER &&
+				if (device_type == MM_SOUND_DEVICE_TYPE_BUILTIN_SPEAKER &&
 					player->ini.audio_effect_custom_earphone_only_list[i])
 				{
 					continue;
@@ -232,8 +254,10 @@ int
 __mmplayer_audio_set_output_type (mm_player_t *player, MMAudioEffectType effect_type, int effect)
 {
 	GstElement *audio_effect_element = NULL;
-	mm_sound_device_in device_in = MM_SOUND_DEVICE_IN_NONE;
-	mm_sound_device_out device_out = MM_SOUND_DEVICE_OUT_NONE;
+	mm_sound_device_flags_e flags = MM_SOUND_DEVICE_ALL_FLAG;
+	MMSoundDeviceList_t device_list;
+	MMSoundDevice_t device_h = NULL;
+	mm_sound_device_type_e device_type;
 	int output_type = 0;
 	int result = MM_ERROR_NONE;
 
@@ -243,16 +267,35 @@ __mmplayer_audio_set_output_type (mm_player_t *player, MMAudioEffectType effect_
 
 	audio_effect_element = player->pipeline->audiobin[MMPLAYER_A_FILTER].gst;
 
-	result = mm_sound_get_active_device(&device_in, &device_out);
+	/* (1) get current device list */
+	result = mm_sound_get_current_device_list(flags, &device_list);
 
 	if ( result ) {
-		debug_error("mm_sound_get_active_device() failed [%x]!!", result);
+		debug_error("mm_sound_get_current_device_list() failed [%x]!!", result);
+		MMPLAYER_FLEAVE();
+		return result;
+	}
+
+	/* (2) get device handle of device list */
+	result = mm_sound_get_next_device (device_list, &device_h);
+
+	if ( result ) {
+		debug_error("mm_sound_get_next_device() failed [%x]!!", result);
+		MMPLAYER_FLEAVE();
+		return result;
+	}
+
+	/* (3) get device type */
+	result = mm_sound_get_device_type(device_h, &device_type);
+
+	if ( result ) {
+		debug_error("mm_sound_get_device_type() failed [%x]!!", result);
 		MMPLAYER_FLEAVE();
 		return result;
 	}
 
 	/* SPEAKER case */
-	if (device_out == MM_SOUND_DEVICE_OUT_SPEAKER)
+	if (device_type == MM_SOUND_DEVICE_TYPE_BUILTIN_SPEAKER)
 	{
 		if ( MM_AUDIO_EFFECT_TYPE_SQUARE != effect_type ) {
 			if (__mmplayer_is_earphone_only_effect_type(player, effect_type, effect))
@@ -265,27 +308,19 @@ __mmplayer_audio_set_output_type (mm_player_t *player, MMAudioEffectType effect_
 
 		output_type = MM_AUDIO_EFFECT_OUTPUT_SPK;
 	}
-//	else if (device_out == MM_SOUND_DEVICE_OUT_MIRRORING)
-//	{
-//		output_type = MM_AUDIO_EFFECT_OUTPUT_OTHERS;
-//	}
-	else if (device_out == MM_SOUND_DEVICE_OUT_HDMI)
+	else if (device_type == MM_SOUND_DEVICE_TYPE_MIRRORING)
+	{
+		output_type = MM_AUDIO_EFFECT_OUTPUT_OTHERS;
+	}
+	else if (device_type == MM_SOUND_DEVICE_TYPE_HDMI)
 	{
 		output_type = MM_AUDIO_EFFECT_OUTPUT_HDMI;
 	}
-	else if(device_out == MM_SOUND_DEVICE_OUT_BT_A2DP)
+	else if (device_type == MM_SOUND_DEVICE_TYPE_BLUETOOTH)
 	{
 		output_type = MM_AUDIO_EFFECT_OUTPUT_BT;
 	}
-//	else if(device_out == MM_SOUND_DEVICE_OUT_DOCK)
-//	{
-//		output_type = MM_AUDIO_EFFECT_OUTPUT_DOCK;
-//	}
-//	else if(device_out == MM_SOUND_DEVICE_OUT_MULTIMEDIA_DOCK)
-//	{
-//		output_type = MM_AUDIO_EFFECT_OUTPUT_MULTIMEDIA_DOCK;
-//	}
-	else if(device_out == MM_SOUND_DEVICE_OUT_USB_AUDIO)
+	else if (device_type == MM_SOUND_DEVICE_TYPE_USB_AUDIO)
 	{
 		output_type = MM_AUDIO_EFFECT_OUTPUT_USB_AUDIO;
 	}
@@ -306,85 +341,105 @@ gboolean
 _mmplayer_is_supported_effect_type(mm_player_t* player, MMAudioEffectType effect_type, int effect)
 {
 	gboolean result = TRUE;
-	mm_sound_device_in device_in = MM_SOUND_DEVICE_IN_NONE;
-	mm_sound_device_out device_out = MM_SOUND_DEVICE_OUT_NONE;
+	mm_sound_device_flags_e flags = MM_SOUND_DEVICE_ALL_FLAG;
+	MMSoundDeviceList_t device_list;
+	MMSoundDevice_t device_h = NULL;
+	mm_sound_device_type_e device_type;
 	int ret = MM_ERROR_NONE;
 
 	MMPLAYER_FENTER();
 
 	/* get status if speaker is activated */
-	ret = mm_sound_get_active_device(&device_in, &device_out);
-	if ( ret ) {
+	/* (1) get current device list */
+	ret = mm_sound_get_current_device_list(flags, &device_list);
+	if (ret) {
 		MMPLAYER_FLEAVE();
-		debug_error("mm_sound_get_active_device() failed [%x]!!", ret);
-		result = FALSE;
+		debug_error("mm_sound_get_current_device_list() failed [%x]!!", ret);
+		return FALSE;
 	}
-	else
+
+	/* (2) get device handle of device list */
+	ret = mm_sound_get_next_device (device_list, &device_h);
+
+	if (ret) {
+		debug_error("mm_sound_get_next_device() failed [%x]!!", ret);
+		MMPLAYER_FLEAVE();
+		return FALSE;
+	}
+
+	/* (3) get device type */
+	ret = mm_sound_get_device_type(device_h, &device_type);
+
+	if (ret) {
+		debug_error("mm_sound_get_device_type() failed [%x]!!", ret);
+		MMPLAYER_FLEAVE();
+		return FALSE;
+	}
+
+	/* preset */
+	if (effect_type == MM_AUDIO_EFFECT_TYPE_PRESET)
 	{
-		/* preset */
-		if (effect_type == MM_AUDIO_EFFECT_TYPE_PRESET)
+		if ( effect < MM_AUDIO_EFFECT_PRESET_AUTO || effect >= MM_AUDIO_EFFECT_PRESET_NUM )
 		{
-			if ( effect < MM_AUDIO_EFFECT_PRESET_AUTO || effect >= MM_AUDIO_EFFECT_PRESET_NUM )
-			{
-				debug_error("out of range, preset effect(%d)", effect);
-				result = FALSE;
-			}
-			else
-			{
-				if (!player->ini.audio_effect_preset_list[effect])
-				{
-					debug_error("this effect(%d) is not supported", effect);
-					result = FALSE;
-				}
-				else
-				{
-					if (device_out == MM_SOUND_DEVICE_OUT_SPEAKER &&
-							player->ini.audio_effect_preset_earphone_only_list[effect])
-					{
-						result = FALSE;
-					}
-				}
-			}
-		}
-		/* custom */
-		else if (effect_type == MM_AUDIO_EFFECT_TYPE_CUSTOM)
-		{
-			if ( effect < MM_AUDIO_EFFECT_CUSTOM_EQ || effect >= MM_AUDIO_EFFECT_CUSTOM_NUM )
-			{
-				debug_error("out of range, custom effect(%d)", effect);
-				result = FALSE;
-			}
-			else
-			{
-				if (!player->ini.audio_effect_custom_list[effect])
-				{
-					debug_error("this custom effect(%d) is not supported", effect);
-					result = FALSE;
-				}
-				else
-				{
-					if (device_out == MM_SOUND_DEVICE_OUT_SPEAKER &&
-							player->ini.audio_effect_custom_earphone_only_list[effect])
-					{
-						result = FALSE;
-					}
-				}
-			}
-		}
-		else if (effect_type == MM_AUDIO_EFFECT_TYPE_SQUARE)
-		{
-			if (!player->ini.use_audio_effect_custom)
-			{
-				debug_error("Square effect is not supported");
-				result = FALSE;
-			}
+			debug_error("out of range, preset effect(%d)", effect);
+			result = FALSE;
 		}
 		else
 		{
-			debug_error("invalid effect type(%d)", effect_type);
+			if (!player->ini.audio_effect_preset_list[effect])
+			{
+				debug_error("this effect(%d) is not supported", effect);
+				result = FALSE;
+			}
+			else
+			{
+				if (device_type == MM_SOUND_DEVICE_TYPE_BUILTIN_SPEAKER &&
+						player->ini.audio_effect_preset_earphone_only_list[effect])
+				{
+					result = FALSE;
+				}
+			}
+		}
+	}
+	/* custom */
+	else if (effect_type == MM_AUDIO_EFFECT_TYPE_CUSTOM)
+	{
+		if ( effect < MM_AUDIO_EFFECT_CUSTOM_EQ || effect >= MM_AUDIO_EFFECT_CUSTOM_NUM )
+		{
+			debug_error("out of range, custom effect(%d)", effect);
+			result = FALSE;
+		}
+		else
+		{
+			if (!player->ini.audio_effect_custom_list[effect])
+			{
+				debug_error("this custom effect(%d) is not supported", effect);
+				result = FALSE;
+			}
+			else
+			{
+				if (device_type == MM_SOUND_DEVICE_TYPE_BUILTIN_SPEAKER &&
+						player->ini.audio_effect_custom_earphone_only_list[effect])
+				{
+					result = FALSE;
+				}
+			}
+		}
+	}
+	else if (effect_type == MM_AUDIO_EFFECT_TYPE_SQUARE)
+	{
+		if (!player->ini.use_audio_effect_custom)
+		{
+			debug_error("Square effect is not supported");
 			result = FALSE;
 		}
 	}
+	else
+	{
+		debug_error("invalid effect type(%d)", effect_type);
+		result = FALSE;
+	}
+
 
 	MMPLAYER_FLEAVE();
 

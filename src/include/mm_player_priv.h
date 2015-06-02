@@ -42,7 +42,7 @@
 #include "mm_player_audioeffect.h"
 #include "mm_message.h"
 #include "mm_player_ini.h"
-//#include "mm_player_asm.h"
+#include "mm_player_asm.h"
 #include "mm_player_pd.h"
 #include "mm_player_streaming.h"
 
@@ -131,6 +131,9 @@ enum MMPlayerUriType {
 	MM_PLAYER_URI_TYPE_FILE, 		/**< Player URI type File */
 	MM_PLAYER_URI_TYPE_URL, 		/**< Player URI type URL */
 	MM_PLAYER_URI_TYPE_BUFF, 		/**< Player URI type Buffer */
+#ifdef TEST_ES
+	MM_PLAYER_URI_TYPE_ES_BUFF,		/**< Player URI type ES Buffer */
+#endif
 	MM_PLAYER_URI_TYPE_HLS,			/**< Player URI type http live streaming */
 	MM_PLAYER_URI_TYPE_SS,			/**< Player URI type Smooth streaming */
 	MM_PLAYER_URI_TYPE_DASH,			/**< Player URI type Mpeg Dash */
@@ -171,11 +174,19 @@ enum MainElementID
 {
 	MMPLAYER_M_PIPE = 0, /* NOTE : MMPLAYER_M_PIPE should be zero */
 	MMPLAYER_M_SRC,
+#ifdef TEST_ES
+	MMPLAYER_M_2ND_SRC,	/* 2nd Source Element for es buff src */
+#endif
 	MMPLAYER_M_SUBSRC,
 
 	/* it could be a decodebin or could be a typefind. depends on player ini */
 	MMPLAYER_M_TYPEFIND,
 	MMPLAYER_M_AUTOPLUG,
+
+#ifdef TEST_ES
+	MMPLAYER_M_AUTOPLUG_V_DEC,
+	MMPLAYER_M_AUTOPLUG_A_DEC,
+#endif
 
 	/* NOTE : we need two fakesink to autoplug without decodebin.
 	 * first one will hold whole pipeline state. and second one will hold state of
@@ -189,6 +200,13 @@ enum MainElementID
 	MMPLAYER_M_MUXED_S_BUFFER,
 	MMPLAYER_M_DEMUXED_S_BUFFER,
 	MMPLAYER_M_ID3DEMUX,
+
+#ifdef TEST_ES
+	/* es buff src queue */
+	MMPLAYER_M_V_BUFFER,
+	MMPLAYER_M_A_BUFFER,
+	MMPLAYER_M_S_BUFFER,
+#endif
 
 	/* FIXIT : if there's really no usage for following IDs. remove it */
 	MMPLAYER_M_DEC1,
@@ -226,6 +244,7 @@ enum AudioElementID
 	MMPLAYER_A_CAPS_DEFAULT,
 	MMPLAYER_A_SINK,
 	MMPLAYER_A_RESAMPLER,
+	MMPLAYER_A_DEINTERLEAVE,
 	MMPLAYER_A_NUM
 };
 
@@ -402,69 +421,6 @@ typedef struct {
 	GList *uri_list;
 }MMPlayerUriList;
 
-/* image buffer definition ***************************************************
-
-    +------------------------------------------+ ---
-    |                                          |  ^
-    |     a[], p[]                             |  |
-    |     +---------------------------+ ---    |  |
-    |     |                           |  ^     |  |
-    |     |<---------- w[] ---------->|  |     |  |
-    |     |                           |  |     |  |
-    |     |                           |        |
-    |     |                           |  h[]   |  e[]
-    |     |                           |        |
-    |     |                           |  |     |  |
-    |     |                           |  |     |  |
-    |     |                           |  v     |  |
-    |     +---------------------------+ ---    |  |
-    |                                          |  v
-    +------------------------------------------+ ---
-
-    |<----------------- s[] ------------------>|
-*/
-typedef struct
-{
-	/* width of each image plane */
-	int w[MM_PLAYER_IMGB_MPLANE_MAX];
-	/* height of each image plane */
-	int h[MM_PLAYER_IMGB_MPLANE_MAX];
-	/* stride of each image plane */
-	int s[MM_PLAYER_IMGB_MPLANE_MAX];
-	/* elevation of each image plane */
-	int e[MM_PLAYER_IMGB_MPLANE_MAX];
-	/* user space address of each image plane */
-	void *a[MM_PLAYER_IMGB_MPLANE_MAX];
-	/* physical address of each image plane, if needs */
-	void *p[MM_PLAYER_IMGB_MPLANE_MAX];
-	/* color space type of image */
-	int cs;
-	/* left postion, if needs */
-	int x;
-	/* top position, if needs */
-	int y;
-	/* to align memory */
-	int __dummy2;
-	/* arbitrary data */
-	int data[16];
-	/* dmabuf or ion fd */
-	int fd[MM_PLAYER_IMGB_MPLANE_MAX];
-	/* flag for buffer share */
-	int buf_share_method;
-	/* Y plane size */
-	int y_size;
-	/* UV plane size */
-	int uv_size;
-	/* Tizen buffer object of each image plane */
-	void *bo[MM_PLAYER_IMGB_MPLANE_MAX];
-	/* JPEG data */
-	void *jpeg_data;
-	/* JPEG size */
-	int jpeg_size;
-	/* tzmem buffer */
-	int tz_enable;
-} MMPlayerMPlaneImage;
-
 typedef struct {
 	gint active_pad_index;
 	gint total_track_num;
@@ -521,7 +477,7 @@ typedef struct {
 	GMutex capture_thread_mutex;
 	MMPlayerVideoCapture capture;
 	MMPlayerVideoColorspace video_cs;
-	MMPlayerMPlaneImage captured;
+	MMVideoBuffer captured;
 
 	/* fakesink handling lock */
 	GMutex fsink_lock;
@@ -548,12 +504,22 @@ typedef struct {
 	/* pad */
 	GstPad *ghost_pad_for_videobin;
 
-	/* buffering support cbs*/
-	mm_player_buffer_need_data_callback need_data_cb;
-	mm_player_buffer_enough_data_callback enough_data_cb;
-	mm_player_buffer_seek_data_callback seek_data_cb;
+#ifdef TEST_ES
+	guint64 media_stream_buffer_max_size[MM_PLAYER_STREAM_TYPE_MAX];
+	guint media_stream_buffer_min_percent[MM_PLAYER_STREAM_TYPE_MAX];
+	mm_player_media_stream_buffer_status_callback media_stream_buffer_status_cb[MM_PLAYER_STREAM_TYPE_MAX];
+	mm_player_media_stream_seek_data_callback media_stream_seek_data_cb[MM_PLAYER_STREAM_TYPE_MAX];
+#endif
 
 	void* buffer_cb_user_param;
+
+	/* video stream changed callback */
+	mm_player_stream_changed_callback video_stream_changed_cb;
+	void* video_stream_changed_cb_user_param;
+
+	/* audio stream changed callback */
+	mm_player_stream_changed_callback audio_stream_changed_cb;
+	void* audio_stream_changed_cb_user_param;
 
 	/* video stream callback */
 	mm_player_video_stream_callback video_stream_cb;
@@ -563,6 +529,10 @@ typedef struct {
 	/* audio stram callback */
 	mm_player_audio_stream_callback audio_stream_cb;
 	void* audio_stream_cb_user_param;
+	bool audio_stream_sink_sync;
+
+	/* audio buffer callback */
+	mm_player_audio_stream_callback_ex audio_stream_render_cb_ex;
 
 	/* video capture callback*/
 	gulong video_capture_cb_probe_id;
@@ -676,7 +646,7 @@ typedef struct {
 	gboolean is_nv12_tiled;
 	gboolean is_drm_file;
 
-	//MMPlayerASM	sm;
+	MMPlayerASM sm;
 
 	gboolean is_subtitle_off;
 	gboolean is_external_subtitle_present;
@@ -760,6 +730,17 @@ typedef struct {
 	gboolean has_closed_caption;
 
 	GstElement *video_fakesink;
+#ifdef TEST_ES
+	/* audio stream caps parsed by demuxer or set by external demuxer */
+	GstCaps* a_stream_caps;
+
+	/* subtitle stream caps parsed by demuxer or set by external demuxer */
+	GstCaps* s_stream_caps;
+
+	/*es player using feed-data callback or calling app_src_push_buffer directly*/
+	gboolean es_player_push_mode;
+
+#endif
 } mm_player_t;
 
 typedef struct
@@ -805,12 +786,11 @@ int _mmplayer_adjust_video_postion(MMHandleType hplayer,int offset);
 int _mmplayer_activate_section_repeat(MMHandleType hplayer, unsigned long start, unsigned long end);
 int _mmplayer_deactivate_section_repeat(MMHandleType hplayer);
 int _mmplayer_push_buffer(MMHandleType hplayer, unsigned char *buf, int size);
-int _mmplayer_set_buffer_need_data_cb(MMHandleType hplayer,mm_player_buffer_need_data_callback callback, void *user_param);
-int _mmplayer_set_buffer_enough_data_cb(MMHandleType hplayer,mm_player_buffer_enough_data_callback callback, void *user_param);
-int _mmplayer_set_buffer_seek_data_cb(MMHandleType hplayer,mm_player_buffer_seek_data_callback callback, void *user_param);
 int _mmplayer_set_playspeed(MMHandleType hplayer, float rate);
 int _mmplayer_set_playspeed_ex(MMHandleType hplayer, gdouble rate);
 int _mmplayer_set_message_callback(MMHandleType hplayer, MMMessageCallback callback, void *user_param);
+int _mmplayer_set_videostream_changed_cb(MMHandleType hplayer, mm_player_stream_changed_callback callback, void *user_param);
+int _mmplayer_set_audiostream_changed_cb(MMHandleType hplayer, mm_player_stream_changed_callback callback, void *user_param);
 int _mmplayer_set_videostream_cb(MMHandleType hplayer,mm_player_video_stream_callback callback, void *user_param);
 int _mmplayer_set_audiostream_cb(MMHandleType hplayer,mm_player_audio_stream_callback callback, void *user_param);
 int _mmplayer_set_videoframe_render_error_cb(MMHandleType hplayer, mm_player_video_frame_render_error_callback callback, void *user_param);
@@ -828,6 +808,7 @@ int _mmplayer_set_audiobuffer_cb(MMHandleType hplayer, mm_player_audio_stream_ca
 int _mmplayer_change_videosink(MMHandleType handle, MMDisplaySurfaceType surface_type, void *display_overlay);
 int _mmplayer_audio_effect_custom_apply(mm_player_t *player);
 
+int _mmplayer_set_audiostream_cb_ex(MMHandleType hplayer, bool sync, mm_player_audio_stream_callback_ex callback, void *user_param);
 gboolean __mmplayer_post_message(mm_player_t* player, enum MMMessageType msgtype, MMMessageParamType* param);
 gboolean __mmplayer_is_streaming(mm_player_t* player);
 
@@ -850,6 +831,9 @@ int _mmplayer_set_next_uri(MMHandleType hplayer, const char* uri, bool is_first_
 int _mmplayer_get_next_uri(MMHandleType hplayer, char** uri);
 int _mmplayer_has_closed_caption(MMHandleType hplayer, bool* exist);
 int _mmplayer_enable_media_packet_video_stream(MMHandleType hplayer, bool enable);
+void * _mm_player_media_packet_video_stream_internal_buffer_ref(void *buffer);
+void _mm_player_media_packet_video_stream_internal_buffer_unref(void *buffer);
+
 #ifdef __cplusplus
 	}
 #endif

@@ -34,6 +34,7 @@
 #include "mm_debug.h"
 #include "mm_player_capture.h"
 #include "mm_player_tracks.h"
+#include "mm_player_es.h"
 
 int mm_player_create(MMHandleType *player)
 {
@@ -42,8 +43,6 @@ int mm_player_create(MMHandleType *player)
 
 	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
-//	if (!g_thread_supported ())
-//		g_thread_init (NULL); g_thread_init has been deprecated since version 2.32 and should not be used in newly-written code. This function is no longer necessary. The GLib threading system is automatically initialized at the start of your program.
 
 	/* alloc player structure */
 	new_player = g_malloc(sizeof(mm_player_t));
@@ -97,10 +96,9 @@ ERROR:
 
 	if ( new_player )
 	{
+		_mmplayer_destroy( (MMHandleType)new_player );
 		g_mutex_clear(&new_player->cmd_lock);
 		g_mutex_clear(&new_player->playback_lock);
-
-		_mmplayer_destroy( (MMHandleType)new_player );
 
 		MMPLAYER_FREEIF( new_player );
 	}
@@ -203,6 +201,21 @@ int mm_player_set_audio_stream_callback(MMHandleType player, mm_player_audio_str
 	return result;
 }
 
+int mm_player_set_audio_stream_callback_ex(MMHandleType player, bool sync, mm_player_audio_stream_callback_ex callback, void *user_param)
+{
+	int result = MM_ERROR_NONE;
+
+	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+
+	MMPLAYER_CMD_LOCK( player );
+
+	result = _mmplayer_set_audiostream_cb_ex(player, sync, callback, user_param);
+
+	MMPLAYER_CMD_UNLOCK( player );
+
+	return result;
+}
+
 int mm_player_set_video_stream_callback(MMHandleType player, mm_player_video_stream_callback callback, void *user_param)
 {
 	int result = MM_ERROR_NONE;
@@ -272,52 +285,6 @@ int mm_player_set_runtime_buffering_mode(MMHandleType player, MMPlayerBufferingM
 	MMPLAYER_CMD_LOCK( player );
 
 	result = _mmplayer_set_runtime_buffering_mode(player, mode, second);
-
-	MMPLAYER_CMD_UNLOCK( player );
-
-	return result;
-}
-
-int mm_player_set_buffer_need_data_callback(MMHandleType player, mm_player_buffer_need_data_callback callback, void * user_param)
-{
-	int result = MM_ERROR_NONE;
-
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
-
-	MMPLAYER_CMD_LOCK( player );
-
-	result = _mmplayer_set_buffer_need_data_cb(player, callback, user_param);
-
-	MMPLAYER_CMD_UNLOCK( player );
-
-	return result;
-}
-
-int mm_player_set_buffer_enough_data_callback(MMHandleType player, mm_player_buffer_enough_data_callback callback, void * user_param)
-{
-	int result = MM_ERROR_NONE;
-
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
-
-	MMPLAYER_CMD_LOCK( player );
-
-	result = _mmplayer_set_buffer_enough_data_cb(player, callback, user_param);
-
-	MMPLAYER_CMD_UNLOCK( player );
-
-	return result;
-}
-
-
-int mm_player_set_buffer_seek_data_callback(MMHandleType player, mm_player_buffer_seek_data_callback callback, void * user_param)
-{
-	int result = MM_ERROR_NONE;
-
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
-
-	MMPLAYER_CMD_LOCK( player );
-
-	result = _mmplayer_set_buffer_seek_data_cb(player, callback, user_param);
 
 	MMPLAYER_CMD_UNLOCK( player );
 
@@ -843,7 +810,7 @@ int mm_player_ignore_session(MMHandleType player)
 
 	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
-//	result = _mmplayer_asm_ignore_session(player);
+	result = _mmplayer_asm_ignore_session(player);
 
 	return result;
 }
@@ -1077,3 +1044,222 @@ int mm_player_enable_media_packet_video_stream(MMHandleType player, bool enable)
 
 	return result;
 }
+
+void * mm_player_media_packet_video_stream_internal_buffer_ref(void *buffer)
+{
+	void * result;
+	result = _mm_player_media_packet_video_stream_internal_buffer_ref(buffer);
+
+	return result;
+}
+
+void mm_player_media_packet_video_stream_internal_buffer_unref(void *buffer)
+{
+	_mm_player_media_packet_video_stream_internal_buffer_unref(buffer);
+}
+
+#ifdef TEST_ES
+int mm_player_submit_packet(MMHandleType player, media_packet_h packet)
+{
+
+	int result = MM_ERROR_NONE;
+
+	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+
+	/* no lock here, otherwise callback for the "need-data" signal of appsrc will be blocking */
+	//MMPLAYER_CMD_LOCK( player );
+
+	result = _mmplayer_submit_packet(player, packet);
+
+	//MMPLAYER_CMD_UNLOCK( player );
+
+	return result;
+}
+
+int mm_player_set_video_info (MMHandleType player, media_format_h format)
+{
+	int result = MM_ERROR_NONE;
+
+	debug_log("\n");
+
+	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+
+	MMPLAYER_CMD_LOCK( player );
+
+	result = _mmplayer_set_video_info(player, format);
+
+	MMPLAYER_CMD_UNLOCK( player );
+
+	return result;
+
+}
+
+int mm_player_set_audio_info (MMHandleType player, media_format_h format)
+{
+	int result = MM_ERROR_NONE;
+
+	debug_log("\n");
+
+	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+
+	MMPLAYER_CMD_LOCK( player );
+
+	result = _mmplayer_set_audio_info(player, format);
+
+	MMPLAYER_CMD_UNLOCK( player );
+
+	return result;
+}
+
+int mm_player_set_subtitle_info (MMHandleType player, MMPlayerSubtitleStreamInfo *subtitle_stream_info)
+{
+	int result = MM_ERROR_NONE;
+
+	debug_log("\n");
+
+	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+
+	MMPLAYER_CMD_LOCK( player );
+
+	result = _mmplayer_set_subtitle_info(player, subtitle_stream_info);
+
+	MMPLAYER_CMD_UNLOCK( player );
+
+	return result;
+}
+
+int mm_player_set_media_stream_buffer_max_size(MMHandleType player, MMPlayerStreamType type, unsigned long long max_size)
+{
+	int result = MM_ERROR_NONE;
+
+	debug_log("\n");
+
+	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+
+	MMPLAYER_CMD_LOCK( player );
+
+	result = _mmplayer_set_media_stream_max_size(player, type, max_size);
+
+	MMPLAYER_CMD_UNLOCK( player );
+
+	return result;
+}
+
+int mm_player_get_media_stream_buffer_max_size(MMHandleType player, MMPlayerStreamType type, unsigned long long *max_size)
+{
+	int result = MM_ERROR_NONE;
+
+	debug_log("\n");
+
+	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	return_val_if_fail(max_size, MM_ERROR_INVALID_ARGUMENT);
+
+	MMPLAYER_CMD_LOCK( player );
+
+	result = _mmplayer_get_media_stream_max_size(player, type, max_size);
+
+	MMPLAYER_CMD_UNLOCK( player );
+
+	return result;
+}
+
+int mm_player_set_media_stream_buffer_min_percent(MMHandleType player, MMPlayerStreamType type, unsigned min_percent)
+{
+	int result = MM_ERROR_NONE;
+
+	debug_log("\n");
+
+	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+
+	MMPLAYER_CMD_LOCK( player );
+
+	result = _mmplayer_set_media_stream_min_percent(player, type, min_percent);
+
+	MMPLAYER_CMD_UNLOCK( player );
+
+	return result;
+}
+
+int mm_player_get_media_stream_buffer_min_percent(MMHandleType player, MMPlayerStreamType type, unsigned int *min_percent)
+{
+	int result = MM_ERROR_NONE;
+
+	debug_log("\n");
+
+	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	return_val_if_fail(min_percent, MM_ERROR_INVALID_ARGUMENT);
+
+	MMPLAYER_CMD_LOCK( player );
+
+	result = _mmplayer_get_media_stream_min_percent(player, type, min_percent);
+
+	MMPLAYER_CMD_UNLOCK( player );
+
+	return result;
+}
+
+int mm_player_set_media_stream_buffer_status_callback(MMHandleType player, MMPlayerStreamType type, mm_player_media_stream_buffer_status_callback callback, void * user_param)
+{
+	int result = MM_ERROR_NONE;
+
+	debug_log("\n");
+
+	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+
+	MMPLAYER_CMD_LOCK( player );
+
+	result = _mmplayer_set_media_stream_buffer_status_cb(player, type, callback, user_param);
+
+	MMPLAYER_CMD_UNLOCK( player );
+
+	return result;
+}
+
+int mm_player_set_media_stream_seek_data_callback(MMHandleType player, MMPlayerStreamType type, mm_player_media_stream_seek_data_callback callback, void * user_param)
+{
+	int result = MM_ERROR_NONE;
+
+	debug_log("\n");
+
+	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+
+	MMPLAYER_CMD_LOCK( player );
+
+	result = _mmplayer_set_media_stream_seek_data_cb(player, type, callback, user_param);
+
+	MMPLAYER_CMD_UNLOCK( player );
+
+	return result;
+}
+
+int mm_player_set_audio_stream_changed_callback(MMHandleType player, mm_player_stream_changed_callback callback, void *user_param)
+{
+	int result = MM_ERROR_NONE;
+
+	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+
+	MMPLAYER_CMD_LOCK( player );
+
+	result = _mmplayer_set_audiostream_changed_cb(player, callback, user_param);
+
+	MMPLAYER_CMD_UNLOCK( player );
+
+	return result;
+}
+
+int mm_player_set_video_stream_changed_callback(MMHandleType player, mm_player_stream_changed_callback callback, void *user_param)
+{
+	int result = MM_ERROR_NONE;
+
+	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+
+	MMPLAYER_CMD_LOCK( player );
+
+	result = _mmplayer_set_videostream_changed_cb(player, callback, user_param);
+
+	MMPLAYER_CMD_UNLOCK( player );
+
+	return result;
+}
+
+#endif
