@@ -4,7 +4,7 @@
 Name:       libmm-player
 Summary:    Multimedia Framework Player Library
 Version:    0.5.60
-Release:    0
+Release:    1
 Group:      Multimedia/Libraries
 License:    Apache-2.0
 URL:        http://source.tizen.org
