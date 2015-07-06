@@ -140,31 +140,6 @@ if ( x_player->cmd == MMPLAYER_COMMAND_UNREALIZE || x_player->cmd == MMPLAYER_CO
 	goto ERROR;  \
 }
 
-/* pad probe for pipeilne debugging */
-gboolean __util_gst_pad_probe(GstPad *pad, GstBuffer *buffer, gpointer u_data);
-
-#define MM_PROBE_DEFAULT			(0)
-#define MM_PROBE_TIMESTAMP			(1)
-#define MM_PROBE_BUFFERSIZE			(1 << 1)
-#define MM_PROBE_CAPS				(1 << 2)
-#define MM_PROBE_BUFFER_DURATION 	(1 << 3)
-#define MM_PROBE_DROP_BUFFER		(1 << 4)
-#define MM_PROBE_CLOCK_TIME			(1 << 5)
-/* ... add more */
-
-/* messages are treated as warnings bcz those code should not be checked in.
- * and no error handling will supported for same manner.
- */
-#define MMPLAYER_ADD_PROBE(x_pad, x_flag) \
-debug_warning("adding pad probe\n"); \
-if ( ! gst_pad_add_buffer_probe(x_pad, \
-	G_CALLBACK(__util_gst_pad_probe), \
-	(gpointer)x_flag) ) \
-{ \
-	debug_error("failed to add pad probe\n"); \
-}
-
-
 /* generating dot */
 #define MMPLAYER_GENERATE_DOT_IF_ENABLED( x_player, x_name ) \
 if ( x_player->ini.generate_dot ) \
