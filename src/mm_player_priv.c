@@ -15747,6 +15747,22 @@ __gst_send_event_to_sink( mm_player_t* player, GstEvent* event )
 			{
 				debug_log("sending event[%s] to sink element [%s] success!\n",
 					GST_EVENT_TYPE_NAME(event), GST_ELEMENT_NAME(sink) );
+
+				/* rtsp case, asyn_done is not called after seek during pause state */
+				if (MMPLAYER_IS_RTSP_STREAMING(player))
+				{
+					if (strstr(GST_EVENT_TYPE_NAME(event), "seek"))
+					{
+						if (MMPLAYER_TARGET_STATE(player) == MM_PLAYER_STATE_PAUSED)
+						{
+							debug_log("RTSP seek completed, after pause state..\n");
+							player->doing_seek = FALSE;
+							MMPLAYER_POST_MSG ( player, MM_MESSAGE_SEEK_COMPLETED, NULL );
+						}
+
+					}
+				}
+
 #ifdef TEST_ES
 				if( MMPLAYER_IS_ES_BUFF_SRC(player))
 				{
