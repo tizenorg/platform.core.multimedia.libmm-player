@@ -340,11 +340,12 @@ int
 _mmplayer_submit_packet (MMHandleType hplayer, media_packet_h packet)
 {
   int ret = MM_ERROR_NONE;
-  GstBuffer *_buffer;
+  GstBuffer *_buffer = NULL;
   mm_player_t *player = (mm_player_t *) hplayer;
   guint8 *buf = NULL;
   MMPlayerTrackType streamtype = MM_PLAYER_TRACK_TYPE_AUDIO;
   media_format_h fmt = NULL;
+  bool flag = FALSE;
 
   return_val_if_fail (packet, MM_ERROR_INVALID_ARGUMENT);
   return_val_if_fail ( player &&
@@ -353,6 +354,19 @@ _mmplayer_submit_packet (MMHandleType hplayer, media_packet_h packet)
     player->pipeline->mainbin[MMPLAYER_M_SRC].gst,
     MM_ERROR_PLAYER_INTERNAL );
 
+  /* get stream type if audio or video */
+  media_packet_is_audio (packet, &flag);
+  if (flag) {
+	streamtype = MM_PLAYER_TRACK_TYPE_AUDIO;
+  } else {
+	media_packet_is_video (packet, &flag);
+
+	if (flag)
+	  streamtype = MM_PLAYER_TRACK_TYPE_VIDEO;
+	else
+	  streamtype = MM_PLAYER_TRACK_TYPE_TEXT;
+  }
+
   /* get data */
   media_packet_get_buffer_data_ptr (packet, (void **) &buf);
 
@@ -360,12 +374,16 @@ _mmplayer_submit_packet (MMHandleType hplayer, media_packet_h packet)
     GstMapInfo buff_info = GST_MAP_INFO_INIT;
     uint64_t size = 0;
     uint64_t pts = 0;
-    bool flag = FALSE;
 
     /* get size */
     media_packet_get_buffer_size (packet, &size);
 
     _buffer = gst_buffer_new_and_alloc (size);
+    if (!_buffer) {
+        debug_error("failed to allocate memory for push buffer\n");
+        return MM_ERROR_PLAYER_NO_FREE_SPACE;
+    }
+
     if (gst_buffer_map (_buffer, &buff_info, GST_MAP_READWRITE)) {
 
       memcpy (buff_info.data, buf, size);
@@ -377,19 +395,6 @@ _mmplayer_submit_packet (MMHandleType hplayer, media_packet_h packet)
     /* get pts */
     media_packet_get_pts (packet, &pts);
     GST_BUFFER_PTS (_buffer) = (GstClockTime) (pts * 1000000);
-
-    /* get stream type if audio or video */
-    media_packet_is_audio (packet, &flag);
-    if (flag) {
-      streamtype = MM_PLAYER_TRACK_TYPE_AUDIO;
-    } else {
-      media_packet_is_video (packet, &flag);
-
-      if (flag)
-        streamtype = MM_PLAYER_TRACK_TYPE_VIDEO;
-      else
-        streamtype = MM_PLAYER_TRACK_TYPE_TEXT;
-    }
 
     if (streamtype == MM_PLAYER_TRACK_TYPE_AUDIO) {
 #if 0                           // TO CHECK : has gone (set to pad)

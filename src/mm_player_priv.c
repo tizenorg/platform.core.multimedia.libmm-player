@@ -6079,9 +6079,12 @@ __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps, MMDispl
 	{
 		GstPad *sink_pad = NULL;
 		sink_pad = gst_element_get_static_pad(videobin[MMPLAYER_V_SINK].gst, "sink");
-		MMPLAYER_SIGNAL_CONNECT (player, sink_pad, MM_PLAYER_SIGNAL_TYPE_VIDEOBIN,
+		if (sink_pad)
+		{
+			MMPLAYER_SIGNAL_CONNECT (player, sink_pad, MM_PLAYER_SIGNAL_TYPE_VIDEOBIN,
 					"notify::caps", G_CALLBACK(__mmplayer_gst_caps_notify_cb), player);
-		gst_object_unref (GST_OBJECT(sink_pad));
+			gst_object_unref (GST_OBJECT(sink_pad));
+		}
 	}
 
 	/* store it as it's sink element */
@@ -11488,6 +11491,7 @@ __mmplayer_try_to_plug_decodebin(mm_player_t* player, GstPad *srcpad, const GstC
 	MMPlayerGstElement* mainbin = NULL;
 	GstElement* decodebin2 = NULL;
 	GstElement* queue2 = NULL;
+	GstElement* id3demux = NULL;
 	GstPad* sinkpad = NULL;
 	GstPad* qsrcpad= NULL;
 	gchar *caps_str = NULL;
@@ -11666,6 +11670,22 @@ ERROR:
 		gst_bin_remove (GST_BIN(mainbin[MMPLAYER_M_PIPE].gst), queue2);
 		gst_object_unref (queue2);
 		queue2 = NULL;
+	}
+
+	if (id3demux)
+	{
+		/* NOTE : Trying to dispose element id3demux, but it is in READY instead of the NULL state.
+		 * You need to explicitly set elements to the NULL state before
+		 * dropping the final reference, to allow them to clean up.
+		 */
+		gst_element_set_state(id3demux, GST_STATE_NULL);
+
+		/* And, it still has a parent "player".
+		 * You need to let the parent manage the object instead of unreffing the object directly.
+		 */
+		gst_bin_remove (GST_BIN(mainbin[MMPLAYER_M_PIPE].gst), id3demux);
+		gst_object_unref (id3demux);
+		id3demux = NULL;
 	}
 
 	if (decodebin2)
@@ -11858,11 +11878,11 @@ __mmplayer_try_to_plug(mm_player_t* player, GstPad *pad, const GstCaps *caps) //
 			if( temp1->direction != GST_PAD_SINK
 				|| temp1->presence != GST_PAD_ALWAYS)
 				continue;
-#if 0 //should check
+
 			if ( GST_IS_CAPS( &temp1->static_caps.caps) )
 			{
 				/* using existing caps */
-				static_caps = gst_caps_ref( &temp1->static_caps.caps );
+				static_caps = gst_caps_ref(temp1->static_caps.caps );
 			}
 			else
 			{
@@ -11870,8 +11890,7 @@ __mmplayer_try_to_plug(mm_player_t* player, GstPad *pad, const GstCaps *caps) //
 				static_caps = gst_caps_from_string ( temp1->static_caps.string );
 			}
 
-			res = gst_caps_intersect(caps, static_caps);
-#endif
+			res = gst_caps_intersect((GstCaps*)caps, static_caps);
 			gst_caps_unref( static_caps );
 			static_caps = NULL;
 
