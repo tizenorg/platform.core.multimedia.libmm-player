@@ -738,7 +738,8 @@ __mmplayer_device_change_post_process(gpointer user)
 		debug_log("setting async");
 
 		/* TODO : need some comment here */
-		g_object_set (G_OBJECT (player->pipeline->textbin[MMPLAYER_T_FAKE_SINK].gst), "async", TRUE, NULL);
+		if (player->pipeline->textbin && player->pipeline->textbin[MMPLAYER_T_FAKE_SINK].gst)
+			g_object_set (G_OBJECT (player->pipeline->textbin[MMPLAYER_T_FAKE_SINK].gst), "async", TRUE, NULL);
 	}
 
 EXIT:
@@ -11045,6 +11046,7 @@ _mmplayer_set_playspeed(MMHandleType hplayer, float rate)
 	signed long long pos_msec = 0;
 	int ret = MM_ERROR_NONE;
 	int mute = FALSE;
+	signed long long start = 0, stop = 0;
 	MMPlayerStateType current_state = MM_PLAYER_STATE_NONE;
 	MMPLAYER_FENTER();
 
@@ -11082,14 +11084,23 @@ _mmplayer_set_playspeed(MMHandleType hplayer, float rate)
 		pos_msec = player->last_position;
 	}
 
+
+	if(rate >= 0)
+	{
+		start = pos_msec;
+		stop = GST_CLOCK_TIME_NONE;
+	}
+	else
+	{
+		start = GST_CLOCK_TIME_NONE;
+		stop = pos_msec;
+	}
 	if ((!gst_element_seek (player->pipeline->mainbin[MMPLAYER_M_PIPE].gst,
 				rate,
 				GST_FORMAT_TIME,
 				( GST_SEEK_FLAG_FLUSH | GST_SEEK_FLAG_ACCURATE ),
-				//( GST_SEEK_FLAG_FLUSH | GST_SEEK_FLAG_ACCURATE | GST_SEEK_FLAG_KEY_UNIT),
-				GST_SEEK_TYPE_SET, pos_msec,
-				//GST_SEEK_TYPE_NONE, GST_CLOCK_TIME_NONE,
-                GST_SEEK_TYPE_NONE, GST_CLOCK_TIME_NONE)))
+				GST_SEEK_TYPE_SET, start,
+                                GST_SEEK_TYPE_SET, stop)))
 	{
     		debug_error("failed to set speed playback\n");
 		return MM_ERROR_PLAYER_SEEK;
@@ -13080,7 +13091,7 @@ GstCaps* caps, GstElementFactory* factory, gpointer data)
 	if ((MMPLAYER_IS_ES_BUFF_SRC(player)) &&
 		(g_strrstr(klass, "Codec/Demuxer") || (g_strrstr(klass, "Codec/Parser"))))
 	{
-		// TO CHECK : subtitle 필요하면 여기에 subparse exception 추가
+		// TO CHECK : subtitle if needed, add subparse exception.
 		debug_log("skipping parser/demuxer [%s] in es player by not required\n", factory_name);
 		result = GST_AUTOPLUG_SELECT_SKIP;
 		goto DONE;
