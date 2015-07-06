@@ -2281,9 +2281,9 @@ __mmplayer_gst_callback(GstBus *bus, GstMessage *msg, gpointer data) // @
 			}
 			break;
 
-		case GST_MESSAGE_DURATION:
+		case GST_MESSAGE_DURATION_CHANGED:
 		{
-			debug_log("GST_MESSAGE_DURATION\n");
+			debug_log("GST_MESSAGE_DURATION_CHANGED\n");
 			ret = __mmplayer_gst_handle_duration(player, msg);
 			if (!ret)
 			{
@@ -2384,7 +2384,6 @@ __mmplayer_gst_callback(GstBus *bus, GstMessage *msg, gpointer data) // @
 static gboolean
 __mmplayer_gst_handle_duration(mm_player_t* player, GstMessage* msg)
 {
-	GstFormat format;
 	gint64 bytes = 0;
 
 	MMPLAYER_FENTER();
@@ -2392,22 +2391,21 @@ __mmplayer_gst_handle_duration(mm_player_t* player, GstMessage* msg)
 	return_val_if_fail(player, FALSE);
 	return_val_if_fail(msg, FALSE);
 
-	gst_message_parse_duration (msg, &format, &bytes);
+	if ((MMPLAYER_IS_HTTP_STREAMING(player)) &&
+		(msg->src) && (msg->src == (GstObject *)player->pipeline->mainbin[MMPLAYER_M_SRC].gst))
+	{
+		debug_log("msg src : [%s]", GST_ELEMENT_NAME(GST_ELEMENT_CAST(msg->src)));
 
-	if (MMPLAYER_IS_HTTP_STREAMING(player) && format == GST_FORMAT_BYTES )
-	{
-		debug_log("data total size of http content: %lld", bytes);
-		player->http_content_size = bytes;
-	}
-	else if (format == GST_FORMAT_TIME)
-	{
-		/* handling audio clip which has vbr. means duration is keep changing */
-		_mmplayer_update_content_attrs (player, ATTR_DURATION );
+		if (gst_element_query_duration(GST_ELEMENT_CAST(msg->src), GST_FORMAT_BYTES, &bytes))
+		{
+			debug_log("data total size of http content: %lld", bytes);
+			player->http_content_size = bytes;
+		}
 	}
 	else
 	{
-		debug_warning("duration is neither BYTES or TIME");
-		return FALSE;
+		/* handling audio clip which has vbr. means duration is keep changing */
+		_mmplayer_update_content_attrs (player, ATTR_DURATION );
 	}
 
 	MMPLAYER_FLEAVE();
@@ -6853,7 +6851,7 @@ __mmplayer_check_useful_message(mm_player_t *player, GstMessage * message)
 		case GST_MESSAGE_CLOCK_LOST:
 		case GST_MESSAGE_NEW_CLOCK:
 		case GST_MESSAGE_ELEMENT:
-		case GST_MESSAGE_DURATION:
+		case GST_MESSAGE_DURATION_CHANGED:
 		case GST_MESSAGE_ASYNC_START:
 			retval = TRUE;
 			break;
@@ -6942,7 +6940,7 @@ __mmplayer_bus_sync_callback (GstBus * bus, GstMessage * message, gpointer data)
 			#endif
 			break;
 
-		case GST_MESSAGE_DURATION:
+		case GST_MESSAGE_DURATION_CHANGED:
 			__mmplayer_gst_handle_duration(player, message);
 			break;
 		case GST_MESSAGE_ASYNC_DONE:
@@ -15747,22 +15745,6 @@ __gst_send_event_to_sink( mm_player_t* player, GstEvent* event )
 			{
 				debug_log("sending event[%s] to sink element [%s] success!\n",
 					GST_EVENT_TYPE_NAME(event), GST_ELEMENT_NAME(sink) );
-
-				/* rtsp case, asyn_done is not called after seek during pause state */
-				if (MMPLAYER_IS_RTSP_STREAMING(player))
-				{
-					if (strstr(GST_EVENT_TYPE_NAME(event), "seek"))
-					{
-						if (MMPLAYER_TARGET_STATE(player) == MM_PLAYER_STATE_PAUSED)
-						{
-							debug_log("RTSP seek completed, after pause state..\n");
-							player->doing_seek = FALSE;
-							MMPLAYER_POST_MSG ( player, MM_MESSAGE_SEEK_COMPLETED, NULL );
-						}
-
-					}
-				}
-
 #ifdef TEST_ES
 				if( MMPLAYER_IS_ES_BUFF_SRC(player))
 				{
