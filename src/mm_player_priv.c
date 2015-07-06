@@ -5730,6 +5730,7 @@ __mmplayer_video_stream_probe (GstPad *pad, GstPadProbeInfo *info, gpointer user
 	GstMemory *metaBlock = NULL;
 	GstMapInfo mapinfo = GST_MAP_INFO_INIT;
 	GstStructure *structure = NULL;
+	const gchar *string_format = NULL;
 	unsigned int fourcc = 0;
 	mm_player_t* player = (mm_player_t*)user_data;
 	GstBuffer *buffer = GST_PAD_PROBE_INFO_BUFFER(info);
@@ -5751,7 +5752,10 @@ __mmplayer_video_stream_probe (GstPad *pad, GstPadProbeInfo *info, gpointer user
 	structure = gst_caps_get_structure( caps, 0 );
 	gst_structure_get_int(structure, "width", &(stream.width));
 	gst_structure_get_int(structure, "height", &(stream.height));
-	fourcc = _mmplayer_convert_fourcc_string_to_value(gst_structure_get_string(structure, "format"));
+	string_format = gst_structure_get_string(structure, "format");
+	if(string_format) {
+		fourcc = _mmplayer_convert_fourcc_string_to_value(string_format);
+	}
 	stream.format = util_get_pixtype(fourcc);
 	gst_caps_unref( caps );
 	caps = NULL;
@@ -5761,7 +5765,7 @@ __mmplayer_video_stream_probe (GstPad *pad, GstPadProbeInfo *info, gpointer user
 	                GST_BUFFER_DATA(buffer), stream.width, stream.height, stream.format );
     */
 
-	if (stream.width == 0 || stream.height == 0) {
+	if (stream.width == 0 || stream.height == 0 || stream.format == MM_PIXEL_FORMAT_INVALID) {
 		debug_error("Wrong condition!!");
 		return TRUE;
 	}
@@ -13457,7 +13461,7 @@ __mmplayer_gst_element_added (GstElement *bin, GstElement *element, gpointer dat
 		player->parsers = g_list_append (player->parsers, selected);
 	}
 
-	if (g_strrstr(klass, "Demux") || g_strrstr(klass, "Parse"))
+	if ((g_strrstr(klass, "Demux") || g_strrstr(klass, "Parse")) && !(g_strrstr(klass, "Adaptive")))
 	{
 		/* FIXIT : first value will be overwritten if there's more
 		 * than 1 demuxer/parser
@@ -13545,14 +13549,22 @@ __mmplayer_gst_element_added (GstElement *bin, GstElement *element, gpointer dat
 		player->pipeline->mainbin[MMPLAYER_M_DEC1].gst = element;
 	}
 
-	if (g_strrstr(GST_ELEMENT_NAME(element), "multiqueue"))
+	if ((player->pipeline->mainbin[MMPLAYER_M_DEMUX].gst) &&
+		(g_strrstr(GST_ELEMENT_NAME(element), "multiqueue")))
 	{
 		debug_log ("plugged element is multiqueue. take it\n");
+
 		player->pipeline->mainbin[MMPLAYER_M_DEMUXED_S_BUFFER].id = MMPLAYER_M_DEMUXED_S_BUFFER;
 		player->pipeline->mainbin[MMPLAYER_M_DEMUXED_S_BUFFER].gst = element;
 
-		if (MMPLAYER_IS_HTTP_STREAMING(player))
+		if ((MMPLAYER_IS_HTTP_STREAMING(player)) ||
+			(MMPLAYER_IS_HTTP_LIVE_STREAMING(player)))
 		{
+
+			if ((MMPLAYER_IS_HTTP_LIVE_STREAMING(player)) &&
+				(player->streamer->buffering_req.initial_second == 0))
+				player->streamer->buffering_req.initial_second = DEFAULT_LIVE_PLAYING_TIME;
+
 			__mm_player_streaming_set_multiqueue(player->streamer,
 				element,
 				TRUE,
