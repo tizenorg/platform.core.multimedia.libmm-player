@@ -5841,7 +5841,6 @@ __mmplayer_gst_create_video_filters(mm_player_t* player, GList** bucket, gboolea
 
 		if ( !player->set_mode.video_zc)
 		{
-			GstStructure *str = NULL;
 			gint width = 0;		//width of video
 			gint height = 0;		//height of video
 			GstCaps* video_caps = NULL;
@@ -5853,41 +5852,28 @@ __mmplayer_gst_create_video_filters(mm_player_t* player, GList** bucket, gboolea
 			MMPLAYER_CREATE_ELEMENT(player->pipeline->videobin, MMPLAYER_V_CAPS, "capsfilter", "videocapsfilter", TRUE, player);
 
 			/* get video stream caps parsed by demuxer */
-			str = gst_caps_get_structure (player->v_stream_caps, 0);
-			if ( !str )
-			{
-				debug_error("cannot get structure");
-				goto ERROR;
-			}
 
 			mm_attrs_get_int_by_name(player->attrs, "display_width", &width);
 
-			if (width) {
-				if (structure) {
-					gst_structure_set (structure, "width", G_TYPE_INT, width, NULL);
-				} else {
-					structure = gst_structure_new("video/x-raw", "width", G_TYPE_INT, width, NULL);
-				}
-			}
+			if(width)
+				structure = gst_structure_new("video/x-raw", "width", G_TYPE_INT, width, NULL);
 
 			mm_attrs_get_int_by_name(player->attrs, "display_height", &height);
 
-			if (height) {
-				if (structure) {
-					gst_structure_set (structure, "height", G_TYPE_INT, height, NULL);
-				} else {
-					structure = gst_structure_new("video/x-raw", "height", G_TYPE_INT, height, NULL);
-				}
-			}
+			if(structure && height) {
+				gst_structure_set (structure, "height", G_TYPE_INT, height, NULL);
 
-			if (width || height) {
 				video_caps = gst_caps_new_full(structure, NULL);
-				gst_structure_free(structure);
-
 				g_object_set (GST_ELEMENT(player->pipeline->videobin[MMPLAYER_V_CAPS].gst), "caps", video_caps, NULL );
 				MMPLAYER_LOG_GST_CAPS_TYPE(video_caps);
 				gst_caps_unref(video_caps);
 			}
+			else
+				debug_error("fail to set capsfilter %p, width %d, height %d", structure, width, height);
+
+			if(structure)
+				gst_structure_free(structure);
+
 		}
 	}
 	else
@@ -6243,6 +6229,8 @@ static int __mmplayer_gst_create_text_pipeline(mm_player_t* player)
 {
 	MMPlayerGstElement *textbin = NULL;
 	GList *element_bucket = NULL;
+	GstPad *pad = NULL;
+	GstPad *ghostpad = NULL;
 	gint i = 0;
 
 	MMPLAYER_FENTER();
@@ -6326,6 +6314,7 @@ static int __mmplayer_gst_create_text_pipeline(mm_player_t* player)
 				break;
 		}
 	}
+	gst_object_unref(pad);
 
 	MMPLAYER_FLEAVE();
 
@@ -6334,6 +6323,12 @@ static int __mmplayer_gst_create_text_pipeline(mm_player_t* player)
 ERROR:
 
 	debug_log("ERROR : releasing textbin\n");
+
+	if ( pad )
+		gst_object_unref(GST_OBJECT(pad));
+
+	if ( ghostpad )
+		gst_object_unref(GST_OBJECT(ghostpad));
 
 	g_list_free( element_bucket );
 
