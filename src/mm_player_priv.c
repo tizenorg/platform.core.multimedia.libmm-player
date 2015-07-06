@@ -6246,8 +6246,6 @@ static int __mmplayer_gst_create_text_pipeline(mm_player_t* player)
 {
 	MMPlayerGstElement *textbin = NULL;
 	GList *element_bucket = NULL;
-	GstPad *pad = NULL;
-	GstPad *ghostpad = NULL;
 	gint i = 0;
 
 	MMPLAYER_FENTER();
@@ -6331,7 +6329,6 @@ static int __mmplayer_gst_create_text_pipeline(mm_player_t* player)
 				break;
 		}
 	}
-	gst_object_unref(pad);
 
 	MMPLAYER_FLEAVE();
 
@@ -6340,12 +6337,6 @@ static int __mmplayer_gst_create_text_pipeline(mm_player_t* player)
 ERROR:
 
 	debug_log("ERROR : releasing textbin\n");
-
-	if ( pad )
-		gst_object_unref(GST_OBJECT(pad));
-
-	if ( ghostpad )
-		gst_object_unref(GST_OBJECT(ghostpad));
 
 	g_list_free( element_bucket );
 
@@ -9224,12 +9215,10 @@ static int __mmfplayer_parse_profile(const char *uri, void *param, MMPlayerParse
 			}
 			ret = MM_ERROR_NONE;
 		}
-		#if 0
 		else if (file_stat == MM_ERROR_PLAYER_PERMISSION_DENIED)
 		{
 			data->uri_type = MM_PLAYER_URI_TYPE_NO_PERMISSION;
 		}
-		#endif
 		else
 		{
 			debug_error ("invalid uri, could not play..\n");
@@ -9240,7 +9229,7 @@ static int __mmfplayer_parse_profile(const char *uri, void *param, MMPlayerParse
 	if (data->uri_type == MM_PLAYER_URI_TYPE_NONE) {
 		ret = MM_ERROR_PLAYER_FILE_NOT_FOUND;
 	} else if (data->uri_type == MM_PLAYER_URI_TYPE_NO_PERMISSION){
-//		ret = MM_ERROR_PLAYER_PERMISSION_DENIED;
+		ret = MM_ERROR_PLAYER_PERMISSION_DENIED;
 	}
 
 	/* dump parse result */

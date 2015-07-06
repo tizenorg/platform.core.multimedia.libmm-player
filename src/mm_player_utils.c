@@ -54,7 +54,7 @@ int util_exist_file_path(const char *file_path)
 		debug_error("failed to open file by %s (%d)", strerror(errno), errno);
 
 		if (EACCES == errno)
-//			return MM_ERROR_PLAYER_PERMISSION_DENIED;
+			return MM_ERROR_PLAYER_PERMISSION_DENIED;
 
 		return MM_ERROR_PLAYER_FILE_NOT_FOUND;
 	}
