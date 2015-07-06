@@ -2603,6 +2603,7 @@ if(gst_tag_list_get_double(tag_list, gsttag, &v_double))\
 	/* MMPLAYER_UPDATE_TAG_DOUBLE(GST_TAG_REFERENCE_LEVEL, ?, ?); */
 	/* MMPLAYER_UPDATE_TAG_STRING(GST_TAG_LANGUAGE_CODE, ?, ?); */
 	/* MMPLAYER_UPDATE_TAG_DOUBLE(GST_TAG_BEATS_PER_MINUTE, ?, ?); */
+	MMPLAYER_UPDATE_TAG_STRING(GST_TAG_IMAGE_ORIENTATION, attrs, "content_video_orientation");
 
 	if ( mmf_attrs_commit ( attrs ) )
 		debug_error("failed to commit.\n");
@@ -4517,6 +4518,7 @@ _mmplayer_update_video_param(mm_player_t* player) // @
 	int user_angle = 0;
 	int user_angle_type= 0;
 	int rotation_value = 0;
+	gchar *org_orient = NULL;
 
 	MMPLAYER_FENTER();
 
@@ -4556,15 +4558,22 @@ _mmplayer_update_video_param(mm_player_t* player) // @
 	}
 
 	/* get original orientation */
-	if (player->v_stream_caps)
-	{
-		GstStructure *str = NULL;
+	mm_attrs_get_string_by_name(attrs, "content_video_orientation", &org_orient);
 
-		str = gst_caps_get_structure (player->v_stream_caps, 0);
-		if ( !gst_structure_get_int (str, "orientation", &org_angle))
-		{
-			debug_log ("missing 'orientation' field in video caps");
-		}
+	if (org_orient)
+	{
+		if (!strcmp (org_orient, "rotate-90"))
+			org_angle = 90;
+		else if (!strcmp (org_orient, "rotate-180"))
+			org_angle = 180;
+		else if (!strcmp (org_orient, "rotate-270"))
+			org_angle = 270;
+		else
+			debug_log ("original rotation is %s", org_orient);
+	}
+	else
+	{
+		debug_log ("content_video_orientation get fail");
 	}
 
 	debug_log("check user angle: %d, orientation: %d", user_angle, org_angle);
@@ -13448,7 +13457,7 @@ __mmplayer_gst_element_added (GstElement *bin, GstElement *element, gpointer dat
 		player->parsers = g_list_append (player->parsers, selected);
 	}
 
-	if ((g_strrstr(klass, "Demux") || g_strrstr(klass, "Parse")) && !(g_strrstr(klass, "Adaptive")))
+	if (g_strrstr(klass, "Demux") || g_strrstr(klass, "Parse"))
 	{
 		/* FIXIT : first value will be overwritten if there's more
 		 * than 1 demuxer/parser
@@ -13536,22 +13545,14 @@ __mmplayer_gst_element_added (GstElement *bin, GstElement *element, gpointer dat
 		player->pipeline->mainbin[MMPLAYER_M_DEC1].gst = element;
 	}
 
-	if ((player->pipeline->mainbin[MMPLAYER_M_DEMUX].gst) &&
-		(g_strrstr(GST_ELEMENT_NAME(element), "multiqueue")))
+	if (g_strrstr(GST_ELEMENT_NAME(element), "multiqueue"))
 	{
 		debug_log ("plugged element is multiqueue. take it\n");
-
 		player->pipeline->mainbin[MMPLAYER_M_DEMUXED_S_BUFFER].id = MMPLAYER_M_DEMUXED_S_BUFFER;
 		player->pipeline->mainbin[MMPLAYER_M_DEMUXED_S_BUFFER].gst = element;
 
-		if ((MMPLAYER_IS_HTTP_STREAMING(player)) ||
-			(MMPLAYER_IS_HTTP_LIVE_STREAMING(player)))
+		if (MMPLAYER_IS_HTTP_STREAMING(player))
 		{
-
-			if ((MMPLAYER_IS_HTTP_LIVE_STREAMING(player)) &&
-				(player->streamer->buffering_req.initial_second == 0))
-				player->streamer->buffering_req.initial_second = DEFAULT_LIVE_PLAYING_TIME;
-
 			__mm_player_streaming_set_multiqueue(player->streamer,
 				element,
 				TRUE,

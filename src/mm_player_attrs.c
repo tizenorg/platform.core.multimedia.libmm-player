@@ -1061,6 +1061,15 @@ _mmplayer_construct_attribute(MMHandleType handle)
 			MM_ATTRS_VALID_TYPE_INT_RANGE,
 			0,
 			1
+		},
+		{
+			"content_video_orientation",	// orientation of video content
+			MM_ATTRS_TYPE_STRING,
+			MM_ATTRS_FLAG_RW,
+			(void *) NULL,
+			MM_ATTRS_VALID_TYPE_NONE,
+			0,
+			0
 		}
 	};
 
