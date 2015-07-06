@@ -5418,6 +5418,31 @@ __mmplayer_gst_create_audio_pipeline(mm_player_t* player)
 	{
 		if(player->audio_stream_render_cb_ex)
 		{
+			char *caps_str = NULL;
+			GstCaps* caps = NULL;
+			gchar *format = NULL;
+
+			/* capsfilter */
+			MMPLAYER_CREATE_ELEMENT(audiobin, MMPLAYER_A_CAPS_DEFAULT, "capsfilter", "audio capsfilter", TRUE, player);
+
+			mm_attrs_get_string_by_name (player->attrs, "pcm_audioformat", &format );
+
+			debug_log("contents : format: %s samplerate : %d pcm_channel: %d", format, player->pcm_samplerate, player->pcm_channel);
+
+			caps = gst_caps_new_simple ("audio/x-raw",
+					"format", G_TYPE_STRING, format,
+					"rate", G_TYPE_INT, player->pcm_samplerate,
+					"channels", G_TYPE_INT, player->pcm_channel,
+					NULL);
+			caps_str = gst_caps_to_string(caps);
+			debug_log("new caps : %s\n", caps_str);
+
+			g_object_set (GST_ELEMENT(audiobin[MMPLAYER_A_CAPS_DEFAULT].gst), "caps", caps, NULL );
+
+			/* clean */
+			gst_caps_unref( caps );
+			MMPLAYER_FREEIF( caps_str );
+
 			MMPLAYER_CREATE_ELEMENT(audiobin, MMPLAYER_A_DEINTERLEAVE, "deinterleave", "deinterleave", TRUE, player);
 
 			g_object_set (G_OBJECT (audiobin[MMPLAYER_A_DEINTERLEAVE].gst), "keep-positions", TRUE, NULL);
@@ -5782,8 +5807,35 @@ __mmplayer_video_stream_probe (GstPad *pad, GstPadProbeInfo *info, gpointer user
 		/* set gst buffer */
 		stream.internal_buffer = buffer;
 	} else {
+		tbm_bo_handle thandle;
+		int stride = ((stream.width + 3) & (~3));
+		int elevation = stream.height;
+		int size = stride * elevation * 3 / 2;
 		gst_memory_map(dataBlock, &mapinfo, GST_MAP_READWRITE);
-		stream.data[0] = mapinfo.data;
+
+		stream.stride[0] = stride;
+		stream.elevation[0] = elevation;
+		if(stream.format == MM_PIXEL_FORMAT_I420) {
+			stream.stride[1] = stream.stride[2] = stride / 2;
+			stream.elevation[1] = stream.elevation[2] = elevation / 2;
+		}
+		else {
+			debug_error("default #plane is 2, format %d", stream.format);
+			stream.stride[1] = stride;
+			stream.elevation[1] = elevation / 2;
+		}
+
+		stream.bo[0] = tbm_bo_alloc(player->g_bufmgr, size, TBM_BO_DEFAULT);
+		if(!stream.bo[0]) {
+			debug_error("Fail to tbm_bo_alloc!!");
+			return TRUE;
+		}
+		thandle = tbm_bo_map(stream.bo[0], TBM_DEVICE_CPU, TBM_OPTION_WRITE);
+		if(thandle.ptr) {
+			memcpy(thandle.ptr, mapinfo.data, size);
+		}
+		tbm_bo_unmap(stream.bo[0]);
+
 	}
 
 	if (player->video_stream_cb) {
@@ -5794,6 +5846,7 @@ __mmplayer_video_stream_probe (GstPad *pad, GstPadProbeInfo *info, gpointer user
 		gst_memory_unmap(metaBlock, &mapinfo);
 	}else {
 		gst_memory_unmap(dataBlock, &mapinfo);
+		tbm_bo_unref(stream.bo[0]);
 	}
 
 	return GST_PAD_PROBE_OK;
@@ -17498,6 +17551,12 @@ _mmplayer_enable_media_packet_video_stream(MMHandleType hplayer, bool enable)
 
 	return_val_if_fail (player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 	return_val_if_fail (enable == TRUE || enable == FALSE, MM_ERROR_INVALID_ARGUMENT);
+	if(enable)
+		player->g_bufmgr = tbm_bufmgr_init(-1);
+	else {
+		tbm_bufmgr_deinit(player->g_bufmgr);
+		player->g_bufmgr = NULL;
+	}
 
 	player->set_mode.media_packet_video_stream = enable;
 
@@ -17660,5 +17719,21 @@ __gst_seek_subtitle_data (GstElement * appsrc, guint64 position, gpointer user_d
 	}
 
 	return TRUE;
+}
+
+int
+_mmplayer_set_pcm_spec(MMHandleType hplayer, int samplerate, int channel)
+{
+	mm_player_t* player = (mm_player_t*) hplayer;
+
+	MMPLAYER_FENTER();
+
+	return_val_if_fail ( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
+
+	player->pcm_samplerate = samplerate;
+	player->pcm_channel = channel;
+
+	MMPLAYER_FLEAVE();
+	return MM_ERROR_NONE;
 }
 

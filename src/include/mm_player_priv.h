@@ -37,6 +37,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <tbm_bufmgr.h>
 #include "mm_player.h"
 #include "mm_player_internal.h"
 #include "mm_player_audioeffect.h"
@@ -741,6 +742,8 @@ typedef struct {
 	gboolean es_player_push_mode;
 
 #endif
+	/* tmb buffer manager for s/w codec tmb_bo */
+	tbm_bufmgr g_bufmgr;
 
 	int pcm_samplerate;
 	int pcm_channel;
