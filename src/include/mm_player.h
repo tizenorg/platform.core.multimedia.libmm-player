@@ -741,7 +741,9 @@ typedef enum {
  */
 typedef enum {
 	MM_PLAYER_TRACK_TYPE_AUDIO = 0,
+#if (defined _USE_M_V_INPUT_SELECTOR_ || defined TEST_ES)
 	MM_PLAYER_TRACK_TYPE_VIDEO,
+#endif
 	MM_PLAYER_TRACK_TYPE_TEXT,
 	MM_PLAYER_TRACK_TYPE_MAX
 }MMPlayerTrackType;

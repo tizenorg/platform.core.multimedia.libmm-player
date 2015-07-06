@@ -346,8 +346,12 @@ _mmplayer_submit_packet (MMHandleType hplayer, media_packet_h packet)
   MMPlayerTrackType streamtype = MM_PLAYER_TRACK_TYPE_AUDIO;
   media_format_h fmt = NULL;
 
-  return_val_if_fail (player, MM_ERROR_PLAYER_NOT_INITIALIZED);
   return_val_if_fail (packet, MM_ERROR_INVALID_ARGUMENT);
+  return_val_if_fail ( player &&
+    player->pipeline &&
+    player->pipeline->mainbin &&
+    player->pipeline->mainbin[MMPLAYER_M_SRC].gst,
+    MM_ERROR_PLAYER_INTERNAL );
 
   /* get data */
   media_packet_get_buffer_data_ptr (packet, (void **) &buf);
