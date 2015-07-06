@@ -6243,8 +6243,6 @@ static int __mmplayer_gst_create_text_pipeline(mm_player_t* player)
 {
 	MMPlayerGstElement *textbin = NULL;
 	GList *element_bucket = NULL;
-	GstPad *pad = NULL;
-	GstPad *ghostpad = NULL;
 	gint i = 0;
 
 	MMPLAYER_FENTER();
@@ -6328,7 +6326,6 @@ static int __mmplayer_gst_create_text_pipeline(mm_player_t* player)
 				break;
 		}
 	}
-	gst_object_unref(pad);
 
 	MMPLAYER_FLEAVE();
 
@@ -6337,12 +6334,6 @@ static int __mmplayer_gst_create_text_pipeline(mm_player_t* player)
 ERROR:
 
 	debug_log("ERROR : releasing textbin\n");
-
-	if ( pad )
-		gst_object_unref(GST_OBJECT(pad));
-
-	if ( ghostpad )
-		gst_object_unref(GST_OBJECT(ghostpad));
 
 	g_list_free( element_bucket );
 
