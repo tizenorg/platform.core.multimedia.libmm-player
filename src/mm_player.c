@@ -1261,5 +1261,20 @@ int mm_player_set_video_stream_changed_callback(MMHandleType player, mm_player_s
 
 	return result;
 }
-
 #endif
+
+int mm_player_set_pcm_spec(MMHandleType player, int samplerate, int channel)
+{
+	int result = MM_ERROR_NONE;
+
+	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+
+	MMPLAYER_CMD_LOCK( player );
+
+	result = _mmplayer_set_pcm_spec(player, samplerate, channel);
+
+	MMPLAYER_CMD_UNLOCK( player );
+
+	return result;
+}
+

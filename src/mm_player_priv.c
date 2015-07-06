@@ -5436,6 +5436,31 @@ __mmplayer_gst_create_audio_pipeline(mm_player_t* player)
 	{
 		if(player->audio_stream_render_cb_ex)
 		{
+			char *caps_str = NULL;
+			GstCaps* caps = NULL;
+			gchar *format = NULL;
+
+			/* capsfilter */
+			MMPLAYER_CREATE_ELEMENT(audiobin, MMPLAYER_A_CAPS_DEFAULT, "capsfilter", "audio capsfilter", TRUE, player);
+
+			mm_attrs_get_string_by_name (player->attrs, "pcm_audioformat", &format );
+
+			debug_log("contents : format: %s samplerate : %d pcm_channel: %d", format, player->pcm_samplerate, player->pcm_channel);
+
+			caps = gst_caps_new_simple ("audio/x-raw",
+					"format", G_TYPE_STRING, format,
+					"rate", G_TYPE_INT, player->pcm_samplerate,
+					"channels", G_TYPE_INT, player->pcm_channel,
+					NULL);
+			caps_str = gst_caps_to_string(caps);
+			debug_log("new caps : %s\n", caps_str);
+
+			g_object_set (GST_ELEMENT(audiobin[MMPLAYER_A_CAPS_DEFAULT].gst), "caps", caps, NULL );
+
+			/* clean */
+			gst_caps_unref( caps );
+			MMPLAYER_FREEIF( caps_str );
+
 			MMPLAYER_CREATE_ELEMENT(audiobin, MMPLAYER_A_DEINTERLEAVE, "deinterleave", "deinterleave", TRUE, player);
 
 			g_object_set (G_OBJECT (audiobin[MMPLAYER_A_DEINTERLEAVE].gst), "keep-positions", TRUE, NULL);
@@ -5841,7 +5866,6 @@ __mmplayer_gst_create_video_filters(mm_player_t* player, GList** bucket, gboolea
 
 		if ( !player->set_mode.video_zc)
 		{
-			GstStructure *str = NULL;
 			gint width = 0;		//width of video
 			gint height = 0;		//height of video
 			GstCaps* video_caps = NULL;
@@ -5853,41 +5877,28 @@ __mmplayer_gst_create_video_filters(mm_player_t* player, GList** bucket, gboolea
 			MMPLAYER_CREATE_ELEMENT(player->pipeline->videobin, MMPLAYER_V_CAPS, "capsfilter", "videocapsfilter", TRUE, player);
 
 			/* get video stream caps parsed by demuxer */
-			str = gst_caps_get_structure (player->v_stream_caps, 0);
-			if ( !str )
-			{
-				debug_error("cannot get structure");
-				goto ERROR;
-			}
 
 			mm_attrs_get_int_by_name(player->attrs, "display_width", &width);
 
-			if (width) {
-				if (structure) {
-					gst_structure_set (structure, "width", G_TYPE_INT, width, NULL);
-				} else {
-					structure = gst_structure_new("video/x-raw", "width", G_TYPE_INT, width, NULL);
-				}
-			}
+			if(width)
+				structure = gst_structure_new("video/x-raw", "width", G_TYPE_INT, width, NULL);
 
 			mm_attrs_get_int_by_name(player->attrs, "display_height", &height);
 
-			if (height) {
-				if (structure) {
-					gst_structure_set (structure, "height", G_TYPE_INT, height, NULL);
-				} else {
-					structure = gst_structure_new("video/x-raw", "height", G_TYPE_INT, height, NULL);
-				}
-			}
+			if(structure && height) {
+				gst_structure_set (structure, "height", G_TYPE_INT, height, NULL);
 
-			if (width || height) {
 				video_caps = gst_caps_new_full(structure, NULL);
-				gst_structure_free(structure);
-
 				g_object_set (GST_ELEMENT(player->pipeline->videobin[MMPLAYER_V_CAPS].gst), "caps", video_caps, NULL );
 				MMPLAYER_LOG_GST_CAPS_TYPE(video_caps);
 				gst_caps_unref(video_caps);
 			}
+			else
+				debug_error("fail to set capsfilter %p, width %d, height %d", structure, width, height);
+
+			if(structure)
+				gst_structure_free(structure);
+
 		}
 	}
 	else
@@ -7182,7 +7193,7 @@ __mmplayer_gst_create_pipeline(mm_player_t* player) // @
 			/* setting property to streaming source */
 			g_object_set(G_OBJECT(element), "location", player->profile.uri, NULL);
 			if ( user_agent )
-				g_object_set(G_OBJECT(element), "user_agent", user_agent, NULL);
+				g_object_set(G_OBJECT(element), "user-agent", user_agent, NULL);
 			if ( wap_profile )
 				g_object_set(G_OBJECT(element), "wap_profile", wap_profile, NULL);
 
@@ -9030,12 +9041,10 @@ static int __mmfplayer_parse_profile(const char *uri, void *param, MMPlayerParse
 			}
 			ret = MM_ERROR_NONE;
 		}
-		#if 0
 		else if (file_stat == MM_ERROR_PLAYER_PERMISSION_DENIED)
 		{
 			data->uri_type = MM_PLAYER_URI_TYPE_NO_PERMISSION;
 		}
-		#endif
 		else
 		{
 			debug_warning("could  access %s.\n", path);
@@ -9397,13 +9406,11 @@ __mmplayer_asm_callback(int handle, ASM_event_sources_t event_src, ASM_sound_com
 	}
 	else if (event_src == ASM_EVENT_SOURCE_RESOURCE_CONFLICT)
 	{
-		/* can use video overlay simultaneously */
-		/* video resource conflict */
 		if(player->pipeline->videobin)
 		{
-			debug_log("video conflict but, can support multiple video");
-			result = _mmplayer_pause((MMHandleType)player);
-			cb_res = ASM_CB_RES_PAUSE;
+			debug_log("video conflict so, resource will be freed.");
+			result = _mmplayer_unrealize((MMHandleType)player);
+			cb_res = ASM_CB_RES_STOP;
 		}
 		else if (player->pipeline->audiobin)
 		{
@@ -11476,7 +11483,6 @@ __mmplayer_try_to_plug_decodebin(mm_player_t* player, GstPad *srcpad, const GstC
 	MMPlayerGstElement* mainbin = NULL;
 	GstElement* decodebin2 = NULL;
 	GstElement* queue2 = NULL;
-	GstElement* id3demux = NULL;
 	GstPad* sinkpad = NULL;
 	GstPad* qsrcpad= NULL;
 	gchar *caps_str = NULL;
@@ -11655,22 +11661,6 @@ ERROR:
 		gst_bin_remove (GST_BIN(mainbin[MMPLAYER_M_PIPE].gst), queue2);
 		gst_object_unref (queue2);
 		queue2 = NULL;
-	}
-
-	if (id3demux)
-	{
-		/* NOTE : Trying to dispose element id3demux, but it is in READY instead of the NULL state.
-		 * You need to explicitly set elements to the NULL state before
-		 * dropping the final reference, to allow them to clean up.
-		 */
-		gst_element_set_state(id3demux, GST_STATE_NULL);
-
-		/* And, it still has a parent "player".
-		 * You need to let the parent manage the object instead of unreffing the object directly.
-		 */
-		gst_bin_remove (GST_BIN(mainbin[MMPLAYER_M_PIPE].gst), id3demux);
-		gst_object_unref (id3demux);
-		id3demux = NULL;
 	}
 
 	if (decodebin2)

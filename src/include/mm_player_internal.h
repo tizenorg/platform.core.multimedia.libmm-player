@@ -279,6 +279,19 @@ int mm_player_push_buffer(MMHandleType player, unsigned char *buf, int size);
 int mm_player_change_videosink(MMHandleType player, MMDisplaySurfaceType display_surface_type, void *display_overlay);
 
 /**
+ * This function is to set pcm spec.
+ *
+ * @param	player		[in]	Handle of player.
+ * @param	samplerate	[in]	Samplerate.
+ * @param	channel		[in]	Channel.
+ *
+ * @return	This function returns zero on success, or negative value with error
+ * @see
+ * @since
+ */
+int mm_player_set_pcm_spec(MMHandleType player, int samplerate, int channel);
+
+/**
 	@}
  */
 

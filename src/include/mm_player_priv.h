@@ -741,6 +741,9 @@ typedef struct {
 	gboolean es_player_push_mode;
 
 #endif
+
+	int pcm_samplerate;
+	int pcm_channel;
 } mm_player_t;
 
 typedef struct
@@ -833,6 +836,7 @@ int _mmplayer_has_closed_caption(MMHandleType hplayer, bool* exist);
 int _mmplayer_enable_media_packet_video_stream(MMHandleType hplayer, bool enable);
 void * _mm_player_media_packet_video_stream_internal_buffer_ref(void *buffer);
 void _mm_player_media_packet_video_stream_internal_buffer_unref(void *buffer);
+int _mmplayer_set_pcm_spec(MMHandleType hplayer, int samplerate, int channel);
 
 #ifdef __cplusplus
 	}
