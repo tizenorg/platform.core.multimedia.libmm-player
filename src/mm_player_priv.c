@@ -13448,7 +13448,7 @@ __mmplayer_gst_element_added (GstElement *bin, GstElement *element, gpointer dat
 		player->parsers = g_list_append (player->parsers, selected);
 	}
 
-	if (g_strrstr(klass, "Demux") || g_strrstr(klass, "Parse"))
+	if ((g_strrstr(klass, "Demux") || g_strrstr(klass, "Parse")) && !(g_strrstr(klass, "Adaptive")))
 	{
 		/* FIXIT : first value will be overwritten if there's more
 		 * than 1 demuxer/parser
@@ -13536,14 +13536,22 @@ __mmplayer_gst_element_added (GstElement *bin, GstElement *element, gpointer dat
 		player->pipeline->mainbin[MMPLAYER_M_DEC1].gst = element;
 	}
 
-	if (g_strrstr(GST_ELEMENT_NAME(element), "multiqueue"))
+	if ((player->pipeline->mainbin[MMPLAYER_M_DEMUX].gst) &&
+		(g_strrstr(GST_ELEMENT_NAME(element), "multiqueue")))
 	{
 		debug_log ("plugged element is multiqueue. take it\n");
+
 		player->pipeline->mainbin[MMPLAYER_M_DEMUXED_S_BUFFER].id = MMPLAYER_M_DEMUXED_S_BUFFER;
 		player->pipeline->mainbin[MMPLAYER_M_DEMUXED_S_BUFFER].gst = element;
 
-		if (MMPLAYER_IS_HTTP_STREAMING(player))
+		if ((MMPLAYER_IS_HTTP_STREAMING(player)) ||
+			(MMPLAYER_IS_HTTP_LIVE_STREAMING(player)))
 		{
+
+			if ((MMPLAYER_IS_HTTP_LIVE_STREAMING(player)) &&
+				(player->streamer->buffering_req.initial_second == 0))
+				player->streamer->buffering_req.initial_second = DEFAULT_LIVE_PLAYING_TIME;
+
 			__mm_player_streaming_set_multiqueue(player->streamer,
 				element,
 				TRUE,
@@ -15745,6 +15753,22 @@ __gst_send_event_to_sink( mm_player_t* player, GstEvent* event )
 			{
 				debug_log("sending event[%s] to sink element [%s] success!\n",
 					GST_EVENT_TYPE_NAME(event), GST_ELEMENT_NAME(sink) );
+
+				/* rtsp case, asyn_done is not called after seek during pause state */
+				if (MMPLAYER_IS_RTSP_STREAMING(player))
+				{
+					if (strstr(GST_EVENT_TYPE_NAME(event), "seek"))
+					{
+						if (MMPLAYER_TARGET_STATE(player) == MM_PLAYER_STATE_PAUSED)
+						{
+							debug_log("RTSP seek completed, after pause state..\n");
+							player->doing_seek = FALSE;
+							MMPLAYER_POST_MSG ( player, MM_MESSAGE_SEEK_COMPLETED, NULL );
+						}
+
+					}
+				}
+
 #ifdef TEST_ES
 				if( MMPLAYER_IS_ES_BUFF_SRC(player))
 				{

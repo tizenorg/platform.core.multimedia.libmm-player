@@ -37,15 +37,16 @@
 #define MIN_BUFFERING_TIME 3.0
 #define MAX_BUFFERING_TIME 10.0
 
-#define MAX_DECODEBIN_BUFFER_BYTES	(32 * 1024 * 1024)	// byte
-#define MAX_DECODEBIN_BUFFER_TIME	15 	// sec
+#define MAX_DECODEBIN_BUFFER_BYTES	(32 * 1024 * 1024) /* byte */
+#define MAX_DECODEBIN_BUFFER_TIME	15                 /* sec */
 
-#define DEFAULT_BUFFER_SIZE_BYTES 4194304	// 4 MBytes
-#define DEFAULT_PLAYING_TIME 10				// 10 sec
+#define DEFAULT_BUFFER_SIZE_BYTES 4194304   /* 4 MBytes */
+#define DEFAULT_PLAYING_TIME 10             /* 10 sec   */
+#define DEFAULT_LIVE_PLAYING_TIME 3         /* 3 sec    */
 
-#define DEFAULT_BUFFERING_TIME 3.0   		// 3sec
-#define DEFAULT_BUFFER_LOW_PERCENT 1.0 		// 1%
-#define DEFAULT_BUFFER_HIGH_PERCENT 99.0 	// 15%
+#define DEFAULT_BUFFERING_TIME 3.0          /* 3sec     */
+#define DEFAULT_BUFFER_LOW_PERCENT 1.0      /* 1%       */
+#define DEFAULT_BUFFER_HIGH_PERCENT 99.0    /* 15%      */
 
 #define DEFAULT_FILE_BUFFER_PATH "/opt/media"
 
