@@ -5314,18 +5314,10 @@ ERROR:
 	return;
 }
 
-
-/**
-  * AUDIO PIPELINE
-  * - Local playback 	: audiotp !audioconvert ! volume ! capsfilter ! audioeffect ! audioeffect_sec ! audiosink
-  * - Streaming 	: audiotp !audioconvert !volume ! audiosink
-  * - PCM extraction : audiotp !audioconvert ! audioresample ! capsfilter ! fakesink
-  */
-void __mmplayer_gst_create_audiosink_configure(mm_player_t* player, MMHandleType attrs)
+void __mmplayer_gst_set_audiosink_property(mm_player_t* player, MMHandleType attrs)
 {
-#define MAX_PROPS_LEN 64
+	#define MAX_PROPS_LEN 64
 	gint volume_type = 0;
-	gint route_path = 0;
 	gint latency_mode = 0;
 	gchar *stream_type = NULL;
 	gint stream_id = 0;
@@ -5349,37 +5341,27 @@ void __mmplayer_gst_create_audiosink_configure(mm_player_t* player, MMHandleType
 		snprintf(stream_props, sizeof(stream_props)-1, "props,media.role=%s, media.parent_id=%d", stream_type, stream_id);
 		props = gst_structure_from_string(stream_props, NULL);
 		g_object_set(player->pipeline->audiobin[MMPLAYER_A_SINK].gst, "stream-properties", props, NULL);
-	}
-
-	debug_log("stream_id[%d], stream_type[%s], result[%s].\n", stream_id, stream_type, stream_props);
-
-/* for audio tunning */
-#ifndef IS_SDK
-	if (player->profile.play_mode == MM_PLAYER_MODE_MIDI)
-	{
-		volume_type |= MM_SOUND_VOLUME_GAIN_MIDI;
-	}
-#endif
-	/* hook sound_type if emergency case */
-	if (player->sm.event == ASM_EVENT_EMERGENCY)
-	{
-		debug_log ("This is emergency session, hook sound_type from [%d] to [%d]\n", volume_type, MM_SOUND_VOLUME_TYPE_EMERGENCY);
-		volume_type = MM_SOUND_VOLUME_TYPE_EMERGENCY;
+		debug_log("stream_id[%d], stream_type[%s], result[%s].\n", stream_id, stream_type, stream_props);
 	}
 
 	mm_attrs_get_int_by_name(attrs, "sound_latency_mode", &latency_mode);
+	mm_attrs_get_int_by_name(attrs, "sound_volume_type", &volume_type);
 
-	if (player->sm.user_route_policy != 0)
+	/* hook sound_type if emergency case */
+	if (player->sm.event == ASM_EVENT_EMERGENCY)
 	{
-		route_path = player->sm.user_route_policy;
+		debug_log ("emergency session, hook sound_type from [%d] to [%d]\n", volume_type, MM_SOUND_VOLUME_TYPE_EMERGENCY);
+		volume_type = MM_SOUND_VOLUME_TYPE_EMERGENCY;
 	}
 
 	g_object_set(player->pipeline->audiobin[MMPLAYER_A_SINK].gst,
 			"latency", latency_mode,
+			"volumetype", volume_type,
 			NULL);
 
-	debug_log("audiosink property status...volume type:%d, user-route=%d, latency=%d \n",
-		volume_type, route_path, latency_mode);
+	debug_log("audiosink property - volume type=%d, latency=%d \n",
+		volume_type, latency_mode);
+
 	MMPLAYER_FLEAVE();
 }
 
@@ -5436,31 +5418,6 @@ __mmplayer_gst_create_audio_pipeline(mm_player_t* player)
 	{
 		if(player->audio_stream_render_cb_ex)
 		{
-			char *caps_str = NULL;
-			GstCaps* caps = NULL;
-			gchar *format = NULL;
-
-			/* capsfilter */
-			MMPLAYER_CREATE_ELEMENT(audiobin, MMPLAYER_A_CAPS_DEFAULT, "capsfilter", "audio capsfilter", TRUE, player);
-
-			mm_attrs_get_string_by_name (player->attrs, "pcm_audioformat", &format );
-
-			debug_log("contents : format: %s samplerate : %d pcm_channel: %d", format, player->pcm_samplerate, player->pcm_channel);
-
-			caps = gst_caps_new_simple ("audio/x-raw",
-					"format", G_TYPE_STRING, format,
-					"rate", G_TYPE_INT, player->pcm_samplerate,
-					"channels", G_TYPE_INT, player->pcm_channel,
-					NULL);
-			caps_str = gst_caps_to_string(caps);
-			debug_log("new caps : %s\n", caps_str);
-
-			g_object_set (GST_ELEMENT(audiobin[MMPLAYER_A_CAPS_DEFAULT].gst), "caps", caps, NULL );
-
-			/* clean */
-			gst_caps_unref( caps );
-			MMPLAYER_FREEIF( caps_str );
-
 			MMPLAYER_CREATE_ELEMENT(audiobin, MMPLAYER_A_DEINTERLEAVE, "deinterleave", "deinterleave", TRUE, player);
 
 			g_object_set (G_OBJECT (audiobin[MMPLAYER_A_DEINTERLEAVE].gst), "keep-positions", TRUE, NULL);
@@ -5608,10 +5565,8 @@ __mmplayer_gst_create_audio_pipeline(mm_player_t* player)
 			g_object_set (G_OBJECT (audiobin[MMPLAYER_A_SINK].gst), "provide-clock", player->ini.provide_clock_for_music,  NULL);
 		}
 
-		if ( g_strrstr(player->ini.name_of_audiosink, "pulsesink") )
-		{
-			__mmplayer_gst_create_audiosink_configure(player, attrs);
-		}
+		if (g_strrstr(player->ini.name_of_audiosink, "pulsesink"))
+			__mmplayer_gst_set_audiosink_property(player, attrs);
 
 		/* Antishock can be enabled when player is resumed by soundCM.
 		 * But, it's not used in MMS, setting and etc.
