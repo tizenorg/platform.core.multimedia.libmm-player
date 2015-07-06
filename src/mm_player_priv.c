@@ -7272,15 +7272,11 @@ __mmplayer_gst_create_pipeline(mm_player_t* player) // @
 				if ( ( cookie_list = util_get_cookie_list ((const char*)cookies) ) )
 					g_object_set(G_OBJECT(element), "cookies", cookie_list, NULL);
 				if ( user_agent )
-					g_object_set(G_OBJECT(element), "user_agent", user_agent, NULL);
+					g_object_set(G_OBJECT(element), "user-agent", user_agent, NULL);
 
 				if ( MMPLAYER_URL_HAS_DASH_SUFFIX(player) )
 				{
 					debug_warning("it's dash. and it's still experimental feature.");
-				}
-				else if (MMPLAYER_URL_HAS_HLS_SUFFIX(player) )
-				{
-					debug_warning("it's hls. using decodebin");
 				}
 			}
 			else // progressive download
@@ -9401,11 +9397,13 @@ __mmplayer_asm_callback(int handle, ASM_event_sources_t event_src, ASM_sound_com
 	}
 	else if (event_src == ASM_EVENT_SOURCE_RESOURCE_CONFLICT)
 	{
+		/* can use video overlay simultaneously */
+		/* video resource conflict */
 		if(player->pipeline->videobin)
 		{
-			debug_log("video conflict so, resource will be freed.");
-			result = _mmplayer_unrealize((MMHandleType)player);
-			cb_res = ASM_CB_RES_STOP;
+			debug_log("video conflict but, can support multiple video");
+			result = _mmplayer_pause((MMHandleType)player);
+			cb_res = ASM_CB_RES_PAUSE;
 		}
 		else if (player->pipeline->audiobin)
 		{
@@ -11478,6 +11476,7 @@ __mmplayer_try_to_plug_decodebin(mm_player_t* player, GstPad *srcpad, const GstC
 	MMPlayerGstElement* mainbin = NULL;
 	GstElement* decodebin2 = NULL;
 	GstElement* queue2 = NULL;
+	GstElement* id3demux = NULL;
 	GstPad* sinkpad = NULL;
 	GstPad* qsrcpad= NULL;
 	gchar *caps_str = NULL;
@@ -11656,6 +11655,22 @@ ERROR:
 		gst_bin_remove (GST_BIN(mainbin[MMPLAYER_M_PIPE].gst), queue2);
 		gst_object_unref (queue2);
 		queue2 = NULL;
+	}
+
+	if (id3demux)
+	{
+		/* NOTE : Trying to dispose element id3demux, but it is in READY instead of the NULL state.
+		 * You need to explicitly set elements to the NULL state before
+		 * dropping the final reference, to allow them to clean up.
+		 */
+		gst_element_set_state(id3demux, GST_STATE_NULL);
+
+		/* And, it still has a parent "player".
+		 * You need to let the parent manage the object instead of unreffing the object directly.
+		 */
+		gst_bin_remove (GST_BIN(mainbin[MMPLAYER_M_PIPE].gst), id3demux);
+		gst_object_unref (id3demux);
+		id3demux = NULL;
 	}
 
 	if (decodebin2)
