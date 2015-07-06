@@ -1026,6 +1026,14 @@ _mmplayer_update_content_attrs(mm_player_t* player, enum content_attr_flag flag)
 			if ( pad )
 			{
 				caps_v = gst_pad_get_current_caps( pad );
+
+				/* Use v_stream_caps, if fail to get video_sink sink pad*/
+				if (!caps_v && player->v_stream_caps)
+				{
+					caps_v = player->v_stream_caps;
+					gst_caps_ref(caps_v);
+				}
+
 				if (caps_v)
 				{
 					p = gst_caps_get_structure (caps_v, 0);
