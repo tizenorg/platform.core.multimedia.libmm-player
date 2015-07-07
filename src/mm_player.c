@@ -1058,7 +1058,6 @@ void mm_player_media_packet_video_stream_internal_buffer_unref(void *buffer)
 	_mm_player_media_packet_video_stream_internal_buffer_unref(buffer);
 }
 
-#ifdef TEST_ES
 int mm_player_submit_packet(MMHandleType player, media_packet_h packet)
 {
 
@@ -1261,7 +1260,6 @@ int mm_player_set_video_stream_changed_callback(MMHandleType player, mm_player_s
 
 	return result;
 }
-#endif
 
 int mm_player_set_pcm_spec(MMHandleType player, int samplerate, int channel)
 {

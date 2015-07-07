@@ -132,9 +132,7 @@ enum MMPlayerUriType {
 	MM_PLAYER_URI_TYPE_FILE, 		/**< Player URI type File */
 	MM_PLAYER_URI_TYPE_URL, 		/**< Player URI type URL */
 	MM_PLAYER_URI_TYPE_BUFF, 		/**< Player URI type Buffer */
-#ifdef TEST_ES
 	MM_PLAYER_URI_TYPE_ES_BUFF,		/**< Player URI type ES Buffer */
-#endif
 	MM_PLAYER_URI_TYPE_HLS,			/**< Player URI type http live streaming */
 	MM_PLAYER_URI_TYPE_SS,			/**< Player URI type Smooth streaming */
 	MM_PLAYER_URI_TYPE_DASH,			/**< Player URI type Mpeg Dash */
@@ -175,19 +173,15 @@ enum MainElementID
 {
 	MMPLAYER_M_PIPE = 0, /* NOTE : MMPLAYER_M_PIPE should be zero */
 	MMPLAYER_M_SRC,
-#ifdef TEST_ES
 	MMPLAYER_M_2ND_SRC,	/* 2nd Source Element for es buff src */
-#endif
 	MMPLAYER_M_SUBSRC,
 
 	/* it could be a decodebin or could be a typefind. depends on player ini */
 	MMPLAYER_M_TYPEFIND,
 	MMPLAYER_M_AUTOPLUG,
 
-#ifdef TEST_ES
 	MMPLAYER_M_AUTOPLUG_V_DEC,
 	MMPLAYER_M_AUTOPLUG_A_DEC,
-#endif
 
 	/* NOTE : we need two fakesink to autoplug without decodebin.
 	 * first one will hold whole pipeline state. and second one will hold state of
@@ -202,12 +196,10 @@ enum MainElementID
 	MMPLAYER_M_DEMUXED_S_BUFFER,
 	MMPLAYER_M_ID3DEMUX,
 
-#ifdef TEST_ES
 	/* es buff src queue */
 	MMPLAYER_M_V_BUFFER,
 	MMPLAYER_M_A_BUFFER,
 	MMPLAYER_M_S_BUFFER,
-#endif
 
 	/* FIXIT : if there's really no usage for following IDs. remove it */
 	MMPLAYER_M_DEC1,
@@ -217,9 +209,6 @@ enum MainElementID
 	MMPLAYER_M_DEMUX,
 	MMPLAYER_M_SUBPARSE,
 	MMPLAYER_M_DEMUX_EX,
-#ifdef _USE_M_V_INPUT_SELECTOR_
-	MMPLAYER_M_V_INPUT_SELECTOR,	// video input_select	// not yet
-#endif
 	MMPLAYER_M_A_INPUT_SELECTOR,	// audio input_select
 	MMPLAYER_M_T_INPUT_SELECTOR,	// text input_select
 	MMPLAYER_M_A_TEE,
@@ -505,12 +494,10 @@ typedef struct {
 	/* pad */
 	GstPad *ghost_pad_for_videobin;
 
-#ifdef TEST_ES
 	guint64 media_stream_buffer_max_size[MM_PLAYER_STREAM_TYPE_MAX];
 	guint media_stream_buffer_min_percent[MM_PLAYER_STREAM_TYPE_MAX];
 	mm_player_media_stream_buffer_status_callback media_stream_buffer_status_cb[MM_PLAYER_STREAM_TYPE_MAX];
 	mm_player_media_stream_seek_data_callback media_stream_seek_data_cb[MM_PLAYER_STREAM_TYPE_MAX];
-#endif
 
 	void* buffer_cb_user_param;
 
@@ -731,7 +718,7 @@ typedef struct {
 	gboolean has_closed_caption;
 
 	GstElement *video_fakesink;
-#ifdef TEST_ES
+
 	/* audio stream caps parsed by demuxer or set by external demuxer */
 	GstCaps* a_stream_caps;
 
@@ -741,7 +728,6 @@ typedef struct {
 	/*es player using feed-data callback or calling app_src_push_buffer directly*/
 	gboolean es_player_push_mode;
 
-#endif
 	/* tmb buffer manager for s/w codec tmb_bo */
 	tbm_bufmgr bufmgr;
 

@@ -741,9 +741,7 @@ typedef enum {
  */
 typedef enum {
 	MM_PLAYER_TRACK_TYPE_AUDIO = 0,
-#if (defined _USE_M_V_INPUT_SELECTOR_ || defined TEST_ES)
 	MM_PLAYER_TRACK_TYPE_VIDEO,
-#endif
 	MM_PLAYER_TRACK_TYPE_TEXT,
 	MM_PLAYER_TRACK_TYPE_MAX
 }MMPlayerTrackType;
@@ -866,7 +864,6 @@ typedef struct {
 	float	level[MM_VOLUME_CHANNEL_NUM];	/**< Relative volume factor for each channels */
 } MMPlayerVolumeType;
 
-#ifdef TEST_ES
 /**
  * Video stream info in external demux case
  *
@@ -914,8 +911,6 @@ typedef struct _SubtitleStreamInfo
 	unsigned int codec_tag;
 	void *context;  //for smpte text
 }MMPlayerSubtitleStreamInfo;
-
-#endif
 
 /**
  * Audio stream callback function type.
@@ -2062,8 +2057,6 @@ void * mm_player_media_packet_video_stream_internal_buffer_ref(void *buffer);
  */
 void mm_player_media_packet_video_stream_internal_buffer_unref(void *buffer);
 
-#ifdef TEST_ES
-
 /**mm_player_submit_packet
  * This function is to submit buffer to appsrc.  \n
  * @param	player			[in]    Handle of player.
@@ -2235,8 +2228,6 @@ int mm_player_set_audio_stream_changed_callback(MMHandleType player, mm_player_s
  * @since
  */
 int mm_player_set_video_stream_changed_callback(MMHandleType player, mm_player_stream_changed_callback callback, void *user_param);
-
-#endif
 
 /**
 	@}

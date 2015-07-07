@@ -209,9 +209,7 @@ debug_log("-- prev %s, current %s, pending %s, target %s --\n", \
 #define MMPLAYER_IS_LIVE_STREAMING(x_player)  	__is_live_streaming(x_player)
 #define MMPLAYER_IS_DASH_STREAMING(x_player)  	__is_dash_streaming(x_player)
 #define MMPLAYER_IS_SMOOTH_STREAMING(x_player)	__is_smooth_streaming(x_player)
-#ifdef TEST_ES
 #define MMPLAYER_IS_ES_BUFF_SRC(x_player)		__is_es_buff_src(x_player)
-#endif
 
 #define MMPLAYER_URL_HAS_DASH_SUFFIX(x_player) __has_suffix(x_player, "mpd")
 #define MMPLAYER_URL_HAS_HLS_SUFFIX(x_player) __has_suffix(x_player, "m3u8")

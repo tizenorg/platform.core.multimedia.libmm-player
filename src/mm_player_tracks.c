@@ -69,11 +69,6 @@ int _mmplayer_get_track_count(MMHandleType hplayer,  MMPlayerTrackType type, int
 				ret = mm_attrs_get_int_by_name(attrs, "content_audio_track_num", count);
 			}
 			break;
-#ifdef _USE_M_V_INPUT_SELECTOR_
-		case MM_PLAYER_TRACK_TYPE_VIDEO:
-			ret = mm_attrs_get_int_by_name(attrs, "content_video_track_num", count);
-			break;
-#endif
 		case MM_PLAYER_TRACK_TYPE_TEXT:
 			ret = mm_attrs_get_int_by_name(attrs, "content_text_track_num", count);
 			break;

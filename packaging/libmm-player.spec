@@ -47,10 +47,10 @@ cp %{SOURCE1001} .
 
 %build
 %if %{with x}
-CFLAGS+="  -Wall -D_FILE_OFFSET_BITS=64 -DTEST_ES -DHAVE_X11 -DEXPORT_API=\"__attribute__((visibility(\\\"default\\\")))\" "; export CFLAGS
+CFLAGS+="  -Wall -D_FILE_OFFSET_BITS=64 -DHAVE_X11 -DEXPORT_API=\"__attribute__((visibility(\\\"default\\\")))\" "; export CFLAGS
 %endif
 %if %{with wayland}
-CFLAGS+="  -Wall -D_FILE_OFFSET_BITS=64 -DTEST_ES -DHAVE_WAYLAND -DEXPORT_API=\"__attribute__((visibility(\\\"default\\\")))\" "; export CFLAGS
+CFLAGS+="  -Wall -D_FILE_OFFSET_BITS=64 -DHAVE_WAYLAND -DEXPORT_API=\"__attribute__((visibility(\\\"default\\\")))\" "; export CFLAGS
 %endif
 LDFLAGS+="-Wl,--rpath=%{_prefix}/lib -Wl,--hash-style=both -Wl,--as-needed"; export LDFLAGS
 ./autogen.sh
