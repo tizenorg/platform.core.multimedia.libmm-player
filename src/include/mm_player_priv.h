@@ -743,7 +743,7 @@ typedef struct {
 
 #endif
 	/* tmb buffer manager for s/w codec tmb_bo */
-	tbm_bufmgr g_bufmgr;
+	tbm_bufmgr bufmgr;
 
 	int pcm_samplerate;
 	int pcm_channel;

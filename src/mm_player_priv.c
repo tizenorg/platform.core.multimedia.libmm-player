@@ -5825,7 +5825,7 @@ __mmplayer_video_stream_probe (GstPad *pad, GstPadProbeInfo *info, gpointer user
 			stream.elevation[1] = elevation / 2;
 		}
 
-		stream.bo[0] = tbm_bo_alloc(player->g_bufmgr, size, TBM_BO_DEFAULT);
+		stream.bo[0] = tbm_bo_alloc(player->bufmgr, size, TBM_BO_DEFAULT);
 		if(!stream.bo[0]) {
 			debug_error("Fail to tbm_bo_alloc!!");
 			return TRUE;
@@ -6103,6 +6103,10 @@ __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps, MMDispl
 			MMPLAYER_SIGNAL_CONNECT (player, sink_pad, MM_PLAYER_SIGNAL_TYPE_VIDEOBIN,
 					"notify::caps", G_CALLBACK(__mmplayer_gst_caps_notify_cb), player);
 			gst_object_unref (GST_OBJECT(sink_pad));
+		}
+		else
+		{
+			debug_warning("failed to get sink pad from videosink\n");
 		}
 	}
 
@@ -17552,10 +17556,10 @@ _mmplayer_enable_media_packet_video_stream(MMHandleType hplayer, bool enable)
 	return_val_if_fail (player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 	return_val_if_fail (enable == TRUE || enable == FALSE, MM_ERROR_INVALID_ARGUMENT);
 	if(enable)
-		player->g_bufmgr = tbm_bufmgr_init(-1);
+		player->bufmgr = tbm_bufmgr_init(-1);
 	else {
-		tbm_bufmgr_deinit(player->g_bufmgr);
-		player->g_bufmgr = NULL;
+		tbm_bufmgr_deinit(player->bufmgr);
+		player->bufmgr = NULL;
 	}
 
 	player->set_mode.media_packet_video_stream = enable;
