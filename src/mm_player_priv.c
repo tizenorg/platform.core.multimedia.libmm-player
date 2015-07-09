@@ -153,7 +153,6 @@ static void		__mmplayer_gst_decode_unknown_type(GstElement *elem,  GstPad* pad, 
 static gboolean __mmplayer_gst_decode_autoplug_continue(GstElement *bin,  GstPad* pad, GstCaps * caps,  gpointer data);
 static gint __mmplayer_gst_decode_autoplug_select(GstElement *bin,  GstPad* pad, GstCaps * caps, GstElementFactory* factory, gpointer data);
 //static GValueArray* __mmplayer_gst_decode_autoplug_factories(GstElement *bin,  GstPad* pad, GstCaps * caps,  gpointer data);
-static GValueArray* __mmplayer_gst_decode_autoplug_sort(GstElement *bin,  GstPad* pad, GstCaps * caps, GValueArray *factories, gpointer data);
 static void __mmplayer_gst_decode_pad_removed(GstElement *elem,  GstPad* new_pad, gpointer data);
 static void __mmplayer_gst_decode_drained(GstElement *bin, gpointer data);
 static void 	__mmplayer_gst_element_added(GstElement* bin, GstElement* element, gpointer data);
@@ -165,7 +164,6 @@ static gboolean __mmplayer_try_to_plug(mm_player_t* player, GstPad *pad, const G
 static void 	__mmplayer_pipeline_complete(GstElement *decodebin,  gpointer data);
 static gboolean __mmplayer_is_midi_type(gchar* str_caps);
 static gboolean __mmplayer_is_only_mp3_type (gchar *str_caps);
-static gboolean __mmplayer_is_omx_decoder_type(mm_player_t* player); // mp3
 static void 	__mmplayer_set_audio_attrs(mm_player_t* player, GstCaps* caps);
 //static void 	__mmplayer_check_video_zero_cpoy(mm_player_t* player, GstElementFactory* factory);
 
@@ -9987,7 +9985,6 @@ _mmplayer_realize(MMHandleType hplayer) // @
 	else
 		MMPLAYER_STATE_CHANGE_TIMEOUT(player) = player->ini.localplayback_state_change_timeout;
 
-	player->needed_v_parser = FALSE;
 	player->smooth_streaming = FALSE;
 	player->videodec_linked  = 0;
 	player->videosink_linked = 0;
@@ -11130,39 +11127,6 @@ __mmplayer_is_only_mp3_type (gchar *str_caps)
 	return FALSE;
 }
 
-/* try to use ALP decoder first instead of selected decoder */
-static gboolean
-__mmplayer_is_omx_decoder_type (mm_player_t* player)
-{
-	#define MIN_THRESHOLD_SIZE  320 * 1024 // 320K
-	gboolean ret = FALSE;
-	gchar* path = NULL;
-	guint64 data_size = 0;
-	struct stat sb;
-
-	return_val_if_fail (player, FALSE);
-
-	/* consider mp3 audio only */
-	if ((!MMPLAYER_IS_STREAMING(player)) &&
-		(__mmplayer_is_only_mp3_type(player->type)))
-	{
-		mm_attrs_get_string_by_name(player->attrs, "profile_uri", &path);
-
-		if (stat(path, &sb) == 0)
-		{
-			data_size = (guint64)sb.st_size;
-
-			if (data_size > MIN_THRESHOLD_SIZE)
-			{
-				ret = TRUE;
-			}
-		}
-	}
-
-	debug_log ("need to select omx_decoder ? [%s]\n", (ret)?"YES":"NO");
-	return ret;
-}
-
 static void
 __mmplayer_set_audio_attrs (mm_player_t* player, GstCaps* caps)
 {
@@ -11354,13 +11318,6 @@ __mmplayer_create_decodebin (mm_player_t* player)
 	   before looking for any elements that can handle that stream.*/
 	MMPLAYER_SIGNAL_CONNECT( player, G_OBJECT(decodebin), MM_PLAYER_SIGNAL_TYPE_AUTOPLUG, "autoplug-select",
 						G_CALLBACK(__mmplayer_gst_decode_autoplug_select), player);
-
-	/* Once decodebin2 has found the possible GstElementFactory objects to try for
-	   caps on pad, this signal is emited. The purpose of the signal is for the
-	   application to perform additional sorting or filtering on the element factory
-	   array.*/
-	MMPLAYER_SIGNAL_CONNECT( player, G_OBJECT(decodebin), MM_PLAYER_SIGNAL_TYPE_AUTOPLUG, "autoplug-sort",
-						G_CALLBACK(__mmplayer_gst_decode_autoplug_sort), player);
 
 	/* This signal is emitted once decodebin2 has finished decoding all the data.*/
 	MMPLAYER_SIGNAL_CONNECT( player, G_OBJECT(decodebin), MM_PLAYER_SIGNAL_TYPE_AUTOPLUG, "drained",
@@ -12280,7 +12237,6 @@ __mmplayer_initialize_next_play(mm_player_t *player)
 
 	MMPLAYER_FENTER();
 
-	player->needed_v_parser = FALSE;
 	player->smooth_streaming = FALSE;
 	player->videodec_linked = 0;
 	player->audiodec_linked = 0;
@@ -12981,20 +12937,8 @@ GstCaps* caps, GstElementFactory* factory, gpointer data)
 		goto DONE;
 	}
 
-	if (g_strrstr(factory_name, "mpegtsdemux") || g_strrstr(factory_name, SMOOTH_STREAMING_DEMUX))
-	{
-		if (g_strrstr(factory_name, SMOOTH_STREAMING_DEMUX))
-			player->smooth_streaming = TRUE;
-
-		if (g_strrstr(caps_str, "video/x-h264"))
-		{
-			player->needed_v_parser = TRUE;
-		}
-		else if (g_strrstr(caps_str, "video/mpeg"))
-		{
-			player->needed_v_parser = TRUE;
-		}
-	}
+	if (g_strrstr(factory_name, SMOOTH_STREAMING_DEMUX))
+		player->smooth_streaming = TRUE;
 
 	/* check ALP Codec can be used or not */
 	if ((g_strrstr(klass, "Codec/Decoder/Audio")))
@@ -13116,115 +13060,6 @@ GstCaps * caps,  gpointer data)
 	return NULL;
 }
 #endif
-
-static GValueArray*
-	__mmplayer_gst_decode_autoplug_sort(GstElement *bin,  GstPad* pad,
-		GstCaps* caps, GValueArray* factories, gpointer data) // @
-{
-#define DEFAULT_IDX 0xFFFF
-
-	guint idx = 0;
-	guint a_omx_idx = DEFAULT_IDX;
-	guint a_dec_idx = DEFAULT_IDX;
-	guint v_dec_idx = DEFAULT_IDX;
-	guint v_parser_idx = DEFAULT_IDX;
-	guint new_pos = DEFAULT_IDX;
-	guint elem_idx = DEFAULT_IDX;
-
-	GValueArray* new_factories = NULL;
-	GValue val = { 0, };
-
-	GstElementFactory *factory = NULL;
-	const gchar* klass = NULL;
-	gchar* factory_name = NULL;
-	gchar* caps_str = NULL;
-
-	mm_player_t* player = (mm_player_t*)data;
-	caps_str = gst_caps_to_string(caps);
-
-	//debug_log("autoplug-sort signal [num: %d]\n", factories->n_values);
-	debug_log("requesting custom sorting for the factories for caps [%s]", caps_str);
-
-	MMPLAYER_FREEIF(caps_str);
-
-	for(idx=0; idx < factories->n_values; idx++)
-	{
-		factory = g_value_get_object(g_value_array_get_nth(factories, idx));
-		klass = gst_element_factory_get_klass(factory);
-		factory_name = GST_OBJECT_NAME (factory);
-
-		//debug_log("Klass [%s] Factory [%s]\n", klass, factory_name);
-
-		if (g_strrstr(klass, "Codec/Decoder/Audio"))
-		{
-			if (a_dec_idx == DEFAULT_IDX)
-				a_dec_idx = idx;
-
-			/* check ALP Codec can be used or not */
-			if ((a_omx_idx == DEFAULT_IDX) &&
-				(g_strrstr(factory_name, "omx_mp3dec")) &&
-				(__mmplayer_is_omx_decoder_type(player)))
-			{
-				debug_log("--> mp3_local : Priority of omx is higher than the others\n");
-				a_omx_idx = idx;
-				break;
-			}
-		}
-		else if ((v_dec_idx == DEFAULT_IDX) && (g_strrstr(klass, "Codec/Decoder/Video")))
-		{
-			v_dec_idx = idx;
-		}
-
-		if ((v_parser_idx == DEFAULT_IDX) &&
-			(((player->smooth_streaming) &&
-			  (g_strrstr(factory_name, "legacyh264parse"))) ||
-			 // (g_strrstr(factory_name, "h264parse")) ||
-			 (g_strrstr(factory_name, "mpeg4videoparse"))))
-		{
-			v_parser_idx = idx;
-		}
-	}
-
-	if (player->needed_v_parser || player->smooth_streaming)
-	{
-		debug_log("needed parser? %s, ss? %s\n",
-					(player->needed_v_parser)?"OO":"XX",
-					(player->smooth_streaming)?"OO":"XX");
-	}
-
-	new_pos = (a_dec_idx!=DEFAULT_IDX)?(a_dec_idx):((player->needed_v_parser)?(v_dec_idx):(v_parser_idx));
-	elem_idx = (a_omx_idx!=DEFAULT_IDX)?(a_omx_idx):((player->needed_v_parser)?(v_parser_idx):(v_dec_idx));
-
-	/* consider file mp3 audio only */
-	if ((elem_idx != DEFAULT_IDX) && (new_pos < elem_idx))
-	{
-		debug_log("[Re-arrange] factories sequence, new_pos : %d, elem_idx : %d\n", new_pos, elem_idx);
-
-		new_factories = g_value_array_copy(factories);
-
-		// insert omx decoder in front of other decoders
-		factory = g_value_get_object(g_value_array_get_nth(factories, elem_idx));
-
-		g_value_init (&val, G_TYPE_OBJECT);
-		g_value_set_object (&val, factory);
-		g_value_array_insert(new_factories, new_pos, &val);
-		g_value_unset (&val);
-
-		// remove duplicated omx element
-		g_value_array_remove(new_factories, elem_idx+1);
-
-		for(idx=0; idx < new_factories->n_values; idx++)
-		{
-			factory = g_value_get_object(g_value_array_get_nth(new_factories, idx));
-
-			debug_log("[Re-arranged] Klass [%s] Factory [%s]\n",
-				gst_element_factory_get_klass(factory), GST_OBJECT_NAME (factory));
-		}
-	}
-
-	/* returning NULL to keep current order */
-	return (new_factories)?(new_factories):(NULL);
-}
 
 static void
 __mmplayer_gst_decode_pad_removed(GstElement *elem,  GstPad* new_pad,

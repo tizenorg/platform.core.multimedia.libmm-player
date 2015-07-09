@@ -585,7 +585,6 @@ typedef struct {
 	/* last error */
 	gchar last_error_msg[1024]; /* FIXIT : should it be dynamic ? */
 
-	gboolean needed_v_parser;
 	gboolean smooth_streaming;
 
 	gint videodec_linked;
