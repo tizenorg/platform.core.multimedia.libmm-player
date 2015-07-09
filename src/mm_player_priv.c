@@ -2654,7 +2654,7 @@ __mmplayer_gst_remove_fakesink(mm_player_t* player, MMPlayerGstElement* fakesink
 
 	return_val_if_fail(player && player->pipeline, FALSE);
 
-	/* if we have no fakesink. this meas we are using decodebin2 which doesn'
+	/* if we have no fakesink. this meas we are using decodebin which doesn'
 	t need to add extra fakesink */
 	return_val_if_fail(fakesink, TRUE);
 
@@ -6960,7 +6960,7 @@ __mmplayer_gst_create_decoder ( mm_player_t *player,
 	MMPLAYER_SIGNAL_CONNECT( player, G_OBJECT(decodebin), MM_PLAYER_SIGNAL_TYPE_AUTOPLUG, "pad-added",
 										G_CALLBACK(__mmplayer_gst_decode_pad_added), player);
 
-	/* This signal is emitted whenever decodebin2 finds a new stream. It is emitted
+	/* This signal is emitted whenever decodebin finds a new stream. It is emitted
 	before looking for any elements that can handle that stream.*/
 	MMPLAYER_SIGNAL_CONNECT( player, G_OBJECT(decodebin), MM_PLAYER_SIGNAL_TYPE_AUTOPLUG, "autoplug-select",
 										G_CALLBACK(__mmplayer_gst_decode_autoplug_select), player);
@@ -9140,8 +9140,8 @@ static int __mmfplayer_parse_profile(const char *uri, void *param, MMPlayerParse
 
 	/* dump parse result */
 	secure_debug_warning("incomming uri : %s\n", uri);
-	debug_log("uri_type : %d, play_mode : %d, mem : 0x%x, mem_size : %d, urgent : %s\n",
-		data->uri_type, data->play_mode, (guint)data->mem, data->mem_size, data->urgent);
+	debug_log("uri_type : %d, mem : 0x%x, mem_size : %d, urgent : %s\n",
+		data->uri_type, (guint)data->mem, data->mem_size, data->urgent);
 
 	MMPLAYER_FLEAVE();
 
@@ -11147,6 +11147,37 @@ __mmplayer_set_audio_attrs (mm_player_t* player, GstCaps* caps)
 }
 
 static void
+__mmplayer_update_content_type_info(mm_player_t* player)
+{
+	MMPLAYER_FENTER();
+	return_if_fail( player && player->type);
+
+	if (__mmplayer_is_midi_type(player->type))
+	{
+		player->bypass_audio_effect = TRUE;
+	}
+	else if (g_strrstr(player->type, "application/x-hls"))
+	{
+		/* If it can't know exact type when it parses uri because of redirection case,
+		 * it will be fixed by typefinder or when doing autoplugging.
+		 */
+		player->profile.uri_type = MM_PLAYER_URI_TYPE_HLS;
+		if (player->streamer)
+		{
+			player->streamer->is_adaptive_streaming = TRUE;
+			player->streamer->buffering_req.mode = MM_PLAYER_BUFFERING_MODE_FIXED;
+			player->streamer->buffering_req.runtime_second = 5;
+		}
+	}
+	else if (g_strrstr(player->type, "application/dash+xml"))
+	{
+		player->profile.uri_type = MM_PLAYER_URI_TYPE_DASH;
+	}
+
+	MMPLAYER_FLEAVE();
+}
+
+static void
 __mmplayer_typefind_have_type(  GstElement *tf, guint probability,  // @
 GstCaps *caps, gpointer data)
 {
@@ -11183,23 +11214,7 @@ GstCaps *caps, gpointer data)
 		return;
 	}
 
-	/* midi type should be stored because it will be used to set audio gain in avsysaudiosink */
-	if ( __mmplayer_is_midi_type(player->type))
-	{
-		player->profile.play_mode = MM_PLAYER_MODE_MIDI;
-		player->bypass_audio_effect = TRUE;
-	}
-	else if ( g_strrstr(player->type, "application/x-hls"))
-	{
-		/* If it can't know exact type when it parses uri because of redirection case,
-		  * it will be fixed by typefinder here.
-		  */
-		player->profile.uri_type = MM_PLAYER_URI_TYPE_HLS;
-	}
-	else if ( g_strrstr(player->type, "application/dash+xml"))
-	{
-		player->profile.uri_type = MM_PLAYER_URI_TYPE_DASH;
-	}
+	__mmplayer_update_content_type_info(player);
 
 	pad = gst_element_get_static_pad(tf, "src");
 	if ( !pad )
@@ -11306,17 +11321,17 @@ __mmplayer_create_decodebin (mm_player_t* player)
 	MMPLAYER_SIGNAL_CONNECT( player, G_OBJECT(decodebin), MM_PLAYER_SIGNAL_TYPE_AUTOPLUG, "unknown-type",
 						G_CALLBACK(__mmplayer_gst_decode_unknown_type), player );
 
-	/* This signal is emitted whenever decodebin2 finds a new stream. It is emitted
+	/* This signal is emitted whenever decodebin finds a new stream. It is emitted
 	   before looking for any elements that can handle that stream.*/
 	MMPLAYER_SIGNAL_CONNECT( player, G_OBJECT(decodebin), MM_PLAYER_SIGNAL_TYPE_AUTOPLUG, "autoplug-continue",
 						G_CALLBACK(__mmplayer_gst_decode_autoplug_continue), player);
 
-	/* This signal is emitted whenever decodebin2 finds a new stream. It is emitted
+	/* This signal is emitted whenever decodebin finds a new stream. It is emitted
 	   before looking for any elements that can handle that stream.*/
 	MMPLAYER_SIGNAL_CONNECT( player, G_OBJECT(decodebin), MM_PLAYER_SIGNAL_TYPE_AUTOPLUG, "autoplug-select",
 						G_CALLBACK(__mmplayer_gst_decode_autoplug_select), player);
 
-	/* This signal is emitted once decodebin2 has finished decoding all the data.*/
+	/* This signal is emitted once decodebin has finished decoding all the data.*/
 	MMPLAYER_SIGNAL_CONNECT( player, G_OBJECT(decodebin), MM_PLAYER_SIGNAL_TYPE_AUTOPLUG, "drained",
 						G_CALLBACK(__mmplayer_gst_decode_drained), player);
 
@@ -11332,7 +11347,7 @@ static gboolean
 __mmplayer_try_to_plug_decodebin(mm_player_t* player, GstPad *srcpad, const GstCaps *caps)
 {
 	MMPlayerGstElement* mainbin = NULL;
-	GstElement* decodebin2 = NULL;
+	GstElement* decodebin = NULL;
 	GstElement* queue2 = NULL;
 	GstPad* sinkpad = NULL;
 	GstPad* qsrcpad= NULL;
@@ -11436,54 +11451,64 @@ __mmplayer_try_to_plug_decodebin(mm_player_t* player, GstPad *srcpad, const GstC
 	}
 
 	/* create decodebin */
-	decodebin2 = __mmplayer_create_decodebin(player);
+	decodebin = __mmplayer_create_decodebin(player);
 
-	if (!decodebin2)
+	if (!decodebin)
 	{
 		debug_error("can not create autoplug element\n");
 		goto ERROR;
 	}
 
-	if (!gst_bin_add(GST_BIN(mainbin[MMPLAYER_M_PIPE].gst), decodebin2))
+	if (!gst_bin_add(GST_BIN(mainbin[MMPLAYER_M_PIPE].gst), decodebin))
 	{
-		debug_error("failed to add decodebin2\n");
+		debug_error("failed to add decodebin\n");
 		goto ERROR;
 	}
 
 	/* to force caps on the decodebin element and avoid reparsing stuff by
 	* typefind. It also avoids a deadlock in the way typefind activates pads in
 	* the state change */
-	g_object_set (decodebin2, "sink-caps", caps, NULL);
+	g_object_set (decodebin, "sink-caps", caps, NULL);
 
-	sinkpad = gst_element_get_static_pad(decodebin2, "sink");
+	sinkpad = gst_element_get_static_pad(decodebin, "sink");
 
 	if (GST_PAD_LINK_OK != gst_pad_link(srcpad, sinkpad))
 	{
-		debug_error("failed to link decodebin2\n");
+		debug_error("failed to link decodebin\n");
 		goto ERROR;
 	}
 
 	gst_object_unref(GST_OBJECT(sinkpad));
 
 	mainbin[MMPLAYER_M_AUTOPLUG].id = MMPLAYER_M_AUTOPLUG;
-	mainbin[MMPLAYER_M_AUTOPLUG].gst = decodebin2;
+	mainbin[MMPLAYER_M_AUTOPLUG].gst = decodebin;
 
+	/* set decodebin property about buffer in streaming playback. *
+	 * in case of hls, it does not need to have big buffer        *
+	 * because it is kind of adaptive streaming.                  */
 	if ( ((!MMPLAYER_IS_HTTP_PD(player)) &&
 	    (MMPLAYER_IS_HTTP_STREAMING(player))) || MMPLAYER_IS_DASH_STREAMING (player))
 	{
+		guint max_size_bytes = MAX_DECODEBIN_BUFFER_BYTES;
+		guint64 max_size_time = MAX_DECODEBIN_BUFFER_TIME;
 		init_buffering_time = (init_buffering_time != 0)?(init_buffering_time):(player->ini.http_buffering_time);
 
-		g_object_set (G_OBJECT(decodebin2), "use-buffering", TRUE,
+		if (MMPLAYER_IS_HTTP_LIVE_STREAMING(player)) {
+			max_size_bytes = MAX_DECODEBIN_ADAPTIVE_BUFFER_BYTES;
+			max_size_time = MAX_DECODEBIN_ADAPTIVE_BUFFER_TIME;
+		}
+
+		g_object_set (G_OBJECT(decodebin), "use-buffering", TRUE,
 											"high-percent", (gint)player->ini.http_buffering_limit,
 											"low-percent", 1,   // 1%
-											"max-size-bytes", MAX_DECODEBIN_BUFFER_BYTES,
-											"max-size-time", (guint64)(MAX_DECODEBIN_BUFFER_TIME * GST_SECOND),
+											"max-size-bytes", max_size_bytes,
+											"max-size-time", (guint64)(max_size_time * GST_SECOND),
 											"max-size-buffers", 0, NULL);  // disable or automatic
 	}
 
-	if (GST_STATE_CHANGE_FAILURE == gst_element_sync_state_with_parent(decodebin2))
+	if (GST_STATE_CHANGE_FAILURE == gst_element_sync_state_with_parent(decodebin))
 	{
-		debug_error("failed to sync decodebin2 state with parent\n");
+		debug_error("failed to sync decodebin state with parent\n");
 		goto ERROR;
 	}
 
@@ -11514,21 +11539,21 @@ ERROR:
 		queue2 = NULL;
 	}
 
-	if (decodebin2)
+	if (decodebin)
 	{
 		/* NOTE : Trying to dispose element queue0, but it is in READY instead of the NULL state.
 		 * You need to explicitly set elements to the NULL state before
 		 * dropping the final reference, to allow them to clean up.
 		 */
-		gst_element_set_state(decodebin2, GST_STATE_NULL);
+		gst_element_set_state(decodebin, GST_STATE_NULL);
 
 		/* And, it still has a parent "player".
 		 * You need to let the parent manage the object instead of unreffing the object directly.
 		 */
 
-		gst_bin_remove (GST_BIN(mainbin[MMPLAYER_M_PIPE].gst), decodebin2);
-		gst_object_unref (decodebin2);
-		decodebin2 = NULL;
+		gst_bin_remove (GST_BIN(mainbin[MMPLAYER_M_PIPE].gst), decodebin);
+		gst_object_unref (decodebin);
+		decodebin = NULL;
 	}
 
 	return FALSE;
@@ -12506,7 +12531,7 @@ __mmplayer_activate_next_source(mm_player_t *player, GstState target)
 	{
 		if (gst_element_set_state (mainbin[MMPLAYER_M_AUTOPLUG].gst, target) == GST_STATE_CHANGE_FAILURE)
 		{
-			debug_error("Failed to change state of decodebin2\n");
+			debug_error("Failed to change state of decodebin\n");
 			goto ERROR;
 		}
 	}
@@ -12873,24 +12898,7 @@ GstCaps* caps, GstElementFactory* factory, gpointer data)
 	if (player->type == NULL)
 	{
 		player->type = gst_caps_to_string(caps);
-
-		/* midi type should be stored because it will be used to set audio gain in avsysaudiosink */
-		if (__mmplayer_is_midi_type(player->type))
-		{
-			player->profile.play_mode = MM_PLAYER_MODE_MIDI;
-			player->bypass_audio_effect = TRUE;
-		}
-		else if (g_strrstr(player->type, "application/x-hls"))
-		{
-			/* If it can't know exact type when it parses uri because of redirection case,
-			 * it will be fixed by typefinder here.
-			 */
-			player->profile.uri_type = MM_PLAYER_URI_TYPE_HLS;
-		}
-		else if (g_strrstr(player->type, "application/dash+xml"))
-		{
-			player->profile.uri_type = MM_PLAYER_URI_TYPE_DASH;
-		}
+		__mmplayer_update_content_type_info(player);
 	}
 
 	/* filtering exclude keyword */
@@ -13249,15 +13257,10 @@ __mmplayer_gst_element_added (GstElement *bin, GstElement *element, gpointer dat
 		if ((MMPLAYER_IS_HTTP_STREAMING(player)) ||
 			(MMPLAYER_IS_HTTP_LIVE_STREAMING(player)))
 		{
-
-			if ((MMPLAYER_IS_HTTP_LIVE_STREAMING(player)) &&
-				(player->streamer->buffering_req.initial_second == 0))
-				player->streamer->buffering_req.initial_second = DEFAULT_LIVE_PLAYING_TIME;
-
+			/* in case of multiqueue, max bytes size is defined with fixed value in mm_player_streaming.h*/
 			__mm_player_streaming_set_multiqueue(player->streamer,
 				element,
 				TRUE,
-				MAX_DECODEBIN_BUFFER_BYTES, // player->ini.http_max_size_bytes,
 				player->ini.http_buffering_time,
 				1.0,
 				player->ini.http_buffering_limit);
@@ -14343,84 +14346,6 @@ static void __mmplayer_add_new_pad(GstElement *element, GstPad *pad, gpointer da
 
 	MMPLAYER_FLEAVE();
 	return;
-}
-
-/* test API for tuning audio gain. this API should be
- * deprecated before the day of final release
- */
-int
-_mmplayer_set_volume_tune(MMHandleType hplayer, MMPlayerVolumeType volume)
-{
-	mm_player_t* player = (mm_player_t*) hplayer;
-	gint error = MM_ERROR_NONE;
-	gint vol_max = 0;
-	gboolean isMidi = FALSE;
-	gint i = 0;
-
-	MMPLAYER_FENTER();
-
-	return_val_if_fail( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
-	return_val_if_fail( player->pipeline, MM_ERROR_PLAYER_NOT_INITIALIZED )
-
-	debug_log("clip type=%d(1-midi, 0-others), volume [L]=%d:[R]=%d\n",
-		player->profile.play_mode, volume.level[0], volume.level[1]);
-
-	isMidi = ( player->profile.play_mode == MM_PLAYER_MODE_MIDI ) ? TRUE : FALSE;
-
-	if ( isMidi )
-		vol_max = 1000;
-	else
-		vol_max = 100;
-
-	/* is it proper volume level? */
-	for (i = 0; i < MM_VOLUME_CHANNEL_NUM; ++i)
-	{
-		if (volume.level[i] < 0 || volume.level[i] > vol_max) {
-			debug_log("Invalid Volume level!!!! \n");
-			return MM_ERROR_INVALID_ARGUMENT;
-		}
-	}
-
-	if ( isMidi )
-	{
-		if ( player->pipeline->mainbin )
-		{
-			GstElement *midi_element = player->pipeline->mainbin[MMPLAYER_M_DEMUX].gst;
-
-			if ( midi_element && ( strstr(GST_ELEMENT_NAME(midi_element), "midiparse")) )
-			{
-				debug_log("setting volume (%d) level to midi plugin\n", volume.level[0]);
-
-				g_object_set(midi_element, "volume", volume.level[0], NULL);
-			}
-		}
-	}
-	else
-	{
-		if ( player->pipeline->audiobin )
-		{
-			GstElement *sink_element = player->pipeline->audiobin[MMPLAYER_A_SINK].gst;
-
-			/* Set to Avsysaudiosink element */
-			if ( sink_element )
-			{
-				gint vol_value = 0;
-				gboolean mute = FALSE;
-				vol_value = volume.level[0];
-
-				g_object_set(G_OBJECT(sink_element), "tuningvolume", vol_value, NULL);
-
-				mute = (vol_value == 0)? TRUE:FALSE;
-
-				g_object_set(G_OBJECT(sink_element), "mute", mute, NULL);
-			}
-
-		}
-	}
-
-	MMPLAYER_FLEAVE();
-
-	return error;
 }
 
 gboolean

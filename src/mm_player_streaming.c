@@ -132,6 +132,7 @@ void __mm_player_streaming_initialize (mm_player_streaming_t* streamer)
 
 	streamer->is_buffering = FALSE;
 	streamer->is_buffering_done = FALSE;
+	streamer->is_adaptive_streaming = FALSE;
 	streamer->buffering_percent = -1;
 
 	MMPLAYER_FLEAVE();
@@ -163,6 +164,8 @@ void __mm_player_streaming_deinitialize (mm_player_streaming_t* streamer)
 
 	streamer->is_buffering = FALSE;
 	streamer->is_buffering_done = FALSE;
+	streamer->is_adaptive_streaming = FALSE;
+
 	streamer->buffering_percent = -1;
 
 	MMPLAYER_FLEAVE();
@@ -442,14 +445,14 @@ streaming_set_buffer_size(mm_player_streaming_t* streamer, BufferType type, guin
 				buffering_time = GET_CURRENT_BUFFERING_TIME(buffer_handle);
 
 			g_object_set (G_OBJECT(buffer_handle->buffer),
-							"max-size-bytes", MAX_DECODEBIN_BUFFER_BYTES,	// fixed
+							"max-size-bytes", GET_MAX_BUFFER_BYTES(streamer), /* mq size is fixed, control it with high/low percent value*/
 							"max-size-time", ((guint)ceil(buffering_time) * GST_SECOND),
 							"max-size-buffers", 0, NULL);  					// disable
 
 			buffer_handle->buffering_time = buffering_time;
-			buffer_handle->buffering_bytes = MAX_DECODEBIN_BUFFER_BYTES;
+			buffer_handle->buffering_bytes = GET_MAX_BUFFER_BYTES(streamer);
 
-			debug_log("[New][MQ] max-size-time : %f", buffering_time);
+			debug_log("max-size-time : %f", buffering_time);
 		}
 		else	// queue2
 		{
@@ -558,7 +561,6 @@ void __mm_player_streaming_sync_property(mm_player_streaming_t* streamer, GstEle
 void __mm_player_streaming_set_multiqueue( 	mm_player_streaming_t* streamer,
 										GstElement* buffer,
 										gboolean use_buffering,
-										guint buffering_bytes,
 										gdouble buffering_time,
 										gdouble low_percent,
 										gdouble high_percent)
@@ -594,14 +596,14 @@ void __mm_player_streaming_set_multiqueue( 	mm_player_streaming_t* streamer,
 
 	if (pre_buffering_time <= 0.0)
 	{
-		pre_buffering_time = DEFAULT_PLAYING_TIME;
+		pre_buffering_time = GET_DEFAULT_PLAYING_TIME(streamer);
 		streamer->buffering_req.initial_second = (gint)ceil(buffering_time);
 	}
 
-	high_percent = (pre_buffering_time * 100) / MAX_DECODEBIN_BUFFER_TIME;
+	high_percent = (pre_buffering_time * 100) / GET_MAX_BUFFER_TIME(streamer);
 	debug_log ("high_percent :  per %2.3f %%\n", high_percent);
 
-	streaming_set_buffer_size (streamer, BUFFER_TYPE_DEMUXED, MAX_DECODEBIN_BUFFER_BYTES, MAX_DECODEBIN_BUFFER_TIME);
+	streaming_set_buffer_size (streamer, BUFFER_TYPE_DEMUXED, GET_MAX_BUFFER_BYTES(streamer), GET_MAX_BUFFER_TIME(streamer));
 	streaming_set_buffer_percent (streamer, BUFFER_TYPE_DEMUXED, low_percent, 0, high_percent);
 
 	streamer->need_sync = TRUE;

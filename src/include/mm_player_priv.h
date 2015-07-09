@@ -108,17 +108,6 @@ enum alassink_sync
 	ALSASINK_ASYNC
 };
 
-
-/**
- * Enumerations of Player Mode
- */
-enum MMPlayerMode {
-	MM_PLAYER_MODE_NONE,			/**< Player mode None */
-	MM_PLAYER_MODE_MIDI,			/**< Player mode Midi */
-	MM_PLAYER_MODE_GST,			/**< Player mode Gstreamer */
-};
-
-
 /**
  * Enumerations of Player Uri type
  */

@@ -39,10 +39,12 @@
 
 #define MAX_DECODEBIN_BUFFER_BYTES	(32 * 1024 * 1024) /* byte */
 #define MAX_DECODEBIN_BUFFER_TIME	15                 /* sec */
+#define MAX_DECODEBIN_ADAPTIVE_BUFFER_BYTES	(2 * 1024 * 1024) /* byte */
+#define MAX_DECODEBIN_ADAPTIVE_BUFFER_TIME	5                 /* sec */
 
 #define DEFAULT_BUFFER_SIZE_BYTES 4194304   /* 4 MBytes */
 #define DEFAULT_PLAYING_TIME 10             /* 10 sec   */
-#define DEFAULT_LIVE_PLAYING_TIME 3         /* 3 sec    */
+#define DEFAULT_ADAPTIVE_PLAYING_TIME 3     /* 3 sec    */
 
 #define DEFAULT_BUFFERING_TIME 3.0          /* 3sec     */
 #define DEFAULT_BUFFER_LOW_PERCENT 1.0      /* 1%       */
@@ -81,7 +83,9 @@ do \
 #define IS_DEMUXED_BUFFERING_MODE(sr)	(PLAYER_STREAM_CAST(sr)->streaming_buffer_type == BUFFER_TYPE_DEMUXED)?(TRUE):(FALSE)
 
 #define GET_NEW_BUFFERING_BYTE(size)	((size) < MAX_DECODEBIN_BUFFER_BYTES)?(size):(MAX_DECODEBIN_BUFFER_BYTES)
-
+#define GET_MAX_BUFFER_BYTES(sr)		((PLAYER_STREAM_CAST(sr)->is_adaptive_streaming)?(MAX_DECODEBIN_ADAPTIVE_BUFFER_BYTES):(MAX_DECODEBIN_BUFFER_BYTES))
+#define GET_MAX_BUFFER_TIME(sr)			((PLAYER_STREAM_CAST(sr)->is_adaptive_streaming)?(MAX_DECODEBIN_ADAPTIVE_BUFFER_TIME):(MAX_DECODEBIN_BUFFER_TIME))
+#define GET_DEFAULT_PLAYING_TIME(sr)	((PLAYER_STREAM_CAST(sr)->is_adaptive_streaming)?(DEFAULT_ADAPTIVE_PLAYING_TIME):(DEFAULT_PLAYING_TIME))
 
 typedef enum {
 	BUFFER_TYPE_DEFAULT,
@@ -128,6 +132,7 @@ typedef struct
 
 	gboolean	is_buffering;
 	gboolean	is_buffering_done;	/* get info from bus sync callback */
+	gboolean 	is_adaptive_streaming;
 
 	gint		buffering_percent;
 
@@ -156,7 +161,6 @@ void __mm_player_streaming_set_queue2( 	mm_player_streaming_t* streamer,
 void __mm_player_streaming_set_multiqueue( 	mm_player_streaming_t* streamer,
 										GstElement* buffer,
 										gboolean use_buffering,
-										guint buffering_bytes,
 										gdouble buffering_time,
 										gdouble low_percent,
 										gdouble high_percent);
