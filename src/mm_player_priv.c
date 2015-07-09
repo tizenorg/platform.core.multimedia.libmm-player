@@ -218,7 +218,7 @@ static gboolean _mmplayer_update_content_attrs(mm_player_t* player, enum content
 
 
 static gboolean __mmplayer_add_dump_buffer_probe(mm_player_t *player, GstElement *element);
-//static gboolean __mmplayer_dump_buffer_probe_cb(GstPad *pad, GstBuffer *buffer, gpointer u_data);
+static GstPadProbeReturn __mmplayer_dump_buffer_probe_cb(GstPad *pad,  GstPadProbeInfo *info, gpointer u_data);
 static void __mmplayer_release_dump_list (GList *dump_list);
 
 static int 		__gst_realize(mm_player_t* player);
@@ -17084,7 +17084,7 @@ __mmplayer_add_dump_buffer_probe(mm_player_t *player, GstElement *element)
 				memset (dump_file_name, 0x00, PLAYER_INI_MAX_STRLEN*2);
 				sprintf (dump_file_name, "%s/%s_sink_pad.dump", player->ini.dump_element_path, player->ini.dump_element_keyword[idx]);
 				dump_s->dump_element_file = fopen(dump_file_name,"w+");
-//				dump_s->probe_handle_id = gst_pad_add_buffer_probe (dump_s->dump_pad, G_CALLBACK(__mmplayer_dump_buffer_probe_cb), dump_s->dump_element_file);
+				dump_s->probe_handle_id = gst_pad_add_probe (dump_s->dump_pad, GST_PAD_PROBE_TYPE_BUFFER, __mmplayer_dump_buffer_probe_cb, dump_s->dump_element_file, NULL);
 				/* add list for removed buffer probe and close FILE */
 				player->dump_list = g_list_append (player->dump_list, dump_s);
 				debug_log ("%s sink pad added buffer probe for dump", factory_name);
@@ -17103,23 +17103,24 @@ __mmplayer_add_dump_buffer_probe(mm_player_t *player, GstElement *element)
 	return FALSE;
 }
 
-
-#if 0
-static gboolean
-__mmplayer_dump_buffer_probe_cb(GstPad *pad, GstBuffer *buffer, gpointer u_data)
+static GstPadProbeReturn
+__mmplayer_dump_buffer_probe_cb(GstPad *pad,  GstPadProbeInfo *info, gpointer u_data)
 {
 	FILE *dump_data = (FILE *) u_data;
 //	int written = 0;
+	GstBuffer *buffer = gst_pad_probe_info_get_buffer(info);
+	GstMapInfo probe_info = GST_MAP_INFO_INIT;
 
 	return_val_if_fail ( dump_data, FALSE );
 
+	gst_buffer_map(buffer, &probe_info, GST_MAP_READ);
+
 //	debug_log ("buffer timestamp = %" GST_TIME_FORMAT, GST_TIME_ARGS( GST_BUFFER_TIMESTAMP(buffer)));
 
-	fwrite ( GST_BUFFER_DATA(buffer), 1, GST_BUFFER_SIZE(buffer), dump_data);
+	fwrite ( probe_info.data, 1, probe_info.size , dump_data);
 
-	return TRUE;
+	return GST_PAD_PROBE_OK;
 }
-#endif
 
 static void
 __mmplayer_release_dump_list (GList *dump_list)
