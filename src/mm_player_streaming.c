@@ -990,9 +990,9 @@ streaming_adjust_min_threshold(mm_player_streaming_t* streamer, gint64 position)
 
 	playing_time = (gint)((position - streamer->default_val.prev_pos) / GST_SECOND);
 
-	debug_log ("[GRACE_NEW] buffering monitor = %s\n", (streamer->default_val.buffering_monitor)?"ON":"OFF");
-	debug_log ("[GRACE_NEW] playing_time ( %d sec) = %lld - %lld \n", playing_time, position, streamer->default_val.prev_pos);
-	debug_log ("[GRACE_NEW] default time : %2.3f, prev buffering t : %2.3f\n",
+	debug_log ("[NEW] buffering monitor = %s\n", (streamer->default_val.buffering_monitor)?"ON":"OFF");
+	debug_log ("[NEW] playing_time ( %d sec) = %lld - %lld \n", playing_time, position, streamer->default_val.prev_pos);
+	debug_log ("[NEW] default time : %2.3f, prev buffering t : %2.3f\n",
 					streamer->default_val.buffering_time, streamer->buffer_handle[streamer->streaming_buffer_type].buffering_time);
 
 	if ((streamer->default_val.buffering_monitor) && (playing_time <= (gint)streamer->default_val.buffering_time))
@@ -1010,7 +1010,7 @@ streaming_adjust_min_threshold(mm_player_streaming_t* streamer, gint64 position)
 		streamer->default_val.buffering_time = DEFAULT_BUFFERING_TIME;
 	}
 
-	debug_log ("[GRACE_NEW] new default min value %2.3f \n", streamer->default_val.buffering_time);
+	debug_log ("[NEW] new default min value %2.3f \n", streamer->default_val.buffering_time);
 
 	streamer->default_val.buffering_monitor = FALSE;
 	streamer->default_val.prev_pos = position;

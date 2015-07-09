@@ -15775,7 +15775,7 @@ int _mmplayer_change_videosink(MMHandleType handle, MMDisplaySurfaceType surface
 ERROR_CASE:
 	/* rollback to previous attributes */
 	mm_attrs_set_int_by_name (player->attrs, "display_surface_type", prev_display_surface_type);
-	mm_attrs_set_data_by_name(player->attrs, "display_overlay", prev_display_overlay, sizeof(prev_display_overlay));
+	mm_attrs_set_data_by_name(player->attrs, "display_overlay", prev_display_overlay, sizeof(void*));
 	if ( mmf_attrs_commit ( player->attrs ) )
 	{
 		debug_error("failed to commit attributes to rollback");
@@ -15897,7 +15897,7 @@ __mmplayer_do_change_videosink(mm_player_t* player, const int dec_index, const c
 				break;
 			case MM_DISPLAY_SURFACE_EVAS:
 				debug_log("save attributes related to display surface to EVAS : evas image object = %x", display_overlay);
-				mm_attrs_set_data_by_name (player->attrs, "display_overlay", display_overlay, sizeof(display_overlay));
+				mm_attrs_set_data_by_name (player->attrs, "display_overlay", display_overlay, sizeof(void*));
 				break;
 			default:
 				debug_error("invalid type(%d) for changing display surface",surface_type);
