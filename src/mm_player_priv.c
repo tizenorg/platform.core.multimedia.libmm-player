@@ -4576,7 +4576,6 @@ _mmplayer_update_video_param(mm_player_t* player) // @
 		{
 			/* ximagesink or xvimagesink */
 			void *surface = NULL;
-			double zoom = 0;
 			int display_method = 0;
 			int roi_x = 0;
 			int roi_y = 0;
@@ -4646,7 +4645,6 @@ _mmplayer_update_video_param(mm_player_t* player) // @
 			if (!strcmp(player->ini.videosink_element_x,"xvimagesink"))
 			{
 				mm_attrs_get_int_by_name(attrs, "display_force_aspect_ration", &force_aspect_ratio);
-				mm_attrs_get_double_by_name(attrs, "display_zoom", &zoom);
 				mm_attrs_get_int_by_name(attrs, "display_method", &display_method);
 				mm_attrs_get_int_by_name(attrs, "display_src_crop_x", &src_crop_x);
 				mm_attrs_get_int_by_name(attrs, "display_src_crop_y", &src_crop_y);
@@ -4694,7 +4692,6 @@ _mmplayer_update_video_param(mm_player_t* player) // @
 
 				g_object_set(player->pipeline->videobin[MMPLAYER_V_SINK].gst,
 					"force-aspect-ratio", force_aspect_ratio,
-					"zoom", (float)zoom,
 					"orientation", org_angle/90, // setting for orientation of media, it is used for ROI/ZOOM feature in xvimagesink
 					"rotate", rotation_value,
 					"handle-events", TRUE,
@@ -4704,7 +4701,7 @@ _mmplayer_update_video_param(mm_player_t* player) // @
 					"display-mode", DEFAULT_DISPLAY_MODE,
 					NULL );
 
-				debug_log("set video param : zoom %lf, rotate %d, method %d visible %d", zoom, rotation_value, display_method, visible);
+				debug_log("set video param : rotate %d, method %d visible %d", rotation_value, display_method, visible);
 				debug_log("set video param : dst-roi-x: %d, dst-roi-y: %d, dst-roi-w: %d, dst-roi-h: %d", roi_x, roi_y, roi_w, roi_h );
 				debug_log("set video param : force aspect ratio %d, display mode %d", force_aspect_ratio, DEFAULT_DISPLAY_MODE);
 			}
