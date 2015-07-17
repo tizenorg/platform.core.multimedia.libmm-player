@@ -1770,7 +1770,7 @@ __mmplayer_drop_subtitle(mm_player_t* player, gboolean is_drop)
 					player->pipeline &&
 					player->pipeline->textbin);
 
-	return_if_fail (player->pipeline->textbin[MMPLAYER_T_TEXT_FAKE_IDENTITY].gst);
+	return_if_fail (player->pipeline->textbin[MMPLAYER_T_IDENTITY].gst);
 
 	textbin = player->pipeline->textbin;
 
@@ -1779,7 +1779,7 @@ __mmplayer_drop_subtitle(mm_player_t* player, gboolean is_drop)
 		debug_log("Drop subtitle text after getting EOS\n");
 
 		g_object_set(textbin[MMPLAYER_T_FAKE_SINK].gst, "async", FALSE, NULL);
-		g_object_set(textbin[MMPLAYER_T_TEXT_FAKE_IDENTITY].gst, "drop-probability", (gfloat)1.0, NULL);
+		g_object_set(textbin[MMPLAYER_T_IDENTITY].gst, "drop-probability", (gfloat)1.0, NULL);
 
 		player->is_subtitle_force_drop = TRUE;
 	}
@@ -1789,9 +1789,7 @@ __mmplayer_drop_subtitle(mm_player_t* player, gboolean is_drop)
 		{
 			debug_log("Enable subtitle data path without drop\n");
 
-			// player->display_stat = util_get_is_connected_external_display();
-
-			g_object_set(textbin[MMPLAYER_T_TEXT_FAKE_IDENTITY].gst, "drop-probability", (gfloat)0.0, NULL);
+			g_object_set(textbin[MMPLAYER_T_IDENTITY].gst, "drop-probability", (gfloat)0.0, NULL);
 			g_object_set(textbin[MMPLAYER_T_FAKE_SINK].gst, "async", TRUE, NULL);
 
 			debug_log ("non-connected with external display");
@@ -6124,7 +6122,12 @@ static int __mmplayer_gst_create_plain_text_elements(mm_player_t* player)
 	GList *element_bucket = NULL;
 	MMPlayerGstElement *textbin = player->pipeline->textbin;
 
-	MMPLAYER_CREATE_ELEMENT(textbin, MMPLAYER_T_TEXT_FAKE_QUEUE, "queue", "text_f_queue", TRUE, player);
+	MMPLAYER_CREATE_ELEMENT(textbin, MMPLAYER_T_QUEUE, "queue", "text_queue", TRUE, player);
+	MMPLAYER_CREATE_ELEMENT(textbin, MMPLAYER_T_IDENTITY, "identity", "text_identity", TRUE, player);
+	g_object_set (G_OBJECT (textbin[MMPLAYER_T_IDENTITY].gst),
+							"signal-handoffs", FALSE,
+							NULL);
+
 	MMPLAYER_CREATE_ELEMENT(textbin, MMPLAYER_T_FAKE_SINK, "fakesink", "text_fakesink", TRUE, player);
 	MMPLAYER_SIGNAL_CONNECT( player,
 							G_OBJECT(textbin[MMPLAYER_T_FAKE_SINK].gst),
@@ -6166,12 +6169,12 @@ static int __mmplayer_gst_create_plain_text_elements(mm_player_t* player)
 	/* done. free allocated variables */
 	g_list_free(element_bucket);
 
-	if (textbin[MMPLAYER_T_TEXT_FAKE_QUEUE].gst)
+	if (textbin[MMPLAYER_T_QUEUE].gst)
 	{
 		GstPad *pad = NULL;
 		GstPad *ghostpad = NULL;
 
-		pad = gst_element_get_static_pad(GST_ELEMENT(textbin[MMPLAYER_T_TEXT_FAKE_QUEUE].gst), "sink");
+		pad = gst_element_get_static_pad(GST_ELEMENT(textbin[MMPLAYER_T_QUEUE].gst), "sink");
 		if (!pad)
 		{
 			debug_error("failed to get video pad of textbin\n");
@@ -6237,7 +6240,7 @@ static int __mmplayer_gst_create_text_pipeline(mm_player_t* player)
 	{
 		debug_log ("use textoverlay for displaying \n");
 
-		MMPLAYER_CREATE_ELEMENT_ADD_BIN(textbin, MMPLAYER_T_TEXT_FAKE_QUEUE, "queue", "text_t_queue", textbin[MMPLAYER_T_BIN].gst, player);
+		MMPLAYER_CREATE_ELEMENT_ADD_BIN(textbin, MMPLAYER_T_QUEUE, "queue", "text_t_queue", textbin[MMPLAYER_T_BIN].gst, player);
 
 		MMPLAYER_CREATE_ELEMENT_ADD_BIN(textbin, MMPLAYER_T_VIDEO_QUEUE, "queue", "text_v_queue", textbin[MMPLAYER_T_BIN].gst, player);
 
@@ -6257,7 +6260,7 @@ static int __mmplayer_gst_create_text_pipeline(mm_player_t* player)
 			goto ERROR;
 		}
 
-		if (!gst_element_link_pads (textbin[MMPLAYER_T_TEXT_FAKE_QUEUE].gst, "src", textbin[MMPLAYER_T_OVERLAY].gst, "text_sink"))
+		if (!gst_element_link_pads (textbin[MMPLAYER_T_QUEUE].gst, "src", textbin[MMPLAYER_T_OVERLAY].gst, "text_sink"))
 		{
 			debug_error("failed to link queue and textoverlay\n");
 			goto ERROR;
@@ -6467,7 +6470,8 @@ __mmplayer_gst_create_subtitle_src(mm_player_t* player)
 	gst_object_unref(pad);
 	pad=NULL;
 
-
+	/* create dot. for debugging */
+	MMPLAYER_GENERATE_DOT_IF_ENABLED ( player, "pipeline-with-subtitle" );
 	MMPLAYER_FLEAVE();
 
 	return MM_ERROR_NONE;
@@ -15432,14 +15436,14 @@ __gst_send_event_to_sink( mm_player_t* player, GstEvent* event )
 			/* keep ref to the event */
 			gst_event_ref (event2);
 
-			if ( (res != gst_element_send_event (text_sink, event2)) )
+			if ((res = gst_element_send_event (text_sink, event2)))
 			{
-				debug_error("sending event[%s] to subtitle sink element [%s] failed!\n",
+				debug_log("sending event[%s] to subtitle sink element [%s] success!\n",
 					GST_EVENT_TYPE_NAME(event2), GST_ELEMENT_NAME(text_sink) );
 			}
 			else
 			{
-				debug_log("sending event[%s] to subtitle sink element [%s] success!\n",
+				debug_error("sending event[%s] to subtitle sink element [%s] failed!\n",
 					GST_EVENT_TYPE_NAME(event2), GST_ELEMENT_NAME(text_sink) );
 			}
 
@@ -16231,8 +16235,7 @@ int _mmplayer_sync_subtitle_pipeline(mm_player_t* player)
 	}
 
 	debug_log("seek time = %lld\n", time);
-
-	event = gst_event_new_seek (1.0, GST_FORMAT_TIME, (GstSeekFlags) (GST_SEEK_FLAG_SEGMENT | GST_SEEK_FLAG_FLUSH | GST_SEEK_FLAG_SKIP), GST_SEEK_TYPE_SET, time, GST_SEEK_TYPE_NONE, -1);
+	event = gst_event_new_seek (1.0, GST_FORMAT_TIME, (GstSeekFlags)(GST_SEEK_FLAG_FLUSH), GST_SEEK_TYPE_SET, time, GST_SEEK_TYPE_NONE, -1);
 	if (event)
 	{
 		__gst_send_event_to_sink(player, event);
