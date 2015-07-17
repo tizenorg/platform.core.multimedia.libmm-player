@@ -145,7 +145,7 @@ typedef struct __mm_player_ini
 #define DEFAULT_DELAY_BEFORE_REPEAT	 		50 /* msec */
 #define DEFAULT_EOS_DELAY 				150 /* msec */
 #define DEFAULT_VIDEOSINK_X				"xvimagesink"
-#define DEFAULT_VIDEOSINK_EVAS				"evasimagesink"
+#define DEFAULT_VIDEOSINK_EVAS				"evaspixmapsink"
 #define DEFAULT_VIDEOSINK_FAKE				"fakesink"
 #define DEFAULT_AUDIORESAMPLER			"audioresample"
 #define DEFAULT_AUDIOSINK				"pulsesink"
