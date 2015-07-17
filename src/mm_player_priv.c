@@ -4697,6 +4697,7 @@ _mmplayer_update_video_param(mm_player_t* player) // @
 					"handle-events", TRUE,
 					"display-geometry-method", display_method,
 					"draw-borders", FALSE,
+					"handle-expose", FALSE,
 					"visible", visible,
 					"display-mode", DEFAULT_DISPLAY_MODE,
 					NULL );
