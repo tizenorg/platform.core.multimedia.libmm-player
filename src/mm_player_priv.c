@@ -804,7 +804,7 @@ __mmplayer_device_change_trigger_post_process(mm_player_t* player)
 
 	player->post_proc.id = g_idle_add((GSourceFunc)__mmplayer_device_change_post_process, (gpointer)player);
 }
-
+#if 0
 /* NOTE : Sound module has different latency according to output device So,
  * synchronization problem can be happened whenever device is changed.
  * To avoid this issue, we do reset avsystem or seek as workaroud.
@@ -851,7 +851,7 @@ __mmplayer_sound_device_info_changed_cb_func (MMSoundDevice_t device_h, int chan
 
 	__mmplayer_device_change_trigger_post_process(player);
 }
-
+#endif
 /* This function should be called after the pipeline goes PAUSED or higher
 state. */
 gboolean
@@ -4325,7 +4325,7 @@ __mmplayer_gst_decode_callback(GstElement *elem, GstPad *pad, gpointer data) // 
 			/* run */
 			if (GST_STATE_CHANGE_FAILURE == gst_element_set_state (sinkbin, GST_STATE_PAUSED))
 			{
-				debug_error("failed to set state(PLAYING) to sinkbin\n");
+				debug_error("failed to set state(PAUSED) to sinkbin\n");
 				goto ERROR;
 			}
 
@@ -4333,7 +4333,7 @@ __mmplayer_gst_decode_callback(GstElement *elem, GstPad *pad, gpointer data) // 
 			{
 			  if (GST_STATE_CHANGE_FAILURE == gst_element_set_state (text_selector, GST_STATE_PAUSED))
 			  {
-			    debug_error("failed to set state(READY) to sinkbin\n");
+			    debug_error("failed to set state(PAUSED) to sinkbin\n");
 			    goto ERROR;
 			  }
 			}
@@ -4686,17 +4686,15 @@ _mmplayer_update_video_param(mm_player_t* player) // @
 			if ( surface )
 			{
 #ifdef HAVE_WAYLAND
-				int wl_surface = 0;
-				wl_surface = (int*)surface;
-				debug_log("set video param : xid %p", (int*)surface);
-				if (wl_surface)
-				{
-					gst_video_overlay_set_window_handle( GST_VIDEO_OVERLAY( player->pipeline->videobin[MMPLAYER_V_SINK].gst ), (int*)surface );
-					/* After setting window handle, set render	rectangle */
-					gst_video_overlay_set_render_rectangle(
-						 GST_VIDEO_OVERLAY( player->pipeline->videobin[MMPLAYER_V_SINK].gst ),
-						 wl_window_x,wl_window_y,wl_window_width,wl_window_height);
-				}
+				guintptr wl_surface = (guintptr)surface;
+				debug_log("set video param : wayland surface %p", surface);
+				gst_video_overlay_set_window_handle(
+						GST_VIDEO_OVERLAY( player->pipeline->videobin[MMPLAYER_V_SINK].gst ),
+						wl_surface );
+				/* After setting window handle, set render	rectangle */
+				gst_video_overlay_set_render_rectangle(
+					 GST_VIDEO_OVERLAY( player->pipeline->videobin[MMPLAYER_V_SINK].gst ),
+					 wl_window_x,wl_window_y,wl_window_width,wl_window_height);
 #else // HAVE_X11
 				int xwin_id = 0;
 				xwin_id = *(int*)surface;
@@ -11734,7 +11732,7 @@ __mmplayer_try_to_plug(mm_player_t* player, GstPad *pad, const GstCaps *caps) //
 			/* running */
 			if ( GST_STATE_CHANGE_FAILURE == gst_element_set_state(queue, GST_STATE_PAUSED) )
 			{
-				debug_warning("failed to set state READY to queue\n");
+				debug_warning("failed to set state PAUSED to queue\n");
 				goto ERROR;
 			}
 

@@ -32,7 +32,7 @@ libmmfplayer_la_CFLAGS =  -I$(srcdir)/include \
 			$(ICU_CFLAGS) \
 			$(UTILX_CFLAGS) \
 			$(MEDIAPACKET_CFLAGS) \
-			-Wno-deprecated -Wno-deprecated-declarations
+			-Werror -Wno-deprecated -Wno-deprecated-declarations -Wno-cpp
 
 noinst_HEADERS = include/mm_player_utils.h \
 		 include/mm_player_ini.h \
