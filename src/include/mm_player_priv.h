@@ -404,6 +404,7 @@ typedef struct {
 	gint active_pad_index;
 	gint total_track_num;
 	GPtrArray *channels;
+	gulong event_probe_id;
 } mm_player_selector_t;
 
 /* Things needed to be done after output device has changed */
@@ -415,6 +416,18 @@ typedef struct {
 	guint required_cb_score;
 	guint id;
 } mm_player_post_proc_t;
+
+typedef struct {
+	gboolean running;
+
+	gboolean stream_changed;
+	gboolean reconfigure;
+
+	GstClockTime next_pts;		/* latest decoded buffer's pts+duration */
+	GstClockTime start_time;	/* updated once get SEGMENT event */
+
+	gulong audio_data_probe_id;
+} mm_player_gapless_t;
 
 typedef struct {
 	/* STATE */
@@ -448,6 +461,7 @@ typedef struct {
 	gboolean next_play_thread_exit;
 	GCond next_play_thread_cond;
 	GMutex next_play_thread_mutex;
+	mm_player_gapless_t gapless;
 
 	/* capture thread */
 	GThread* capture_thread;
@@ -690,10 +704,6 @@ typedef struct {
 	/* just for native app (video hub) */
 	gboolean video_hub_download_mode;
 	gboolean sync_handler;
-
-	/* seamless next playing */
-	gboolean src_changed;
-	gboolean pp_rebuilding;
 
 	/* store dump pad list */
 	GList* dump_list;

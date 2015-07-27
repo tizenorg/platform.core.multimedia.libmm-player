@@ -1438,16 +1438,16 @@ static gpointer __mmplayer_next_play_thread(gpointer data)
 		debug_log("next play thread started. waiting for signal.\n");
 		g_cond_wait(&player->next_play_thread_cond, &player->next_play_thread_mutex );
 
-		debug_log("re building pipeline for next play.\n");
+		debug_log("reconfigure pipeline for gapless play.\n");
 
 		if ( player->next_play_thread_exit )
 		{
-			if(player->pp_rebuilding)
+			if(player->gapless.reconfigure)
 			{
-				player->pp_rebuilding = false;
+				player->gapless.reconfigure = false;
 				MMPLAYER_PLAYBACK_UNLOCK(player);
 			}
-			debug_log("exiting next play thread\n");
+			debug_log("exiting gapless play thread\n");
 			break;
 		}
 
@@ -2160,10 +2160,9 @@ __mmplayer_gst_callback(GstBus *bus, GstMessage *msg, gpointer data) // @
 						}
 					}
 
-					if (player->src_changed)
+					if (player->gapless.stream_changed)
 					{
 						_mmplayer_update_content_attrs(player, ATTR_ALL);
-						player->src_changed = FALSE;
 					}
 
 					if (player->doing_seek && async_done)
@@ -2776,7 +2775,7 @@ __mmplayer_gst_rtp_dynamic_pad (GstElement *element, GstPad *pad, gpointer data)
 
 		if ( ! str )
 		{
-			debug_error ("cannot get structure from capse.\n");
+			debug_error ("cannot get structure from caps.\n");
 			goto ERROR;
 		}
 
@@ -3038,6 +3037,64 @@ __mmplayer_gst_selector_blocked(GstPad* pad, GstPadProbeInfo *info, gpointer dat
 	return GST_PAD_PROBE_OK;
 }
 
+static GstPadProbeReturn
+__mmplayer_audio_data_probe (GstPad *pad, GstPadProbeInfo *info, gpointer u_data)
+{
+	mm_player_t* player = (mm_player_t*) u_data;
+	GstBuffer *pad_buffer = gst_pad_probe_info_get_buffer(info);
+
+	/* TO_CHECK: performance */
+	return_val_if_fail (player && GST_IS_BUFFER(pad_buffer), GST_PAD_PROBE_OK);
+
+	if (GST_BUFFER_PTS_IS_VALID(pad_buffer) && GST_BUFFER_DURATION_IS_VALID(pad_buffer))
+		player->gapless.next_pts = GST_BUFFER_PTS(pad_buffer) + GST_BUFFER_DURATION(pad_buffer);
+
+	return GST_PAD_PROBE_OK;
+}
+
+static GstPadProbeReturn
+__mmplayer_gst_selector_event_probe (GstPad * pad, GstPadProbeInfo * info, gpointer data)
+{
+	GstPadProbeReturn ret = GST_PAD_PROBE_OK;
+	GstEvent *event = GST_PAD_PROBE_INFO_DATA (info);
+	mm_player_t* player = (mm_player_t*)data;
+
+	switch (GST_EVENT_TYPE (event)) {
+		case GST_EVENT_STREAM_START:
+		break;
+		case GST_EVENT_SEGMENT: {
+			GstSegment segment;
+			GstEvent *tmpev;
+
+			if (!player->gapless.running)
+				break;
+
+			if (player->gapless.stream_changed) {
+				player->gapless.start_time += player->gapless.next_pts;
+				player->gapless.stream_changed = FALSE;
+			}
+
+			debug_log ("event: %" GST_PTR_FORMAT, event);
+			gst_event_copy_segment (event, &segment);
+
+			if (segment.format == GST_FORMAT_TIME)
+			{
+				segment.base = player->gapless.start_time;
+				debug_log ("base of segment: %" GST_TIME_FORMAT, GST_TIME_ARGS (segment.base));
+
+				tmpev = gst_event_new_segment (&segment);
+				gst_event_set_seqnum (tmpev, gst_event_get_seqnum (event));
+				gst_event_unref (event);
+				GST_PAD_PROBE_INFO_DATA(info) = tmpev;
+			}
+			break;
+		}
+		default:
+		break;
+	}
+	return ret;
+}
+
 static void
 __mmplayer_gst_decode_pad_added (GstElement *elem, GstPad *pad, gpointer data)
 {
@@ -3076,7 +3133,7 @@ __mmplayer_gst_decode_pad_added (GstElement *elem, GstPad *pad, gpointer data)
 	str = gst_caps_get_structure (caps, 0);
 	if ( ! str )
 	{
-		debug_error ("cannot get structure from capse.\n");
+		debug_error ("cannot get structure from caps.\n");
 		goto ERROR;
 	}
 
@@ -3224,9 +3281,6 @@ __mmplayer_gst_decode_pad_added (GstElement *elem, GstPad *pad, gpointer data)
 		}
 		g_object_set (selector, "sync-streams", TRUE, NULL);
 
-		gst_bin_add (GST_BIN(pipeline), selector);
-		gst_element_set_state (selector, GST_STATE_PAUSED);
-
 		player->pipeline->mainbin[elemId].id = elemId;
 		player->pipeline->mainbin[elemId].gst = selector;
 
@@ -3240,6 +3294,11 @@ __mmplayer_gst_decode_pad_added (GstElement *elem, GstPad *pad, gpointer data)
 //		gst_pad_add_probe(srcpad, GST_PAD_PROBE_TYPE_BLOCK_DOWNSTREAM,
 //			__mmplayer_gst_selector_blocked, NULL, NULL);
 
+		player->selector[stream_type].event_probe_id = gst_pad_add_probe(srcpad, GST_PAD_PROBE_TYPE_EVENT_DOWNSTREAM,
+			__mmplayer_gst_selector_event_probe, player, NULL);
+
+		gst_element_set_state (selector, GST_STATE_PAUSED);
+		gst_bin_add (GST_BIN(pipeline), selector);
 	}
 	else
 	{
@@ -3805,9 +3864,9 @@ __mmplayer_gst_decode_no_more_pads (GstElement *elem, gpointer data)
 	{
 		debug_warning("no need to go more");
 
-		if (player->pp_rebuilding)
+		if (player->gapless.reconfigure)
 		{
-			player->pp_rebuilding = FALSE;
+			player->gapless.reconfigure = FALSE;
 			MMPLAYER_PLAYBACK_UNLOCK(player);
 		}
 
@@ -3941,9 +4000,9 @@ ERROR:
 		srcpad = NULL;
 	}
 
-	if (player->pp_rebuilding)
+	if (player->gapless.reconfigure)
 	{
-		player->pp_rebuilding = FALSE;
+		player->gapless.reconfigure = FALSE;
 		MMPLAYER_PLAYBACK_UNLOCK(player);
 	}
 }
@@ -3990,7 +4049,7 @@ __mmplayer_gst_decode_callback(GstElement *elem, GstPad *pad, gpointer data) // 
 	str = gst_caps_get_structure( caps, 0 );
 	if ( ! str )
 	{
-		debug_error("cannot get structure from capse.\n");
+		debug_error("cannot get structure from caps.\n");
 		goto ERROR;
 	}
 
@@ -5585,6 +5644,9 @@ __mmplayer_gst_create_audio_pipeline(mm_player_t* player)
 		goto ERROR;
 	}
 
+	player->gapless.audio_data_probe_id = gst_pad_add_probe(ghostpad, GST_PAD_PROBE_TYPE_BUFFER,
+			__mmplayer_audio_data_probe, player, NULL);
+
 	gst_object_unref(pad);
 
 	g_list_free(element_bucket);
@@ -6829,7 +6891,7 @@ __mmplayer_check_useful_message(mm_player_t *player, GstMessage * message)
 		case GST_MESSAGE_ASYNC_DONE:
 		case GST_MESSAGE_STATE_CHANGED:
 			/* we only handle messages from pipeline */
-			if(( message->src == (GstObject *)player->pipeline->mainbin[MMPLAYER_M_PIPE].gst ) && (!player->pp_rebuilding))
+			if(( message->src == (GstObject *)player->pipeline->mainbin[MMPLAYER_M_PIPE].gst ) && (!player->gapless.reconfigure))
 				retval = TRUE;
 			else
 				retval = FALSE;
@@ -7850,6 +7912,28 @@ void __mmplayer_remove_g_source_from_context(GMainContext *context, guint source
 	MMPLAYER_FLEAVE();
 }
 
+static void
+__mmplayer_reset_gapless_state(mm_player_t* player)
+{
+	MMPLAYER_FENTER();
+	return_if_fail(player
+		&& player->pipeline
+		&& player->pipeline->audiobin
+		&& player->pipeline->audiobin[MMPLAYER_A_BIN].gst);
+
+	if (player->gapless.audio_data_probe_id != 0)
+	{
+		GstPad *sinkpad;
+		sinkpad = gst_element_get_static_pad(player->pipeline->audiobin[MMPLAYER_A_BIN].gst, "sink");
+		gst_pad_remove_probe (sinkpad, player->gapless.audio_data_probe_id);
+		gst_object_unref (sinkpad);
+	}
+	memset(&player->gapless, 0, sizeof(mm_player_gapless_t));
+
+	MMPLAYER_FLEAVE();
+	return;
+}
+
 static int
 __mmplayer_gst_destroy_pipeline(mm_player_t* player) // @
 {
@@ -7868,12 +7952,11 @@ __mmplayer_gst_destroy_pipeline(mm_player_t* player) // @
 	player->demux_pad_index = 0;
 	player->subtitle_language_list = NULL;
 	player->use_deinterleave = FALSE;
-	player->pp_rebuilding = FALSE;
 	player->max_audio_channels = 0;
 	player->video_share_api_delta = 0;
 	player->video_share_clock_delta = 0;
 	player->video_hub_download_mode = 0;
-
+	__mmplayer_reset_gapless_state(player);
 	__mmplayer_post_proc_reset(player);
 
 	if (player->streamer)
@@ -9558,7 +9641,6 @@ _mmplayer_create_player(MMHandleType handle) // @
 	player->use_decodebin = TRUE;
 	player->ignore_asyncdone = FALSE;
 	player->use_deinterleave = FALSE;
-	player->pp_rebuilding = FALSE;
 	player->max_audio_channels = 0;
 	player->video_share_api_delta = 0;
 	player->video_share_clock_delta = 0;
@@ -10630,7 +10712,7 @@ static void __mmplayer_check_pipeline(mm_player_t* player)
 	gint timeout = 0;
 	int ret = MM_ERROR_NONE;
 
-	if (player->pp_rebuilding)
+	if (player->gapless.reconfigure)
 	{
 		debug_warning("pipeline is under construction.\n");
 
@@ -10665,6 +10747,7 @@ _mmplayer_stop(MMHandleType hplayer) // @
 
 	/* check pipline building state */
 	__mmplayer_check_pipeline(player);
+	player->gapless.start_time = 0;
 
 	/* NOTE : application should not wait for EOS after calling STOP */
 	__mmplayer_cancel_eos_timer( player );
@@ -12107,11 +12190,11 @@ __mmplayer_verify_next_play_path(mm_player_t *player)
 
 	MMPLAYER_FENTER();
 
-	debug_log("checking for next play");
+	debug_log("checking for gapless play");
 
 	if (player->pipeline->textbin)
 	{
-		debug_error("subtitle path is enabled. next play is not supported.\n");
+		debug_error("subtitle path is enabled. gapless play is not supported.\n");
 		goto ERROR;
 	}
 
@@ -12549,7 +12632,8 @@ __mmplayer_activate_next_source(mm_player_t *player, GstState target)
 		}
 	}
 
-	player->src_changed = TRUE;
+	player->gapless.stream_changed = TRUE;
+	player->gapless.running = TRUE;
 	MMPLAYER_FLEAVE();
 	return;
 
@@ -12603,6 +12687,10 @@ __mmplayer_deactivate_selector(mm_player_t *player, MMPlayerTrackType type)
 
 		srcpad = gst_element_get_static_pad(player->pipeline->mainbin[selectorId].gst, "src");
 
+		if (selector->event_probe_id != 0)
+			gst_pad_remove_probe (srcpad, selector->event_probe_id);
+		selector->event_probe_id = 0;
+
 		if ((sinkbin) && (sinkbin[sinkId].gst))
 		{
 			sinkpad = gst_element_get_static_pad(sinkbin[sinkId].gst, "sink");
@@ -12646,7 +12734,6 @@ __mmplayer_deactivate_old_path(mm_player_t *player)
 	MMPLAYER_FENTER();
 	return_if_fail ( player );
 
-	g_object_set(G_OBJECT(player->pipeline->mainbin[MMPLAYER_M_DEC1].gst), "remove-buffer-signal", TRUE, NULL);
 	if ((!__mmplayer_deactivate_selector(player, MM_PLAYER_TRACK_TYPE_AUDIO)) ||
 		(!__mmplayer_deactivate_selector(player, MM_PLAYER_TRACK_TYPE_TEXT)))
 	{
@@ -13117,11 +13204,13 @@ __mmplayer_gst_decode_drained(GstElement *bin, gpointer data)
 	if (!__mmplayer_verify_next_play_path(player))
 	{
 		debug_log("decoding is finished.");
+		player->gapless.running = FALSE;
+		player->gapless.start_time = 0;
 		g_mutex_unlock(&player->cmd_lock);
 		return;
 	}
 
-	player->pp_rebuilding = TRUE;
+	player->gapless.reconfigure = TRUE;
 
 	/* deactivate pipeline except sinkbins to set up the new pipeline of next uri*/
 	__mmplayer_deactivate_old_path(player);
@@ -13407,7 +13496,6 @@ __mmplayer_release_misc(mm_player_t* player)
 	player->last_multiwin_status = FALSE;
 	player->has_closed_caption = FALSE;
 	player->set_mode.media_packet_video_stream = FALSE;
-
 	memset(&player->set_mode, 0, sizeof(MMPlayerSetMode));
 	/* recover mode */
 	player->set_mode.rich_audio = cur_mode;
@@ -13520,8 +13608,6 @@ __mmplayer_release_misc_post(mm_player_t* player)
 	}
 
 	player->uri_info.uri_idx = 0;
-	player->src_changed = FALSE;
-
 	MMPLAYER_FLEAVE();
 }
 
