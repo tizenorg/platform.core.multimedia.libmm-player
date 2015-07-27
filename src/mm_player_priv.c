@@ -5808,7 +5808,12 @@ __mmplayer_video_stream_probe (GstPad *pad, GstPadProbeInfo *info, gpointer user
 		int stride = ((stream.width + 3) & (~3));
 		int elevation = stream.height;
 		int size = stride * elevation * 3 / 2;
-		gst_memory_map(dataBlock, &mapinfo, GST_MAP_READWRITE);
+		gboolean gst_ret;
+		gst_ret = gst_memory_map(dataBlock, &mapinfo, GST_MAP_READWRITE);
+		if(!gst_ret) {
+			debug_error("fail to gst_memory_map");
+			return GST_PAD_PROBE_OK;
+		}
 
 		stream.stride[0] = stride;
 		stream.elevation[0] = elevation;
@@ -5828,9 +5833,12 @@ __mmplayer_video_stream_probe (GstPad *pad, GstPadProbeInfo *info, gpointer user
 			return TRUE;
 		}
 		thandle = tbm_bo_map(stream.bo[0], TBM_DEVICE_CPU, TBM_OPTION_WRITE);
-		if(thandle.ptr) {
+		if(thandle.ptr && mapinfo.data)
 			memcpy(thandle.ptr, mapinfo.data, size);
-		}
+		else
+			debug_error("data pointer is wrong. dest : %p, src : %p",
+					thandle.ptr, mapinfo.data);
+
 		tbm_bo_unmap(stream.bo[0]);
 
 	}
