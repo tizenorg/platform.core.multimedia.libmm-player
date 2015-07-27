@@ -5840,7 +5840,6 @@ __mmplayer_video_stream_probe (GstPad *pad, GstPadProbeInfo *info, gpointer user
 					thandle.ptr, mapinfo.data);
 
 		tbm_bo_unmap(stream.bo[0]);
-
 	}
 
 	if (player->video_stream_cb) {
@@ -6606,11 +6605,8 @@ __mmplayer_subtitle_adjust_position_probe (GstPad *pad, GstPadProbeInfo *info, g
 	GstClockTime cur_timestamp = 0;
 	gint64 adjusted_timestamp = 0;
 	GstBuffer *buffer = gst_pad_probe_info_get_buffer(info);
-	GstMapInfo probe_info = GST_MAP_INFO_INIT;
 
 	return_val_if_fail ( player, FALSE );
-
-	gst_buffer_map(buffer, &probe_info, GST_MAP_READ);
 
 	if ( player->set_mode.subtitle_off )
 	{
@@ -6626,8 +6622,6 @@ __mmplayer_subtitle_adjust_position_probe (GstPad *pad, GstPadProbeInfo *info, g
 
 	cur_timestamp = GST_BUFFER_TIMESTAMP(buffer);
 	adjusted_timestamp = (gint64) cur_timestamp + ((gint64) player->adjust_subtitle_pos * G_GINT64_CONSTANT(1000000));
-
-	gst_buffer_unmap(buffer, &probe_info);
 
 	if ( adjusted_timestamp < 0)
 	{
