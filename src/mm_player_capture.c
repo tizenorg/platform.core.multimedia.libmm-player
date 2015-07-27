@@ -532,23 +532,36 @@ __mmplayer_get_video_frame_from_buffer(mm_player_t* player, GstPad *pad, GstBuff
 	if (gst_structure_has_name(structure, "video/x-raw"))
 	{
 		/* NV12T */
-		if(!g_strcmp0(gst_structure_get_string(structure, "format"), "ST12"))
+		const gchar *gst_format = gst_structure_get_string(structure, "format");
+		if(!g_strcmp0(gst_format, "ST12") || !g_strcmp0(gst_format, "SN12"))
 		{
-			debug_msg ("captured format is ST12\n");
+			guint n;
+			debug_msg ("captured format is %s\n", gst_format);
 
 			MMVideoBuffer *proved = NULL;
-			player->video_cs = MM_PLAYER_COLORSPACE_NV12_TILED;
+			if(!g_strcmp0(gst_format, "ST12"))
+				player->video_cs = MM_PLAYER_COLORSPACE_NV12_TILED;
+			else
+				player->video_cs = MM_PLAYER_COLORSPACE_NV12;
 
 			/* get video frame info from proved buffer */
-			memory = gst_buffer_get_all_memory(buffer);
+			n = gst_buffer_n_memory(buffer);
+			memory = gst_buffer_peek_memory(buffer, n-1);
 			gst_memory_map(memory, &mapinfo, GST_MAP_READ);
 			proved = (MMVideoBuffer *)mapinfo.data;
 
-			if ( !proved || !proved->data[0] || !proved->data[1] )
+			if ( !proved || !proved->data[0] || !proved->data[1] ) {
+				debug_error("fail to gst_memory_map");
 				return MM_ERROR_PLAYER_INTERNAL;
+			}
 
+#if 0
 			yplane_size = proved->size[0];
 			uvplane_size = proved->size[1];
+#else
+			yplane_size = proved->stride_width[0] * proved->stride_height[0];
+			uvplane_size = proved->stride_width[1] * proved->stride_height[1];
+#endif
 
 			debug_msg ("yplane_size=%d, uvplane_size=%d\n", yplane_size, uvplane_size);
 			memset(&player->captured, 0x00, sizeof(MMVideoBuffer));
@@ -594,46 +607,6 @@ __mmplayer_get_video_frame_from_buffer(mm_player_t* player, GstPad *pad, GstBuff
 					break;
 			}
 		}
-
-		#if 0
-		case GST_MAKE_FOURCC ('S', 'N', '1', '2'):
-		{
-			MMPlayerMPlaneImage *proved = NULL;
-			player->video_cs = MM_PLAYER_COLORSPACE_NV12;
-
-			/* get video frame info from proved buffer */
-			proved = (MMPlayerMPlaneImage *)GST_BUFFER_MALLOCDATA(buffer);
-
-			if (!proved || !proved->a[0] || !proved->a[1])
-				return MM_ERROR_PLAYER_INTERNAL;
-
-			memset(&player->captured, 0x00, sizeof(MMPlayerMPlaneImage));
-			memcpy(&player->captured, proved, sizeof(MMPlayerMPlaneImage));
-
-			player->captured.y_size = proved->s[0] * proved->h[0]; // must get data including padding
-			player->captured.uv_size = proved->s[0] * proved->h[1];
-
-			debug_msg ("y plane_size : %d, uv plane_size : %d", player->captured.y_size, player->captured.uv_size);
-
-			player->captured.a[0] = g_try_malloc(player->captured.y_size);
-
-			if ( !player->captured.a[0] ) {
-				return MM_ERROR_SOUND_NO_FREE_SPACE;
-			}
-
-			player->captured.a[1] = g_try_malloc(player->captured.uv_size);
-
-			if ( !player->captured.a[1] ) {
-				return MM_ERROR_SOUND_NO_FREE_SPACE;
-			}
-
-			memcpy(player->captured.a[0], proved->a[0], player->captured.y_size);
-			memcpy(player->captured.a[1], proved->a[1], player->captured.uv_size);
-
-			goto DONE;
-		}
-		break;
-		#endif
 	}
 	else
 	{
