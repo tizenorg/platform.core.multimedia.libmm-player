@@ -211,7 +211,6 @@ static gboolean __mmplayer_configure_audio_callback(mm_player_t* player);
 static void 	__mmplayer_add_sink( mm_player_t* player, GstElement* sink);
 static void 	__mmplayer_del_sink( mm_player_t* player, GstElement* sink);
 static void 	__mmplayer_release_signal_connection(mm_player_t* player, MMPlayerSignalType type);
-static void __mmplayer_set_antishock( mm_player_t* player, gboolean disable_by_force);
 static gpointer __mmplayer_next_play_thread(gpointer data);
 static gpointer __mmplayer_repeat_thread(gpointer data);
 static gboolean _mmplayer_update_content_attrs(mm_player_t* player, enum content_attr_flag flag);
@@ -3033,7 +3032,7 @@ ERROR:
 static GstPadProbeReturn
 __mmplayer_gst_selector_blocked(GstPad* pad, GstPadProbeInfo *info, gpointer data)
 {
-	debug_log ("pad blocked callback, blocked");
+	debug_log ("pad(%s:%s) is blocked", GST_DEBUG_PAD_NAME(pad));
 	return GST_PAD_PROBE_OK;
 }
 
@@ -3289,11 +3288,9 @@ __mmplayer_gst_decode_pad_added (GstElement *elem, GstPad *pad, gpointer data)
 
 		srcpad = gst_element_get_static_pad (selector, "src");
 
-//		debug_log ("blocking %" GST_PTR_FORMAT, srcpad);
-//		gst_pad_set_blocked_async (srcpad, TRUE, __mmplayer_gst_selector_blocked, NULL);
-//		gst_pad_add_probe(srcpad, GST_PAD_PROBE_TYPE_BLOCK_DOWNSTREAM,
-//			__mmplayer_gst_selector_blocked, NULL, NULL);
-
+		debug_log ("blocking %s:%s", GST_DEBUG_PAD_NAME(srcpad));
+		player->selector[stream_type].block_id = gst_pad_add_probe(srcpad, GST_PAD_PROBE_TYPE_BLOCK_DOWNSTREAM,
+			__mmplayer_gst_selector_blocked, NULL, NULL);
 		player->selector[stream_type].event_probe_id = gst_pad_add_probe(srcpad, GST_PAD_PROBE_TYPE_EVENT_DOWNSTREAM,
 			__mmplayer_gst_selector_event_probe, player, NULL);
 
@@ -3378,8 +3375,12 @@ static void __mmplayer_handle_text_decode_path(mm_player_t* player, GstElement* 
 	player->no_more_pad = TRUE;
 	__mmplayer_gst_decode_callback (text_selector, srcpad, player);
 
-	debug_log ("unblocking %" GST_PTR_FORMAT, srcpad);
-//	gst_pad_set_blocked_async (srcpad, FALSE, __mmplayer_gst_selector_blocked, NULL);
+	debug_log ("unblocking %s:%s", GST_DEBUG_PAD_NAME(srcpad));
+	if (player->selector[MM_PLAYER_TRACK_TYPE_TEXT].block_id)
+	{
+		gst_pad_remove_probe (srcpad, player->selector[MM_PLAYER_TRACK_TYPE_TEXT].block_id);
+		player->selector[MM_PLAYER_TRACK_TYPE_TEXT].block_id = 0;
+	}
 
 	debug_log("Total text tracks = %d \n", player->selector[MM_PLAYER_TRACK_TYPE_TEXT].total_track_num);
 
@@ -3644,6 +3645,7 @@ __mmplayer_gst_build_deinterleave_path (GstElement *elem, GstPad *pad, gpointer 
 	GstPad* selector_srcpad = NULL;
 	GstPad* sinkpad = NULL;
 	GstCaps* caps = NULL;
+	gulong block_id = 0;
 
 	MMPLAYER_FENTER();
 
@@ -3790,9 +3792,9 @@ __mmplayer_gst_build_deinterleave_path (GstElement *elem, GstPad *pad, gpointer 
 
 	selector_srcpad = gst_element_get_static_pad (selector, "src");
 
-	debug_log ("blocking %" GST_PTR_FORMAT, selector_srcpad);
-	//gst_pad_set_blocked_async (selector_srcpad, TRUE, __mmplayer_gst_selector_blocked, NULL);
-	gst_pad_add_probe(selector_srcpad, GST_PAD_PROBE_TYPE_BLOCK_DOWNSTREAM,
+	debug_log ("blocking %s:%s", GST_DEBUG_PAD_NAME(selector_srcpad));
+	block_id =
+		gst_pad_add_probe(selector_srcpad, GST_PAD_PROBE_TYPE_BLOCK_DOWNSTREAM,
 			__mmplayer_gst_selector_blocked, NULL, NULL);
 
 	if (srcpad)
@@ -3818,10 +3820,15 @@ __mmplayer_gst_build_deinterleave_path (GstElement *elem, GstPad *pad, gpointer 
 
 	__mmplayer_gst_decode_callback (selector, selector_srcpad, player);
 
-	debug_log ("unblocking %" GST_PTR_FORMAT, selector_srcpad);
-//	gst_pad_set_blocked_async (selector_srcpad, FALSE, __mmplayer_gst_selector_blocked, NULL);
-
 ERROR:
+
+	debug_log ("unblocking %s:%s", GST_DEBUG_PAD_NAME(selector_srcpad));
+	if (block_id != 0)
+	{
+		gst_pad_remove_probe (selector_srcpad, block_id);
+		block_id = 0;
+	}
+
 	if (sinkpad)
 	{
 		gst_object_unref (GST_OBJECT(sinkpad));
@@ -3936,8 +3943,12 @@ __mmplayer_gst_decode_no_more_pads (GstElement *elem, gpointer data)
 
 		if ((player->use_deinterleave == TRUE) && (player->max_audio_channels >= 2))
 		{
-			debug_log ("unblocking %" GST_PTR_FORMAT, srcpad);
-//			gst_pad_set_blocked_async (srcpad, FALSE, __mmplayer_gst_selector_blocked, NULL);
+			debug_log ("unblocking %s:%s", GST_DEBUG_PAD_NAME(srcpad));
+			if (player->selector[MM_PLAYER_TRACK_TYPE_AUDIO].block_id)
+			{
+				gst_pad_remove_probe (srcpad, player->selector[MM_PLAYER_TRACK_TYPE_AUDIO].block_id);
+				player->selector[MM_PLAYER_TRACK_TYPE_AUDIO].block_id = 0;
+			}
 
 			__mmplayer_gst_build_deinterleave_path(audio_selector, srcpad, player);
 		}
@@ -3945,8 +3956,12 @@ __mmplayer_gst_decode_no_more_pads (GstElement *elem, gpointer data)
 		{
 			__mmplayer_gst_decode_callback (audio_selector, srcpad, player);
 
-			debug_log ("unblocking %" GST_PTR_FORMAT, srcpad);
-//			gst_pad_set_blocked_async (srcpad, FALSE, __mmplayer_gst_selector_blocked, NULL);
+			debug_log ("unblocking %s:%s", GST_DEBUG_PAD_NAME(srcpad));
+			if (player->selector[MM_PLAYER_TRACK_TYPE_AUDIO].block_id)
+			{
+				gst_pad_remove_probe (srcpad, player->selector[MM_PLAYER_TRACK_TYPE_AUDIO].block_id);
+				player->selector[MM_PLAYER_TRACK_TYPE_AUDIO].block_id = 0;
+			}
 		}
 
 		debug_log("Total audio tracks = %d \n", player->selector[MM_PLAYER_TRACK_TYPE_AUDIO].total_track_num);
@@ -5586,12 +5601,6 @@ __mmplayer_gst_create_audio_pipeline(mm_player_t* player)
 
 		if (g_strrstr(player->ini.name_of_audiosink, "pulsesink"))
 			__mmplayer_gst_set_audiosink_property(player, attrs);
-
-		/* Antishock can be enabled when player is resumed by soundCM.
-		 * But, it's not used in MMS, setting and etc.
-		 * Because, player start seems like late.
-		 */
-		__mmplayer_set_antishock( player , FALSE );
 	}
 
 	if (audiobin[MMPLAYER_A_SINK].gst)
@@ -7069,9 +7078,6 @@ __mmplayer_gst_create_decoder ( mm_player_t *player,
 		debug_error("failed to sync second level decodebin state with parent\n");
 	}
 
-	debug_log ("unblocking %" GST_PTR_FORMAT, srcpad);
-// TO CHECK :	gst_pad_set_blocked_async (srcpad, FALSE, __mm_player_src_pad_block_cb, NULL);
-
 	debug_log("Total num of %d tracks = %d \n", track, player->selector[track].total_track_num);
 
 ERROR:
@@ -8528,8 +8534,6 @@ int __gst_resume(mm_player_t* player, gboolean async) // @
 
 	/* generate dot file before returning error */
 	MMPLAYER_GENERATE_DOT_IF_ENABLED ( player, "pipeline-status-resume" );
-
-	__mmplayer_set_antishock( player , FALSE );
 
 	if ( async )
 		debug_log("do async state transition to PLAYING.\n");
@@ -15276,53 +15280,6 @@ __mmplayer_eos_timer_cb(gpointer u_data)
 	/* we are returning FALSE as we need only one posting */
 	return FALSE;
 }
-
-static void __mmplayer_set_antishock( mm_player_t* player, gboolean disable_by_force)
-{
-	gint antishock = FALSE;
-	MMHandleType attrs = 0;
-
-	MMPLAYER_FENTER();
-
-	return_if_fail ( player && player->pipeline );
-
-	/* It should be passed for video only clip */
-	if ( ! player->pipeline->audiobin )
-		return;
-
-	if ( ( g_strrstr(player->ini.name_of_audiosink, "avsysaudiosink")) )
-	{
-		attrs = MMPLAYER_GET_ATTRS(player);
-		if ( ! attrs )
-		{
-			debug_error("fail to get attributes.\n");
-			return;
-		}
-
-		mm_attrs_get_int_by_name(attrs, "sound_fadeup", &antishock);
-
-		if (player->sm.antishock) {
-			antishock = TRUE;
-			player->sm.antishock = 0;
-		}
-
-		debug_log("setting antishock as (%d)\n", antishock);
-
-		if ( disable_by_force )
-		{
-			debug_log("but, antishock is disabled by force when is seeked\n");
-
-			antishock = FALSE;
-		}
-
-		g_object_set(G_OBJECT(player->pipeline->audiobin[MMPLAYER_A_SINK].gst), "fadeup", antishock, NULL);
-	}
-
-	MMPLAYER_FLEAVE();
-
-	return;
-}
-
 
 static gboolean
 __mmplayer_link_decoder( mm_player_t* player, GstPad *srcpad)

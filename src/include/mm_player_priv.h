@@ -404,6 +404,7 @@ typedef struct {
 	gint active_pad_index;
 	gint total_track_num;
 	GPtrArray *channels;
+	gulong block_id;
 	gulong event_probe_id;
 } mm_player_selector_t;
 
