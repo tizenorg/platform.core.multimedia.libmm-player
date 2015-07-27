@@ -418,7 +418,7 @@ streaming_set_queue2_queue_type (mm_player_streaming_t* streamer, gboolean use_f
 		debug_log("[Queue2] use file ring buffer for buffering.");
 
 	g_object_set (G_OBJECT(buffer_handle->buffer), "temp-template", file_buffer_name, NULL);
-	g_object_set (G_OBJECT(buffer_handle->buffer), "file-buffer-max-size", file_buffer_size, NULL);
+	g_object_set (G_OBJECT(buffer_handle->buffer), "ring-buffer-max-size", file_buffer_size, NULL);
 
 	MMPLAYER_FLEAVE();
 	return;

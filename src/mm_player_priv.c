@@ -11691,7 +11691,7 @@ __mmplayer_try_to_plug(mm_player_t* player, GstPad *pad, const GstCaps *caps) //
 		 * has linked. if so, we need to add queue for quality of output. note that
 		 * decodebin also has same problem.
 		 */
-		klass = gst_element_factory_get_klass( gst_element_get_factory(element) );
+		klass = gst_element_factory_get_metadata (gst_element_get_factory(element), GST_ELEMENT_METADATA_KLASS);
 
 		/* add queue if needed */
 		if( (g_strrstr(klass, "Demux") || g_strrstr(klass, "Depayloader")
@@ -11797,7 +11797,7 @@ __mmplayer_try_to_plug(mm_player_t* player, GstPad *pad, const GstCaps *caps) //
 		if ( skip ) continue;
 
 		/* check factory class for filtering */
-		klass = gst_element_factory_get_klass(GST_ELEMENT_FACTORY(factory));
+		klass = gst_element_factory_get_metadata (GST_ELEMENT_FACTORY(factory), GST_ELEMENT_METADATA_KLASS);
 
 		/*parsers are not required in case of external feeder*/
 		if (g_strrstr(klass, "Codec/Parser") && MMPLAYER_IS_ES_BUFF_SRC(player))
@@ -12910,7 +12910,7 @@ GstCaps *caps, gpointer data)
 	const gchar* mime = NULL;
 	gchar* caps_str = NULL;
 
-	klass = gst_element_factory_get_klass (gst_element_get_factory(elem));
+	klass = gst_element_factory_get_metadata (gst_element_get_factory(elem), GST_ELEMENT_METADATA_KLASS);
 	mime = gst_structure_get_name (gst_caps_get_structure(caps, 0));
 	caps_str = gst_caps_to_string(caps);
 
@@ -12986,7 +12986,7 @@ GstCaps* caps, GstElementFactory* factory, gpointer data)
 	gint idx = 0;
 
 	factory_name = GST_OBJECT_NAME (factory);
-	klass = gst_element_factory_get_klass(factory);
+	klass = gst_element_factory_get_metadata (factory, GST_ELEMENT_METADATA_KLASS);
 	caps_str = gst_caps_to_string(caps);
 
 //	debug_log("found new element [%s] to link for caps [%s]", factory_name, caps_str);
@@ -13233,7 +13233,7 @@ __mmplayer_gst_element_added (GstElement *bin, GstElement *element, gpointer dat
 	const gchar* klass = NULL;
 	gchar* factory_name = NULL;
 
-	klass = gst_element_factory_get_klass (gst_element_get_factory(element));
+	klass = gst_element_factory_get_metadata (gst_element_get_factory(element), GST_ELEMENT_METADATA_KLASS);
 	factory_name = GST_OBJECT_NAME (gst_element_get_factory(element));
 
 	debug_log("new elem klass: %s, factory_name: %s, new elem name : %s\n", klass, factory_name, GST_ELEMENT_NAME(element));
@@ -13699,7 +13699,7 @@ const char *padname, const GList *templlist)
 	                padname);
 
 	factory = gst_element_get_factory(sinkelement);
-	klass = gst_element_factory_get_klass(factory);
+	klass = gst_element_factory_get_metadata (factory, GST_ELEMENT_METADATA_KLASS);
 
 	/* check if player can do start continually */
 	MMPLAYER_CHECK_CMD_IF_EXIT(player);
@@ -14212,8 +14212,8 @@ static gboolean __mmplayer_feature_filter(GstPluginFeature *feature, gpointer da
 		return FALSE;
 
 	/* only parsers, demuxers and decoders */
-    	klass = gst_element_factory_get_klass(GST_ELEMENT_FACTORY(feature));
-    	//name = gst_element_factory_get_longname(GST_ELEMENT_FACTORY(feature));
+		klass = gst_element_factory_get_metadata (GST_ELEMENT_FACTORY(feature), GST_ELEMENT_METADATA_KLASS);
+	    //name = gst_element_factory_get_longname(GST_ELEMENT_FACTORY(feature));
 
     	if( g_strrstr(klass, "Demux") == NULL &&
         	g_strrstr(klass, "Codec/Decoder") == NULL &&
@@ -15033,7 +15033,7 @@ __gst_transform_gsterror( mm_player_t* player, GstMessage * message, GError* err
 	if ( !factory )
 		goto INTERNAL_ERROR;
 
-	klass = gst_element_factory_get_klass(factory);
+	klass = gst_element_factory_get_metadata (factory, GST_ELEMENT_METADATA_KLASS);
 	if ( !klass )
 		goto INTERNAL_ERROR;
 
@@ -15702,7 +15702,10 @@ int _mmplayer_change_videosink(MMHandleType handle, MMDisplaySurfaceType surface
 			if ( player->pipeline->mainbin &&
 				player->pipeline->mainbin[MMPLAYER_M_DEC1+i].gst )
 			{
-				klass = gst_element_factory_get_klass( gst_element_get_factory(player->pipeline->mainbin[MMPLAYER_M_DEC1+i].gst) );
+				GstElementFactory *decfactory;
+				decfactory = gst_element_get_factory (player->pipeline->mainbin[MMPLAYER_M_DEC1+i].gst);
+
+				klass = gst_element_factory_get_metadata (decfactory, GST_ELEMENT_METADATA_KLASS);
 				if ((g_strrstr(klass, "Codec/Decoder/Video")))
 				{
 					if ( !strncmp(cur_videosink_name, "x", 1) && (surface_type == MM_DISPLAY_SURFACE_EVAS) )
