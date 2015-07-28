@@ -135,7 +135,6 @@
 /*---------------------------------------------------------------------------
 |    LOCAL FUNCTION PROTOTYPES:												|
 ---------------------------------------------------------------------------*/
-static int		__mmplayer_set_state(mm_player_t* player, int state);
 static int 		__mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps *caps, MMDisplaySurfaceType surface_type);
 static int 		__mmplayer_gst_create_audio_pipeline(mm_player_t* player);
 static int 		__mmplayer_gst_create_text_pipeline(mm_player_t* player);
@@ -144,7 +143,6 @@ static int 		__mmplayer_gst_create_pipeline(mm_player_t* player);
 static int 		__mmplayer_gst_destroy_pipeline(mm_player_t* player);
 static int		__mmplayer_gst_element_link_bucket(GList* element_bucket);
 
-static gboolean __mmplayer_gst_callback(GstBus *bus, GstMessage *msg, gpointer data);
 static GstPadProbeReturn 	__mmplayer_gst_selector_blocked(GstPad* pad, GstPadProbeInfo *info, gpointer data);
 static void		__mmplayer_gst_decode_pad_added(GstElement* elem, GstPad* pad, gpointer data);
 static void 	__mmplayer_gst_decode_no_more_pads(GstElement* elem, gpointer data);
@@ -184,19 +182,16 @@ static void		__mmplayer_release_misc(mm_player_t* player);
 static void		__mmplayer_release_misc_post(mm_player_t* player);
 static gboolean	__mmplayer_init_gstreamer(mm_player_t* player);
 
-static int		__mmplayer_gst_set_state (mm_player_t* player, GstElement * pipeline,  GstState state, gboolean async, gint timeout );
 static gboolean	__mmplayer_gst_extract_tag_from_msg(mm_player_t* player, GstMessage *msg);
 static gboolean      __mmplayer_gst_handle_duration(mm_player_t* player, GstMessage* msg);
 
 int		__mmplayer_switch_audio_sink (mm_player_t* player);
 static gboolean __mmplayer_gst_remove_fakesink(mm_player_t* player, MMPlayerGstElement* fakesink);
-static int		__mmplayer_check_state(mm_player_t* player, enum PlayerCommandState command);
 static GstPadProbeReturn __mmplayer_audio_stream_probe (GstPad *pad, GstPadProbeInfo *info, gpointer u_data);
 static GstPadProbeReturn __mmplayer_video_stream_probe (GstPad *pad, GstPadProbeInfo *info, gpointer u_data);
 static GstPadProbeReturn __mmplayer_subtitle_adjust_position_probe (GstPad *pad, GstPadProbeInfo *info, gpointer u_data);
 static int __mmplayer_change_selector_pad (mm_player_t* player, MMPlayerTrackType type, int index);
 
-static gboolean __mmplayer_dump_pipeline_state( mm_player_t* player );
 static gboolean __mmplayer_check_subtitle( mm_player_t* player );
 static gboolean __mmplayer_handle_gst_error ( mm_player_t* player, GstMessage * message, GError* error );
 static gboolean __mmplayer_handle_streaming_error  ( mm_player_t* player, GstMessage * message );
@@ -268,14 +263,11 @@ static gboolean __is_http_progressive_down(mm_player_t* player);
 static gboolean __is_es_buff_src(mm_player_t* player);
 static gboolean __has_suffix(mm_player_t * player, const gchar * suffix);
 
-static GstBusSyncReply __mmplayer_bus_sync_callback (GstBus * bus, GstMessage * message, gpointer data);
-
 static int  __mmplayer_realize_streaming_ext(mm_player_t* player);
 static int __mmplayer_unrealize_streaming_ext(mm_player_t *player);
 static int __mmplayer_start_streaming_ext(mm_player_t *player);
 static int __mmplayer_destroy_streaming_ext(mm_player_t* player);
 static int __mmplayer_do_change_videosink(mm_player_t* player, const int dec_index, const char *videosink_element, MMDisplaySurfaceType surface_type, void *display_overlay);
-static void __mmplayer_remove_g_source_from_context(GMainContext *context, guint source_id);
 
 static gboolean __mmplayer_verify_next_play_path(mm_player_t *player);
 static void __mmplayer_activate_next_source(mm_player_t *player, GstState target);
@@ -346,7 +338,7 @@ print_tag (const GstTagList * list, const gchar * tag, gpointer unused)
 
 /* implementing player FSM */
 /* FIXIT : We need to handle state transition also at here since start api is no more sync */
-static int
+int
 __mmplayer_check_state(mm_player_t* player, enum PlayerCommandState command)
 {
 	MMPlayerStateType current_state = MM_PLAYER_STATE_NUM;
@@ -1172,7 +1164,7 @@ gint __mmplayer_get_stream_service_type( mm_player_t* player )
 /* this function sets the player state and also report
  * it to applicaton by calling callback function
  */
-static int
+int
 __mmplayer_set_state(mm_player_t* player, int state) // @
 {
 	MMMessageParamType msg = {0, };
@@ -1798,7 +1790,7 @@ __mmplayer_drop_subtitle(mm_player_t* player, gboolean is_drop)
 	}
 }
 
-static gboolean
+gboolean
 __mmplayer_gst_callback(GstBus *bus, GstMessage *msg, gpointer data) // @
 {
 	mm_player_t* player = (mm_player_t*) data;
@@ -4971,6 +4963,11 @@ _mmplayer_update_video_param(mm_player_t* player) // @
 			/* do nothing */
 		}
 		break;
+		case MM_DISPLAY_SURFACE_REMOTE:
+		{
+			/* do nothing */
+		}
+		break;
 	}
 
 	MMPLAYER_FLEAVE();
@@ -6078,6 +6075,12 @@ __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps, MMDispl
 				else
 					goto ERROR;
 				break;
+			case MM_DISPLAY_SURFACE_REMOTE:
+				if (strlen(player->ini.videosink_element_remote) > 0)
+					videosink_element = player->ini.videosink_element_remote;
+				else
+					goto ERROR;
+				break;
 			default:
 				debug_error("unidentified surface type");
 				goto ERROR;
@@ -6086,7 +6089,7 @@ __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps, MMDispl
 		MMPLAYER_CREATE_ELEMENT(videobin, MMPLAYER_V_SINK, videosink_element, videosink_element, TRUE, player);
 		debug_log("selected videosink name: %s", videosink_element);
 
-		/* connect signal handlers for sink plug-in */
+		/* additional setting for sink plug-in */
 		switch (surface_type) {
 			case MM_DISPLAY_SURFACE_X_EXT:
 				MMPLAYER_SIGNAL_CONNECT( player,
@@ -6097,6 +6100,24 @@ __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps, MMDispl
 										player );
 				debug_log("videoTexture usage, connect a signal handler for pixmap rendering error");
 				break;
+			case MM_DISPLAY_SURFACE_REMOTE:
+			{
+				char *stream_path = NULL;
+				int attr_ret = mm_attrs_get_string_by_name (
+						attrs, "shm_stream_path", &stream_path );
+				if(attr_ret == MM_ERROR_NONE && stream_path) {
+					g_object_set(G_OBJECT(player->pipeline->videobin[MMPLAYER_V_SINK].gst),
+							"socket-path", stream_path,
+							"wait-for-connection", FALSE,
+							"sync", TRUE,
+							NULL);
+					debug_log("set path \"%s\" for shmsink", stream_path);
+				} else {
+					debug_error("Not set attribute of shm_stream_path");
+					goto ERROR;
+				}
+				break;
+			}
 			default:
 				break;
 		}
@@ -6357,6 +6378,7 @@ static int __mmplayer_gst_create_text_pipeline(mm_player_t* player)
 			case MM_DISPLAY_SURFACE_GL:
 			case MM_DISPLAY_SURFACE_NULL:
 			case MM_DISPLAY_SURFACE_X_EXT:
+			case MM_DISPLAY_SURFACE_REMOTE:
 				if (__mmplayer_gst_create_plain_text_elements(player) != MM_ERROR_NONE)
 				{
 					debug_error("failed to make plain text elements\n");
@@ -6931,7 +6953,7 @@ __mmplayer_check_useful_message(mm_player_t *player, GstMessage * message)
 	return retval;
 }
 
-static GstBusSyncReply
+GstBusSyncReply
 __mmplayer_bus_sync_callback (GstBus * bus, GstMessage * message, gpointer data)
 {
 	mm_player_t *player = (mm_player_t *)data;
@@ -15635,7 +15657,7 @@ int _mmplayer_change_videosink(MMHandleType handle, MMDisplaySurfaceType surface
 
 	player = MM_PLAYER_CAST(handle);
 
-	if (surface_type < MM_DISPLAY_SURFACE_X && surface_type > MM_DISPLAY_SURFACE_EVAS)
+	if (surface_type < MM_DISPLAY_SURFACE_X && surface_type >= MM_DISPLAY_SURFACE_NUM)
 	{
 		debug_error("Not support this surface type(%d) for changing vidoesink", surface_type);
 		MMPLAYER_FLEAVE();
@@ -17412,4 +17434,3 @@ _mmplayer_set_pcm_spec(MMHandleType hplayer, int samplerate, int channel)
 	MMPLAYER_FLEAVE();
 	return MM_ERROR_NONE;
 }
-

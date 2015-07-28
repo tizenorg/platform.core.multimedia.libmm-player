@@ -182,6 +182,8 @@ mm_player_ini_load(mm_player_ini_t* ini)
 		MMPLAYER_INI_GET_STRING(dict, ini->videosink_element_x, "general:videosink element x", DEFAULT_VIDEOSINK_X);
 		MMPLAYER_INI_GET_STRING(dict, ini->videosink_element_evas, "general:videosink element evas", DEFAULT_VIDEOSINK_EVAS);
 		MMPLAYER_INI_GET_STRING(dict, ini->videosink_element_fake, "general:videosink element fake", DEFAULT_VIDEOSINK_FAKE);
+		MMPLAYER_INI_GET_STRING(dict, ini->videosink_element_remote, "general:videosink element remote", DEFAULT_VIDEOSINK_REMOTE);
+		MMPLAYER_INI_GET_STRING(dict, ini->videosrc_element_remote, "general:videosrc element remote", DEFAULT_VIDEOSRC_REMOTE);
 		MMPLAYER_INI_GET_STRING(dict, ini->name_of_audio_resampler, "general:audio resampler element", DEFAULT_AUDIORESAMPLER );
 		MMPLAYER_INI_GET_STRING(dict, ini->name_of_audiosink, "general:audiosink element", DEFAULT_AUDIOSINK );
 		MMPLAYER_INI_GET_STRING(dict, ini->name_of_video_converter, "general:video converter element", DEFAULT_VIDEO_CONVERTER );

@@ -39,16 +39,6 @@
 |  																							|
 ========================================================================================== */
 
-typedef struct{
-	char *name;
-	int value_type;
-	int flags;				// r, w
-	void *default_value;
-	int valid_type;			// validity type
-	int value_min;			//<- set validity value range
-	int value_max;		//->
-}MMPlayerAttrsSpec;
-
 /*---------------------------------------------------------------------------
 |    LOCAL FUNCTION PROTOTYPES:												|
 ---------------------------------------------------------------------------*/
@@ -781,7 +771,7 @@ _mmplayer_construct_attribute(MMHandleType handle)
 			(void *) MM_DISPLAY_SURFACE_NULL,
 			MM_ATTRS_VALID_TYPE_INT_RANGE,
 			MM_DISPLAY_SURFACE_X,
-			MM_DISPLAY_SURFACE_X_EXT
+			MM_DISPLAY_SURFACE_NUM - 1
 		},
 		{
 			"display_evas_surface_sink",
@@ -1064,6 +1054,15 @@ _mmplayer_construct_attribute(MMHandleType handle)
 		},
 		{
 			"pcm_audioformat",
+			MM_ATTRS_TYPE_STRING,
+			MM_ATTRS_FLAG_RW,
+			(void *) NULL,
+			MM_ATTRS_VALID_TYPE_NONE,
+			0,
+			0
+		},
+		{
+			"shm_stream_path",
 			MM_ATTRS_TYPE_STRING,
 			MM_ATTRS_FLAG_RW,
 			(void *) NULL,

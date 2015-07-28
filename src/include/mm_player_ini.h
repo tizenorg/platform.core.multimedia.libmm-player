@@ -60,6 +60,8 @@ typedef struct __mm_player_ini
 	gchar videosink_element_x[PLAYER_INI_MAX_STRLEN];
 	gchar videosink_element_evas[PLAYER_INI_MAX_STRLEN];
 	gchar videosink_element_fake[PLAYER_INI_MAX_STRLEN];
+	gchar videosink_element_remote[PLAYER_INI_MAX_STRLEN];
+	gchar videosrc_element_remote[PLAYER_INI_MAX_STRLEN];
 	gchar name_of_audio_resampler[PLAYER_INI_MAX_STRLEN];
 	gchar name_of_audiosink[PLAYER_INI_MAX_STRLEN];
 	gchar name_of_video_converter[PLAYER_INI_MAX_STRLEN];
@@ -147,6 +149,8 @@ typedef struct __mm_player_ini
 #define DEFAULT_VIDEOSINK_X				"xvimagesink"
 #define DEFAULT_VIDEOSINK_EVAS				"evaspixmapsink"
 #define DEFAULT_VIDEOSINK_FAKE				"fakesink"
+#define DEFAULT_VIDEOSINK_REMOTE			"shmsink"
+#define DEFAULT_VIDEOSRC_REMOTE				"shmsrc"
 #define DEFAULT_AUDIORESAMPLER			"audioresample"
 #define DEFAULT_AUDIOSINK				"pulsesink"
 #define DEFAULT_GST_PARAM				""
