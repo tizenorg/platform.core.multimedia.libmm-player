@@ -1118,7 +1118,7 @@ _mmplayer_construct_attribute(MMHandleType handle)
 				mmf_attrs_set_valid_range (attrs, idx,
 						player_attrs[idx].value_min,
 						player_attrs[idx].value_max,
-						(int)(player_attrs[idx].default_value));
+						(int)(intptr_t)(player_attrs[idx].default_value));
 			}
 			break;
 

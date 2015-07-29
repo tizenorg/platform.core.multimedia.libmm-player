@@ -495,6 +495,7 @@ static int _mmplayer_mused_update_video_param(mm_player_t *player)
 			/* ximagesink or xvimagesink */
 			void *surface = NULL;
 
+#ifdef HAVE_WAYLAND
 			/*set wl_display*/
 			void* wl_display = NULL;
 			GstContext *context = NULL;
@@ -514,8 +515,10 @@ static int _mmplayer_mused_update_video_param(mm_player_t *player)
 			mm_attrs_get_int_by_name(attrs, "wl_window_render_y", &wl_window_y);
 			mm_attrs_get_int_by_name(attrs, "wl_window_render_width", &wl_window_width);
 			mm_attrs_get_int_by_name(attrs, "wl_window_render_height", &wl_window_height);
+#endif
 			mm_attrs_get_data_by_name(attrs, "display_overlay", &surface);
 			if ( surface ) {
+#ifdef HAVE_WAYLAND
 				guintptr wl_surface = (guintptr)surface;
 				debug_log("set video param : surface %p", wl_surface);
 				gst_video_overlay_set_window_handle(
@@ -525,6 +528,17 @@ static int _mmplayer_mused_update_video_param(mm_player_t *player)
 				gst_video_overlay_set_render_rectangle(
 					 GST_VIDEO_OVERLAY( mainbin[MMPLAYER_M_V_SINK].gst ),
 					 wl_window_x,wl_window_y,wl_window_width,wl_window_height);
+#else
+				int xwin_id = 0;
+				xwin_id = *(int*)surface;
+				debug_log("set video param : xid %d", xwin_id);
+				if (xwin_id)
+				{
+					gst_video_overlay_set_window_handle(
+							GST_VIDEO_OVERLAY( player->pipeline->videobin[MMPLAYER_V_SINK].gst ),
+							xwin_id );
+				}
+#endif
 			}
 			else
 				debug_warning("still we don't have surface on player attribute. create it's own surface.");
@@ -777,7 +791,7 @@ static MMHandleType _mmplayer_mused_construct_attribute(mm_player_t *player)
 				mmf_attrs_set_valid_range (attrs, idx,
 						player_attrs[idx].value_min,
 						player_attrs[idx].value_max,
-						(int)(player_attrs[idx].default_value));
+						(int)(intptr_t)(player_attrs[idx].default_value));
 			}
 			break;
 

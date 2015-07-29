@@ -1147,6 +1147,7 @@ int mm_player_set_media_stream_buffer_max_size(MMHandleType player, MMPlayerStre
 int mm_player_get_media_stream_buffer_max_size(MMHandleType player, MMPlayerStreamType type, unsigned long long *max_size)
 {
 	int result = MM_ERROR_NONE;
+	guint64 _max_size = 0;
 
 	debug_log("\n");
 
@@ -1155,7 +1156,8 @@ int mm_player_get_media_stream_buffer_max_size(MMHandleType player, MMPlayerStre
 
 	MMPLAYER_CMD_LOCK( player );
 
-	result = _mmplayer_get_media_stream_max_size(player, type, max_size);
+	result = _mmplayer_get_media_stream_max_size(player, type, &_max_size);
+	*max_size = _max_size;
 
 	MMPLAYER_CMD_UNLOCK( player );
 

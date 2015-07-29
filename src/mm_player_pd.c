@@ -459,7 +459,7 @@ gint _mm_player_set_pd_downloader_message_cb(MMHandleType handle, MMMessageCallb
 	player->pd_msg_cb = callback;
 	player->pd_msg_cb_param = user_param;
 
-	debug_log("msg_cb : 0x%x     msg_cb_param : 0x%x\n", (guint)callback, (guint)user_param);
+	debug_log("msg_cb : %p     msg_cb_param : %p\n", callback, user_param);
 
 	MMPLAYER_FLEAVE();
 

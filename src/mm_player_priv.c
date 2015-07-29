@@ -8717,7 +8717,7 @@ __gst_set_position(mm_player_t* player, int format, unsigned long position, gboo
 							GST_SEEK_TYPE_SET, pos_nsec, GST_SEEK_TYPE_NONE, GST_CLOCK_TIME_NONE );
 			if ( !ret  )
 			{
-				debug_error("failed to set position. dur[%lud]  pos[%lud]  pos_msec[%llud]\n", dur_msec, position, pos_nsec);
+				debug_error("failed to set position. dur[%lud]  pos[%lud]  pos_msec[%"G_GUINT64_FORMAT"]\n", dur_msec, position, pos_nsec);
 				goto SEEK_ERROR;
 			}
 		}
@@ -8765,7 +8765,7 @@ static int
 __gst_get_position(mm_player_t* player, int format, unsigned long* position) // @
 {
 	MMPlayerStateType current_state = MM_PLAYER_STATE_NONE;
-	signed long long pos_msec = 0;
+	gint64 pos_msec = 0;
 	gboolean ret = TRUE;
 
 	return_val_if_fail( player && position && player->pipeline && player->pipeline->mainbin,
@@ -9017,7 +9017,7 @@ __gst_set_message_callback(mm_player_t* player, MMMessageCallback callback, gpoi
 	player->msg_cb = callback;
 	player->msg_cb_param = user_param;
 
-	debug_log("msg_cb : 0x%x     msg_cb_param : 0x%x\n", (guint)callback, (guint)user_param);
+	debug_log("msg_cb : %p     msg_cb_param : %p\n", callback, user_param);
 
 	MMPLAYER_FLEAVE();
 
@@ -9254,8 +9254,8 @@ static int __mmfplayer_parse_profile(const char *uri, void *param, MMPlayerParse
 
 	/* dump parse result */
 	secure_debug_warning("incomming uri : %s\n", uri);
-	debug_log("uri_type : %d, mem : 0x%x, mem_size : %d, urgent : %s\n",
-		data->uri_type, (guint)data->mem, data->mem_size, data->urgent);
+	debug_log("uri_type : %d, mem : %p, mem_size : %d, urgent : %s\n",
+		data->uri_type, data->mem, data->mem_size, data->urgent);
 
 	MMPLAYER_FLEAVE();
 
@@ -11062,7 +11062,7 @@ int
 _mmplayer_set_playspeed(MMHandleType hplayer, float rate)
 {
 	mm_player_t* player = (mm_player_t*)hplayer;
-	signed long long pos_msec = 0;
+	gint64 pos_msec = 0;
 	int ret = MM_ERROR_NONE;
 	int mute = FALSE;
 	signed long long start = 0, stop = 0;
