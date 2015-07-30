@@ -833,13 +833,30 @@ static int _mmplayer_get_raw_video_caps(mm_player_t *player, char **caps)
 	GstCaps *v_caps = NULL;
 	GstPad *pad = NULL;
 	GstElement *gst;
+	gint stype = 0;
 
-	if ( !player->pipeline || !player->pipeline->videobin ||
-			!player->pipeline->videobin[MMPLAYER_V_SINK].gst ) {
-		debug_error("No video pipeline");
-		return MM_ERROR_PLAYER_INVALID_STATE;
+	if(!player->videosink_linked) {
+		debug_log("No video sink");
+		return MM_ERROR_NONE;
 	}
-	gst = player->pipeline->videobin[MMPLAYER_V_SINK].gst;
+	mm_attrs_get_int_by_name (player->attrs, "display_surface_type", &stype);
+
+	if (stype == MM_DISPLAY_SURFACE_NULL) {
+		debug_log("Display type is NULL");
+		if(!player->video_fakesink) {
+			debug_error("No fakesink");
+			return MM_ERROR_PLAYER_INVALID_STATE;
+		}
+		gst = player->video_fakesink;
+	}
+	else {
+		if ( !player->pipeline || !player->pipeline->videobin ||
+				!player->pipeline->videobin[MMPLAYER_V_SINK].gst ) {
+			debug_error("No video pipeline");
+			return MM_ERROR_PLAYER_INVALID_STATE;
+		}
+		gst = player->pipeline->videobin[MMPLAYER_V_SINK].gst;
+	}
 	pad = gst_element_get_static_pad(gst, "sink");
 	if(!pad) {
 		debug_error("static pad is NULL");
