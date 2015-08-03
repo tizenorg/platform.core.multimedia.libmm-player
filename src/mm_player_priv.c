@@ -5324,6 +5324,7 @@ void __mmplayer_gst_set_audiosink_property(mm_player_t* player, MMHandleType att
 	gint volume_type = 0;
 	gint latency_mode = 0;
 	gchar *stream_type = NULL;
+	gchar *latency = NULL;
 	gint stream_id = 0;
 	gchar stream_props[MAX_PROPS_LEN] = {0,};
 	GstStructure *props = NULL;
@@ -5351,6 +5352,19 @@ void __mmplayer_gst_set_audiosink_property(mm_player_t* player, MMHandleType att
 	mm_attrs_get_int_by_name(attrs, "sound_latency_mode", &latency_mode);
 	mm_attrs_get_int_by_name(attrs, "sound_volume_type", &volume_type);
 
+	switch (latency_mode)
+	{
+		case AUDIO_LATENCY_MODE_LOW:
+			latency = g_strndup("low", 3);
+			break;
+		case AUDIO_LATENCY_MODE_MID:
+			latency = g_strndup("mid", 3);
+			break;
+		case AUDIO_LATENCY_MODE_HIGH:
+			latency = g_strndup("high", 4);
+			break;
+	};
+
 	/* hook sound_type if emergency case */
 	if (player->sm.event == ASM_EVENT_EMERGENCY)
 	{
@@ -5359,12 +5373,13 @@ void __mmplayer_gst_set_audiosink_property(mm_player_t* player, MMHandleType att
 	}
 
 	g_object_set(player->pipeline->audiobin[MMPLAYER_A_SINK].gst,
-			"latency", latency_mode,
-			"volumetype", volume_type,
+			"latency", latency,
 			NULL);
 
-	debug_log("audiosink property - volume type=%d, latency=%d \n",
-		volume_type, latency_mode);
+	debug_log("audiosink property - volume type=%d, latency=%s \n",
+		volume_type, latency);
+
+	g_free(latency);
 
 	MMPLAYER_FLEAVE();
 }

@@ -77,6 +77,13 @@
 /*---------------------------------------------------------------------------
 |    GLOBAL CONSTANT DEFINITIONS:											|
 ---------------------------------------------------------------------------*/
+enum latency_mode
+{
+    AUDIO_LATENCY_MODE_LOW = 0,     /**< Low audio latency mode */
+    AUDIO_LATENCY_MODE_MID,         /**< Middle audio latency mode */
+    AUDIO_LATENCY_MODE_HIGH,        /**< High audio latency mode */
+};
+
 enum tag_info
 {
 	TAG_AUDIO_CODEC	= 0x0001,
