@@ -53,6 +53,7 @@
 #include <sched.h>
 
 #include <mm_sound.h>
+#include <mm_sound_focus.h>
 
 #define MM_SMOOTH_STREAMING
 
@@ -1168,7 +1169,7 @@ int
 __mmplayer_set_state(mm_player_t* player, int state) // @
 {
 	MMMessageParamType msg = {0, };
-	int asm_result = MM_ERROR_NONE;
+	int sound_result = MM_ERROR_NONE;
 	gboolean post_bos = FALSE;
 	gboolean interrupted_by_asm = FALSE;
 	int ret = MM_ERROR_NONE;
@@ -1198,7 +1199,7 @@ __mmplayer_set_state(mm_player_t* player, int state) // @
 	MMPLAYER_PRINT_STATE(player);
 
 	/* do some FSM stuffs before posting new state to application  */
-	interrupted_by_asm = player->sm.by_asm_cb;
+	interrupted_by_asm = player->sound_focus.by_asm_cb;
 
 	switch ( MMPLAYER_CURRENT_STATE(player) )
 	{
@@ -1207,10 +1208,10 @@ __mmplayer_set_state(mm_player_t* player, int state) // @
 		{
 			if (player->cmd == MMPLAYER_COMMAND_STOP)
 			{
-				asm_result = _mmplayer_asm_set_state((MMHandleType)player, ASM_STATE_STOP, FALSE);
-				if ( asm_result != MM_ERROR_NONE )
+				sound_result = _mmplayer_sound_release_focus(&player->sound_focus);
+				if ( sound_result != MM_ERROR_NONE )
 				{
-					debug_error("failed to set asm state to stop\n");
+					debug_error("failed to release sound focus\n");
 					return MM_ERROR_POLICY_INTERNAL;
 				}
 			}
@@ -1249,10 +1250,10 @@ __mmplayer_set_state(mm_player_t* player, int state) // @
 
 			if (!MMPLAYER_IS_STREAMING(player) || (player->streamer && !player->streamer->is_buffering))
 			{
-				asm_result = _mmplayer_asm_set_state((MMHandleType)player, ASM_STATE_PAUSE, FALSE);
-				if ( asm_result )
+				sound_result = _mmplayer_sound_release_focus(&player->sound_focus);
+				if ( sound_result != MM_ERROR_NONE )
 				{
-					debug_error("failed to set asm state to PAUSE\n");
+					debug_error("failed to release sound focus\n");
 					return MM_ERROR_POLICY_INTERNAL;
 				}
 			}
@@ -1276,11 +1277,10 @@ __mmplayer_set_state(mm_player_t* player, int state) // @
 				{
 					__mmplayer_handle_missed_plugin ( player );
 				}
-
-				/* update ASM state for video and streaming buffering */
-				asm_result = _mmplayer_asm_set_state((MMHandleType)player, ASM_STATE_PLAYING, TRUE);
-				if (asm_result != MM_ERROR_NONE)
+				sound_result = _mmplayer_sound_acquire_focus(&player->sound_focus);
+				if (sound_result != MM_ERROR_NONE)
 				{
+					// FIXME : need to check history
 					if (player->pipeline->videobin)
 					{
 						MMMessageParamType msg = {0, };
@@ -1295,9 +1295,9 @@ __mmplayer_set_state(mm_player_t* player, int state) // @
 					}
 					else
 					{
-						debug_error("failed to play by ASM error : 0x%X\n", asm_result);
+						debug_error("failed to play by sound focus error : 0x%X\n", sound_result);
 						_mmplayer_pause((MMHandleType)player);
-						return asm_result;
+						return sound_result;
 					}
 
 					return MM_ERROR_POLICY_INTERNAL;
@@ -1374,7 +1374,7 @@ __mmplayer_set_state(mm_player_t* player, int state) // @
 		if ( interrupted_by_asm )
 		{
 			msg.union_type = MM_MSG_UNION_CODE;
-			msg.code = player->sm.event_src;
+			msg.code = player->sound_focus.focus_changed_msg;	/* FIXME: player.c convert function have to be modified. */
 			MMPLAYER_POST_MSG( player, MM_MESSAGE_STATE_INTERRUPTED, &msg );
 		}
 		/* state changed by usecase */
@@ -1984,7 +1984,6 @@ __mmplayer_gst_callback(GstBus *bus, GstMessage *msg, gpointer data) // @
 		case GST_MESSAGE_BUFFERING:
 		{
 			MMMessageParamType msg_param = {0, };
-			int asm_result = MM_ERROR_NONE;
 
 			if (!MMPLAYER_IS_STREAMING(player))
 				break;
@@ -2003,17 +2002,6 @@ __mmplayer_gst_callback(GstBus *bus, GstMessage *msg, gpointer data) // @
 				}
 
 				break;
-			}
-
-			/* update ASM state to ASM_STATE_PLAYING */
-			/* fixed ASM_STATE_WAITING -> ASM_STATE_PLAYING for Samsunlink issue*/
-			if ((player->streamer) && (player->streamer->is_buffering == FALSE) && (MMPLAYER_CURRENT_STATE(player) != MM_PLAYER_STATE_PAUSED))
-			{
-				asm_result = _mmplayer_asm_set_state((MMHandleType)player, ASM_STATE_WAITING, TRUE);
-				if ( asm_result != MM_ERROR_NONE )
-				{
-					debug_warning("failed to set asm state to waiting, but keep going...\n");
-				}
 			}
 
 			__mmplayer_update_buffer_setting(player, msg);
@@ -5366,11 +5354,26 @@ void __mmplayer_gst_set_audiosink_property(mm_player_t* player, MMHandleType att
 	};
 
 	/* hook sound_type if emergency case */
-	if (player->sm.event == ASM_EVENT_EMERGENCY)
+	if (player->sound_focus.focus_changed_msg == MM_PLAYER_FOCUS_CHANGED_BY_EMERGENCY)
 	{
 		debug_log ("emergency session, hook sound_type from [%d] to [%d]\n", volume_type, MM_SOUND_VOLUME_TYPE_EMERGENCY);
 		volume_type = MM_SOUND_VOLUME_TYPE_EMERGENCY;
 	}
+#if 0 //need to check
+	if (player->sound_focus.user_route_policy != 0)
+	{
+		route_path = player->sound_focus.user_route_policy;
+	}
+
+	g_object_set(player->pipeline->audiobin[MMPLAYER_A_SINK].gst,
+			"latency", latency_mode,
+			NULL);
+
+	debug_log("audiosink property status...volume type:%d, user-route=%d, latency=%d \n",
+		volume_type, route_path, latency_mode);
+	MMPLAYER_FLEAVE();
+
+#endif
 
 	g_object_set(player->pipeline->audiobin[MMPLAYER_A_SINK].gst,
 			"latency", latency,
@@ -8016,13 +8019,13 @@ __mmplayer_gst_destroy_pipeline(mm_player_t* player) // @
 
 	/* cleanup running stuffs */
 	__mmplayer_cancel_eos_timer( player );
-
+#if 0 //need to change and test
 	/* remove sound cb */
 	if ( MM_ERROR_NONE != mm_sound_remove_device_information_changed_callback())
 	{
 		debug_error("failed to mm_sound_remove_device_information_changed_callback()");
 	}
-
+#endif
 	/* cleanup gst stuffs */
 	if ( player->pipeline )
 	{
@@ -8361,7 +8364,7 @@ static int __gst_stop(mm_player_t* player) // @
 	mm_attrs_get_int_by_name(attrs, "sound_fadedown", &fadedown);
 
 	/* enable fadedown */
-	if (fadedown || player->sm.by_asm_cb)
+	if (fadedown || player->sound_focus.by_asm_cb)
 		__mmplayer_do_sound_fadedown(player, MM_PLAYER_FADEOUT_TIME_DEFAULT);
 
 	/* Just set state to PAUESED and the rewind. it's usual player behavior. */
@@ -8390,7 +8393,7 @@ static int __gst_stop(mm_player_t* player) // @
 	ret = __mmplayer_gst_set_state( player, player->pipeline->mainbin[MMPLAYER_M_PIPE].gst, state, async, timeout );
 
 	/* disable fadeout */
-	if (fadedown || player->sm.by_asm_cb)
+	if (fadedown || player->sound_focus.by_asm_cb)
 		__mmplayer_undo_sound_fadedown(player);
 
 	/* return if set_state has failed */
@@ -8825,7 +8828,7 @@ __gst_get_position(mm_player_t* player, int format, unsigned long* position) // 
 			pos_msec = player->duration;
 		}
 
-		if (player->sm.keep_last_pos) {
+		if (player->sound_focus.keep_last_pos) {
 			debug_log("return last pos as stop by asm, %"GST_TIME_FORMAT, GST_TIME_ARGS(player->last_position));
 			pos_msec = player->last_position;
 		}
@@ -9295,7 +9298,7 @@ gboolean _asm_postmsg(gpointer *data)
 
 
 	msg.union_type = MM_MSG_UNION_CODE;
-	msg.code = player->sm.event_src;
+	msg.code = player->sound_focus.focus_changed_msg;
 
 #if 0 // should remove
 	if (player->sm.event_src == ASM_EVENT_SOURCE_RESUMABLE_CANCELED)
@@ -9343,7 +9346,7 @@ gboolean _asm_lazy_pause(gpointer *data)
 	if (player->pipeline && player->pipeline->audiobin)
 		g_object_set(G_OBJECT(player->pipeline->audiobin[MMPLAYER_A_SINK].gst), "mute", 0, NULL);
 
-	player->sm.by_asm_cb = FALSE; //should be reset here
+	player->sound_focus.by_asm_cb = FALSE; //should be reset here
 
 	MMPLAYER_FLEAVE();
 
@@ -9359,9 +9362,9 @@ __mmplayer_can_do_interrupt(mm_player_t *player)
 		goto FAILED;
 	}
 
-	if ((player->sm.exit_cb) || (player->set_mode.pcm_extraction))
+	if ((player->sound_focus.exit_cb) || (player->set_mode.pcm_extraction))
 	{
-		debug_warning("leave from asm cb right now, %d, %d", player->sm.exit_cb, player->set_mode.pcm_extraction);
+		debug_warning("leave from asm cb right now, %d, %d", player->sound_focus.exit_cb, player->set_mode.pcm_extraction);
 		goto FAILED;
 	}
 
@@ -9404,15 +9407,65 @@ INTERRUPT:
 	return TRUE;
 }
 
-ASM_cb_result_t
-__mmplayer_asm_callback(int handle, ASM_event_sources_t event_src, ASM_sound_commands_t command, unsigned int sound_status, void* cb_data)
+/* if you want to enable USE_ASM, please check the history get the ASM cb code. */
+static int
+__mmplayer_convert_sound_focus_state(gboolean acquire, const char *reason_for_change, MMPlayerFocusChangedMsg *msg)
 {
-	mm_player_t* player = (mm_player_t*) cb_data;
-	ASM_cb_result_t cb_res = ASM_CB_RES_IGNORE;
-	int result = MM_ERROR_NONE;
-	gboolean lazy_pause = FALSE;
+	int ret = MM_ERROR_NONE;
+	MMPlayerFocusChangedMsg focus_msg = MM_PLAYER_FOCUS_CHANGED_BY_UNKNOWN;
 
-	debug_warning("get notified");
+	if (strstr(reason_for_change, "alarm")) {
+		focus_msg = MM_PLAYER_FOCUS_CHANGED_BY_ALARM;
+
+	} else if (strstr(reason_for_change, "notification")) {
+		focus_msg = MM_PLAYER_FOCUS_CHANGED_BY_NOTIFICATION;
+
+	} else if (strstr(reason_for_change, "emergency")) {
+		focus_msg = MM_PLAYER_FOCUS_CHANGED_BY_EMERGENCY;
+
+	} else if (strstr(reason_for_change, "call-voice") ||
+               strstr(reason_for_change, "call-video") ||
+               strstr(reason_for_change, "voip") ||
+               strstr(reason_for_change, "ringtone-voip") ||
+               strstr(reason_for_change, "ringtone-call")) {
+		focus_msg = MM_PLAYER_FOCUS_CHANGED_BY_CALL;
+
+	} else if (strstr(reason_for_change, "media") ||
+				strstr(reason_for_change, "radio") ||
+				strstr(reason_for_change, "loopback") ||
+				strstr(reason_for_change, "system") ||
+				strstr(reason_for_change, "voice-information") ||
+				strstr(reason_for_change, "voice-recognition")) {
+		focus_msg = MM_PLAYER_FOCUS_CHANGED_BY_MEDIA;
+
+	} else {
+		ret = MM_ERROR_INVALID_ARGUMENT;
+		debug_warning("not supported reason(%s), err(0x%08x)", reason_for_change, ret);
+		goto DONE;
+	}
+
+	if (acquire && (focus_msg != MM_PLAYER_FOCUS_CHANGED_BY_MEDIA))
+	{
+		/* can acqurie */
+		focus_msg = MM_PLAYER_FOCUS_CHANGED_COMPLETED;
+	}
+
+	debug_log("converted from reason(%s) to msg(%d)", reason_for_change, focus_msg);
+	*msg = focus_msg;
+
+DONE:
+	return ret;
+}
+
+/* FIXME: will be updated with new funct */
+void __mmplayer_sound_focus_watch_callback(int id, mm_sound_focus_type_e focus_type, mm_sound_focus_state_e focus_state,
+				       const char *reason_for_change, const char *additional_info, void *user_data)
+{
+	mm_player_t* player = (mm_player_t*) user_data;
+	int result = MM_ERROR_NONE;
+	MMPlayerFocusChangedMsg msg = MM_PLAYER_FOCUS_CHANGED_BY_UNKNOWN;
+
+	debug_warning("focus watch notified");
 
 	if (!__mmplayer_can_do_interrupt(player))
 	{
@@ -9420,12 +9473,124 @@ __mmplayer_asm_callback(int handle, ASM_event_sources_t event_src, ASM_sound_com
 		goto EXIT;
 	}
 
-	player->sm.cb_pending = TRUE;
-	debug_warning("asm event src type : %d, command : 0x%x", event_src, command);
+	if (player->sound_focus.session_flags & MM_SESSION_OPTION_UNINTERRUPTIBLE)
+	{
+		debug_warning("flags is UNINTERRUPTIBLE. do nothing.");
+		goto EXIT;
+	}
 
-	player->sm.by_asm_cb = TRUE;
-	player->sm.event_src = event_src;
+	debug_warning("watch: state: %d, focus_type : %d, reason_for_change : %s",
+		focus_state, focus_type, (reason_for_change?reason_for_change:"N/A"));
 
+	player->sound_focus.cb_pending = TRUE;
+	player->sound_focus.by_asm_cb = TRUE;
+
+	if (focus_state == FOCUS_IS_ACQUIRED)
+	{
+		debug_warning("watch: FOCUS_IS_ACQUIRED");
+		if (MM_ERROR_NONE == __mmplayer_convert_sound_focus_state(FALSE, reason_for_change, &msg))
+		{
+			player->sound_focus.focus_changed_msg = (int)msg;
+		}
+
+		if (strstr(reason_for_change, "call") ||
+			strstr(reason_for_change, "voip") ||	/* FIXME: to check */
+			strstr(reason_for_change, "alarm") ||
+			strstr(reason_for_change, "media"))
+		{
+			if (!MMPLAYER_IS_RTSP_STREAMING(player))
+			{
+				// hold 0.7 second to excute "fadedown mute" effect
+				debug_warning ("do fade down->pause->undo fade down");
+
+				__mmplayer_do_sound_fadedown(player, MM_PLAYER_FADEOUT_TIME_DEFAULT);
+
+				result = _mmplayer_pause((MMHandleType)player);
+				if (result != MM_ERROR_NONE)
+				{
+					debug_warning("fail to set Pause state by asm");
+					goto EXIT;
+				}
+				__mmplayer_undo_sound_fadedown(player);
+			}
+			else
+			{
+				/* rtsp should connect again in specific network becasue tcp session can't be kept any more */
+				_mmplayer_unrealize((MMHandleType)player);
+			}
+		}
+		else
+		{
+			debug_warning ("pause immediately");
+			result = _mmplayer_pause((MMHandleType)player);
+			if (result != MM_ERROR_NONE)
+			{
+				debug_warning("fail to set Pause state by asm");
+				goto EXIT;
+			}
+		}
+	}
+	else if (focus_state == FOCUS_IS_RELEASED)
+	{
+		debug_warning("FOCUS_IS_RELEASED: Got msg from asm to resume");
+		player->sound_focus.antishock = TRUE;
+		player->sound_focus.by_asm_cb = FALSE;
+
+		if (MM_ERROR_NONE == __mmplayer_convert_sound_focus_state(TRUE, reason_for_change, &msg))
+		{
+			player->sound_focus.focus_changed_msg = (int)msg;
+		}
+
+		//ASM server is single thread daemon. So use g_idle_add() to post resume msg
+		player->resume_event_id = g_idle_add((GSourceFunc)_asm_postmsg, (gpointer)player);
+		goto DONE;
+	}
+	else
+	{
+		debug_warning("unknown focus state %d", focus_state);
+	}
+
+DONE:
+	player->sound_focus.by_asm_cb = FALSE;
+	player->sound_focus.cb_pending = FALSE;
+	MMPLAYER_CMD_UNLOCK( player );
+
+EXIT:
+	debug_warning("dispatched");
+	return;
+}
+
+void
+__mmplayer_sound_focus_callback(int id, mm_sound_focus_type_e focus_type, mm_sound_focus_state_e focus_state,
+	const char *reason_for_change, const char *additional_info, void *user_data)
+{
+	mm_player_t* player = (mm_player_t*) user_data;
+	int result = MM_ERROR_NONE;
+	gboolean lazy_pause = FALSE;
+	MMPlayerFocusChangedMsg msg = MM_PLAYER_FOCUS_CHANGED_BY_UNKNOWN;
+
+	debug_warning("get focus notified");
+
+	if (!__mmplayer_can_do_interrupt(player))
+	{
+		debug_warning("no need to interrupt, so leave");
+		goto EXIT;
+	}
+
+	if (player->sound_focus.session_flags & MM_SESSION_OPTION_UNINTERRUPTIBLE)
+	{
+		debug_warning("flags is UNINTERRUPTIBLE. do nothing.");
+		goto EXIT;
+	}
+
+	debug_warning("state: %d, focus_type : %d, reason_for_change : %s",
+		focus_state, focus_type, (reason_for_change?reason_for_change:"N/A"));
+
+	player->sound_focus.cb_pending = TRUE;
+	player->sound_focus.by_asm_cb = TRUE;
+//	player->sound_focus.event_src = event_src;
+
+#if 0
 	/* first, check event source */
 	if(event_src == ASM_EVENT_SOURCE_EARJACK_UNPLUG)
 	{
@@ -9436,11 +9601,13 @@ __mmplayer_asm_callback(int handle, ASM_event_sources_t event_src, ASM_sound_com
 	}
 	else if (event_src == ASM_EVENT_SOURCE_RESOURCE_CONFLICT)
 	{
+		/* can use video overlay simultaneously */
+		/* video resource conflict */
 		if(player->pipeline->videobin)
 		{
-			debug_log("video conflict so, resource will be freed.");
-			result = _mmplayer_unrealize((MMHandleType)player);
-			cb_res = ASM_CB_RES_STOP;
+			debug_log("video conflict but, can support multiple video");
+			result = _mmplayer_pause((MMHandleType)player);
+			cb_res = ASM_CB_RES_PAUSE;
 		}
 		else if (player->pipeline->audiobin)
 		{
@@ -9458,123 +9625,109 @@ __mmplayer_asm_callback(int handle, ASM_event_sources_t event_src, ASM_sound_com
 	else if (event_src == ASM_EVENT_SOURCE_RESUMABLE_CANCELED)
 	{
 		debug_warning("Got msg from asm for resumable canceled.\n");
-		player->sm.antishock = TRUE;
-		player->sm.by_asm_cb = FALSE;
+		player->sound_focus.antishock = TRUE;
+		player->sound_focus.by_asm_cb = FALSE;
 
 		player->resumable_cancel_id = g_idle_add((GSourceFunc)_asm_postmsg, (gpointer)player);
 		cb_res = ASM_CB_RES_IGNORE;
 		goto DONE;
 	}
 #endif
-	/* then, check command */
-	switch(command)
+#endif
+
+	if (focus_state == FOCUS_IS_RELEASED)
 	{
-		case ASM_COMMAND_PLAY:
-			debug_warning ("Got unexpected asm command (%d)", command);
-			break;
+		debug_warning("FOCUS_IS_RELEASED");
 
-		case ASM_COMMAND_STOP: // notification case
+		if (MM_ERROR_NONE == __mmplayer_convert_sound_focus_state(FALSE, reason_for_change, &msg))
+		{
+			player->sound_focus.focus_changed_msg = (int)msg;
+		}
+
+		if (strstr(reason_for_change, "call") ||
+			strstr(reason_for_change, "voip") ||	/* FIXME: to check */
+			strstr(reason_for_change, "alarm") ||
+			strstr(reason_for_change, "media"))
+		{
+			if (!MMPLAYER_IS_RTSP_STREAMING(player))
 			{
-				debug_warning("Got msg from asm to stop");
+				//hold 0.7 second to excute "fadedown mute" effect
+				debug_warning ("do fade down->pause->undo fade down");
 
-				if (!gst_element_query_position(player->pipeline->mainbin[MMPLAYER_M_PIPE].gst, GST_FORMAT_TIME, &player->last_position)) {
-					debug_error("failed to get position");
-					player->last_position = 0;
-				}
+				__mmplayer_do_sound_fadedown(player, MM_PLAYER_FADEOUT_TIME_DEFAULT);
 
-				debug_log ("pos_msec = %"GST_TIME_FORMAT"", GST_TIME_ARGS(player->last_position));
-
-				result = _mmplayer_stop((MMHandleType)player);
+				result = _mmplayer_pause((MMHandleType)player);
 				if (result != MM_ERROR_NONE)
 				{
-					debug_warning("fail to set stop state by asm");
-					cb_res = ASM_CB_RES_IGNORE;
+					debug_warning("fail to set Pause state by asm");
+					goto EXIT;
 				}
-				else
-				{
-					cb_res = ASM_CB_RES_STOP;
-				}
-				player->sm.by_asm_cb = FALSE; // reset because no message any more from asm
-				player->sm.keep_last_pos = TRUE;
+				__mmplayer_undo_sound_fadedown(player);
 			}
-			break;
-
-		case ASM_COMMAND_PAUSE:
+			else
 			{
-				debug_warning("Got msg from asm to Pause");
-				if(event_src == ASM_EVENT_SOURCE_CALL_START ||
-					event_src == ASM_EVENT_SOURCE_ALARM_START ||
-					event_src == ASM_EVENT_SOURCE_MEDIA)
-				{
-					if ( ! MMPLAYER_IS_RTSP_STREAMING(player) ) {
-						//hold 0.7 second to excute "fadedown mute" effect
-						debug_warning ("do fade down->pause->undo fade down");
-
-						__mmplayer_do_sound_fadedown(player, MM_PLAYER_FADEOUT_TIME_DEFAULT);
-
-						result = _mmplayer_pause((MMHandleType)player);
-						if (result != MM_ERROR_NONE)
-						{
-							debug_warning("fail to set Pause state by asm");
-							cb_res = ASM_CB_RES_IGNORE;
-							break;
-						}
-						__mmplayer_undo_sound_fadedown(player);
-					} else {
-						/* rtsp should connect again in specific network becasue tcp session can't be kept any more */
-						_mmplayer_unrealize((MMHandleType)player);
-					}
-				}
+				/* rtsp should connect again in specific network becasue tcp session can't be kept any more */
+				_mmplayer_unrealize((MMHandleType)player);
+			}
+		}
+#if 0
 #ifdef USE_LAZY_PAUSE // if enabled, should consider event id and context when removed
-				else if(event_src == ASM_EVENT_SOURCE_OTHER_PLAYER_APP)
-				{
-					lazy_pause = TRUE; // return as soon as possible, for fast start of other app
+		else if(event_src == ASM_EVENT_SOURCE_OTHER_PLAYER_APP)
+		{
+			lazy_pause = TRUE; // return as soon as possible, for fast start of other app
 
-					if ( player->pipeline->audiobin && player->pipeline->audiobin[MMPLAYER_A_SINK].gst )
-						g_object_set( player->pipeline->audiobin[MMPLAYER_A_SINK].gst, "mute", 2, NULL);
+			if ( player->pipeline->audiobin && player->pipeline->audiobin[MMPLAYER_A_SINK].gst )
+				g_object_set( player->pipeline->audiobin[MMPLAYER_A_SINK].gst, "mute", 2, NULL);
 
-					player->lazy_pause_event_id = g_timeout_add(LAZY_PAUSE_TIMEOUT_MSEC, (GSourceFunc)_asm_lazy_pause, (gpointer)player);
-					debug_warning ("set lazy pause timer (id=[%d], timeout=[%d ms])", player->lazy_pause_event_id, LAZY_PAUSE_TIMEOUT_MSEC);
-				}
+			player->lazy_pause_event_id = g_timeout_add(LAZY_PAUSE_TIMEOUT_MSEC, (GSourceFunc)_asm_lazy_pause, (gpointer)player);
+			debug_warning ("set lazy pause timer (id=[%d], timeout=[%d ms])", player->lazy_pause_event_id, LAZY_PAUSE_TIMEOUT_MSEC);
+		}
 #endif
-				else
-				{
-					debug_warning ("pause immediately");
-					result = _mmplayer_pause((MMHandleType)player);
-				}
-				cb_res = ASM_CB_RES_PAUSE;
-			}
-			break;
-
-		case ASM_COMMAND_RESUME:
+#endif
+		else
+		{
+			debug_warning ("pause immediately");
+			result = _mmplayer_pause((MMHandleType)player);
+			if (result != MM_ERROR_NONE)
 			{
-				debug_warning("Got msg from asm to Resume. So, application can resume. code (%d) \n", event_src);
-				player->sm.antishock = TRUE;
-				player->sm.by_asm_cb = FALSE;
-
-				//ASM server is single thread daemon. So use g_idle_add() to post resume msg
-				player->resume_event_id = g_idle_add((GSourceFunc)_asm_postmsg, (gpointer)player);
-				cb_res = ASM_CB_RES_IGNORE;
-				goto DONE;
+				debug_warning("fail to set Pause state by asm");
+				goto EXIT;
 			}
-			break;
+		}
+	}
+	else if (focus_state == FOCUS_IS_ACQUIRED)
+	{
+		debug_warning("FOCUS_IS_ACQUIRED: Got msg from asm to resume");
+		player->sound_focus.antishock = TRUE;
+		player->sound_focus.by_asm_cb = FALSE;
 
-		default:
-			break;
+		if (MM_ERROR_NONE == __mmplayer_convert_sound_focus_state(TRUE, reason_for_change, &msg))
+		{
+			player->sound_focus.focus_changed_msg = (int)msg;
+		}
+
+		//ASM server is single thread daemon. So use g_idle_add() to post resume msg
+		player->resume_event_id = g_idle_add((GSourceFunc)_asm_postmsg, (gpointer)player);
+		goto DONE;
+	}
+	else
+	{
+		debug_warning("unknown focus state %d", focus_state);
 	}
 
 DONE:
 	if ( !lazy_pause )
 	{
-		player->sm.by_asm_cb = FALSE;
+		player->sound_focus.by_asm_cb = FALSE;
 	}
-	player->sm.cb_pending = FALSE;
+	player->sound_focus.cb_pending = FALSE;
 	MMPLAYER_CMD_UNLOCK( player );
 
 EXIT:
 	debug_warning("dispatched");
-	return cb_res;
+	return;
 }
+
 
 int
 _mmplayer_create_player(MMHandleType handle) // @
@@ -9648,22 +9801,25 @@ _mmplayer_create_player(MMHandleType handle) // @
 		debug_error("failed to initialize video capture\n");
 		goto ERROR;
 	}
-#if 0
+
 	/* register to asm */
-	if ( MM_ERROR_NONE != _mmplayer_asm_register(&player->sm, (ASM_sound_cb_t)__mmplayer_asm_callback, (void*)player) )
+	if ( MM_ERROR_NONE != _mmplayer_sound_register(&player->sound_focus,
+						(mm_sound_focus_changed_cb)__mmplayer_sound_focus_callback,
+						(mm_sound_focus_changed_watch_cb)__mmplayer_sound_focus_watch_callback,
+						(void*)player) )
+
 	{
 		/* NOTE : we are dealing it as an error since we cannot expect it's behavior */
 		debug_error("failed to register asm server\n");
 		return MM_ERROR_POLICY_INTERNAL;
 	}
-
+#if 0 //need to change and test
 	/* to add active device callback */
 	if ( MM_ERROR_NONE != mm_sound_add_device_information_changed_callback(MM_SOUND_DEVICE_STATE_ACTIVATED_FLAG, __mmplayer_sound_device_info_changed_cb_func, (void*)player))
 	{
 		debug_error("failed mm_sound_add_device_information_changed_callback \n");
 	}
 #endif
-
 	if (MMPLAYER_IS_HTTP_PD(player))
 	{
 		player->pd_downloader = NULL;
@@ -9934,24 +10090,24 @@ _mmplayer_destroy(MMHandleType handle) // @
 	_mmplayer_release_video_capture(player);
 
 	/* flush any pending asm_cb */
-	if (player->sm.cb_pending)
+	if (player->sound_focus.cb_pending)
 	{
 		/* set a flag for make sure asm_cb to be returned immediately */
 		debug_warning("asm cb has pending state");
-		player->sm.exit_cb = TRUE;
+		player->sound_focus.exit_cb = TRUE;
 
 		/* make sure to release any pending asm_cb which locked by cmd_lock */
 		MMPLAYER_CMD_UNLOCK(player);
 		sched_yield();
 		MMPLAYER_CMD_LOCK(player);
 	}
-#if 0
+
 	/* withdraw asm */
-	if ( MM_ERROR_NONE != _mmplayer_asm_unregister(&player->sm) )
+	if ( MM_ERROR_NONE != _mmplayer_sound_unregister(&player->sound_focus) )
 	{
 		debug_error("failed to deregister asm server\n");
 	}
-#endif
+
 #ifdef USE_LAZY_PAUSE
 	if (player->lazy_pause_event_id)
 	{
@@ -10066,7 +10222,7 @@ _mmplayer_realize(MMHandleType hplayer) // @
 	}
 
 	mm_attrs_get_int_by_name(attrs, "sound_application_pid", &application_pid );
-	player->sm.pid = application_pid;
+	player->sound_focus.pid = application_pid;
 
 	mm_attrs_get_string_by_name(attrs, "profile_uri", &uri);
 	mm_attrs_get_data_by_name(attrs, "profile_user_param", &param);
@@ -10187,15 +10343,11 @@ _mmplayer_unrealize(MMHandleType hplayer)
 	/* set asm stop if success */
 	if (MM_ERROR_NONE == ret)
 	{
-		if (player->sm.state != ASM_STATE_STOP)
+		ret = _mmplayer_sound_release_focus(&player->sound_focus);
+		if ( ret != MM_ERROR_NONE )
 		{
-			/* NOTE : Stop asm after pipeline unrealize. Keep this sequence. */
-			ret = _mmplayer_asm_set_state(hplayer, ASM_STATE_STOP, FALSE);
-			if ( ret )
-			{
-				debug_error("failed to set asm state to STOP");
-				return ret;
-			}
+			debug_error("failed to release sound focus\n");
+			return ret;
 		}
 	}
 	else
@@ -10612,10 +10764,10 @@ _mmplayer_start(MMHandleType hplayer) // @
 	/* check current state */
 	MMPLAYER_CHECK_STATE_RETURN_IF_FAIL( player, MMPLAYER_COMMAND_START );
 
-	ret = _mmplayer_asm_set_state(hplayer, ASM_STATE_PLAYING, TRUE);
+	ret = _mmplayer_sound_acquire_focus(&player->sound_focus);
 	if ( ret != MM_ERROR_NONE )
 	{
-		debug_error("failed to set asm state to PLAYING\n");
+		debug_error("failed to acquire sound focus.\n");
 		return ret;
 	}
 
@@ -10879,10 +11031,10 @@ _mmplayer_resume(MMHandleType hplayer)
 
 	return_val_if_fail ( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
 
-	ret = _mmplayer_asm_set_state(hplayer, ASM_STATE_PLAYING, TRUE);
-	if ( ret )
+	ret = _mmplayer_sound_acquire_focus(&player->sound_focus);
+	if ( ret != MM_ERROR_NONE )
 	{
-		debug_error("failed to set asm state to PLAYING\n");
+		debug_error("failed to acquire sound focus.\n");
 		return ret;
 	}
 
@@ -13529,7 +13681,8 @@ __mmplayer_release_misc(mm_player_t* player)
 	player->max_audio_channels = 0;
 	player->video_share_api_delta = 0;
 	player->video_share_clock_delta = 0;
-	player->sm.keep_last_pos = FALSE;
+	player->sound_focus.keep_last_pos = FALSE;
+	player->sound_focus.acquired = FALSE;
 	player->is_subtitle_force_drop = FALSE;
 	player->play_subtitle = FALSE;
 	player->use_textoverlay = FALSE;

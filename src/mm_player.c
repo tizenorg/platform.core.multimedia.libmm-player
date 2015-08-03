@@ -804,17 +804,6 @@ int mm_player_get_track_language_code(MMHandleType player,  MMPlayerTrackType ty
 	return result;
 }
 
-int mm_player_ignore_session(MMHandleType player)
-{
-	int result = MM_ERROR_NONE;
-
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
-
-	result = _mmplayer_asm_ignore_session(player);
-
-	return result;
-}
-
 int mm_player_set_display_zoom(MMHandleType player, float level, int x, int y)
 {
 	int result = MM_ERROR_NONE;

@@ -3,7 +3,7 @@
  *
  * Copyright (c) 2000 - 2011 Samsung Electronics Co., Ltd. All rights reserved.
  *
- * Contact: JongHyuk Choi <jhchoi.choi@samsung.com>, YeJin Cho <cho.yejin@samsung.com>,
+ * Contact: Heechul Jeon <heechul.jeon@samsung.com>
  * Seungbae Shin <seungbae.shin@samsung.com>, YoungHwan An <younghwan_.an@samsung.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,45 +20,47 @@
  *
  */
 
-#ifndef __MM_PLAYER_ASM_H__
-#define __MM_PLAYER_ASM_H__
+#ifndef __MM_PLAYER_SOUND_FOCUS_H__
+#define __MM_PLAYER_SOUND_FOCUS_H__
 
 #include <glib.h>
 #include <mm_types.h>
 
 #include <mm_session.h>
 #include <mm_session_private.h>
-#include <audio-session-manager.h>
+#include <mm_sound_focus.h>
+#include <mm_sound.h>
+
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 typedef struct {
-	int handle;
+	int focus_id;
+	int watch_id;
+	unsigned int subscribe_id;
 	int pid;
 	bool by_asm_cb;
 	int antishock;
-	int event_src;
-	int skip_session;
 	bool keep_last_pos;
 	int user_route_policy;
-	ASM_sound_states_t state;
-	ASM_sound_events_t event;
-	ASM_resource_t resource;
 	bool exit_cb;
 	bool cb_pending;
-} MMPlayerASM;
+	bool acquired;
+	int session_type;
+	int session_flags;
+	int focus_changed_msg;	// MMPlayerFocusChangedMsg
 
-gint _mmplayer_asm_register(MMPlayerASM* sm, ASM_sound_cb_t callback, void* param);
-gint _mmplayer_asm_unregister(MMPlayerASM* sm);
-gint _mmplayer_asm_set_state(MMHandleType player, ASM_sound_states_t state, gboolean enable_safety_vol);
-gint _mmplayer_asm_ignore_session(MMHandleType player);
-gint _mmplayer_asm_set_sound_resource(MMHandleType player, MMPlayerSoundResource mode);
-ASM_cb_result_t __mmplayer_asm_callback(int handle, ASM_event_sources_t event_src, ASM_sound_commands_t command, unsigned int sound_status, void* cb_data);
+} MMPlayerSoundFocus;
+
+gint _mmplayer_sound_register(MMPlayerSoundFocus* sound_focus, mm_sound_focus_changed_cb focus_cb, mm_sound_focus_changed_watch_cb watch_cb, void* param);
+gint _mmplayer_sound_unregister(MMPlayerSoundFocus* sound_focus);
+int _mmplayer_sound_acquire_focus(MMPlayerSoundFocus* sound_focus);
+int _mmplayer_sound_release_focus(MMPlayerSoundFocus* sound_focus);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* __MM_PLAYER_ASM_H__ */
+#endif /* __MM_PLAYER_SOUND_FOCUS_H__ */

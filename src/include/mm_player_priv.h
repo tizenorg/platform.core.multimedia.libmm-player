@@ -43,7 +43,7 @@
 #include "mm_player_audioeffect.h"
 #include "mm_message.h"
 #include "mm_player_ini.h"
-#include "mm_player_asm.h"
+#include "mm_player_sound_focus.h"
 #include "mm_player_pd.h"
 #include "mm_player_streaming.h"
 
@@ -645,7 +645,7 @@ typedef struct {
 	gboolean is_nv12_tiled;
 	gboolean is_drm_file;
 
-	MMPlayerASM sm;
+	MMPlayerSoundFocus sound_focus;
 
 	gboolean is_subtitle_off;
 	gboolean is_external_subtitle_present;
