@@ -69,6 +69,10 @@
 /*---------------------------------------------------------------------------
 |    LOCAL #defines:														|
 ---------------------------------------------------------------------------*/
+/* setting player state */
+#define MMPLAYER_MUSED_SET_STATE( x_player, x_state ) \
+debug_log("update state machine to %d\n", x_state); \
+__mmplayer_mused_set_state(x_player, x_state);
 
 /*---------------------------------------------------------------------------
 |    LOCAL CONSTANT DEFINITIONS:											|
@@ -94,10 +98,11 @@ static int _mmplayer_mused_realize(mm_player_t *player, char *string_caps);
 static int _mmplayer_mused_unrealize(mm_player_t *player);
 static MMHandleType _mmplayer_mused_construct_attribute(mm_player_t *player);
 static int _mmplayer_mused_update_video_param(mm_player_t *player);
-static int _mmplayer_get_raw_video_caps(mm_player_t *player, char **caps);
 static int __mmplayer_mused_gst_destroy_pipeline(mm_player_t *player);
 static int _mmplayer_mused_gst_pause(mm_player_t *player);
-static int _mmplayer_set_shm_stream_path(MMHandleType hplayer, const char *path);
+static gboolean __mmplayer_mused_gst_callback(GstBus *bus, GstMessage *msg, gpointer data);
+static GstBusSyncReply __mmplayer_mused_bus_sync_callback (GstBus * bus, GstMessage * message, gpointer data);
+static int __mmplayer_mused_set_state(mm_player_t* player, int state);
 /*===========================================================================================
 |																							|
 |  FUNCTION DEFINITIONS																		|
@@ -156,7 +161,7 @@ int mm_player_mused_create(MMHandleType *player)
 		debug_error("Initializing gstreamer failed\n");
 		goto ERROR;
 	}
-	MMPLAYER_SET_STATE ( new_player, MM_PLAYER_STATE_NULL );
+	MMPLAYER_MUSED_SET_STATE ( new_player, MM_PLAYER_STATE_NULL );
 	MMPLAYER_STATE_CHANGE_TIMEOUT(new_player) = new_player->ini.localplayback_state_change_timeout;
 
 	*player = (MMHandleType)new_player;
@@ -203,11 +208,35 @@ _mmplayer_mused_init_gst(mm_player_t *player)
 
 	/* add initial */
 	*argc = 1;
-	argv[0] = g_strdup( "mmplayer_mused" );
+	argv[0] = g_strdup( "mused_client" );
+
+	/* add gst_param */
+	for ( i = 0; i < 5; i++ ) /* FIXIT : num of param is now fixed to 5. make it dynamic */
+	{
+		if ( strlen( player->ini.gst_param[i] ) > 0 )
+		{
+			argv[*argc] = g_strdup( player->ini.gst_param[i] );
+			(*argc)++;
+		}
+	}
 
 	/* we would not do fork for scanning plugins */
 	argv[*argc] = g_strdup("--gst-disable-registry-fork");
 	(*argc)++;
+
+	/* check disable registry scan */
+	if ( player->ini.skip_rescan )
+	{
+		argv[*argc] = g_strdup("--gst-disable-registry-update");
+		(*argc)++;
+	}
+
+	/* check disable segtrap */
+	if ( player->ini.disable_segtrap )
+	{
+		argv[*argc] = g_strdup("--gst-disable-segtrap");
+		(*argc)++;
+	}
 
 	arg_count = *argc;
 
@@ -423,7 +452,7 @@ static int _mmplayer_mused_realize(mm_player_t *player, char *string_caps)
 		goto REALIZE_ERROR;
 	}
 
-	player->bus_watcher = gst_bus_add_watch(bus, (GstBusFunc)__mmplayer_gst_callback, player);
+	player->bus_watcher = gst_bus_add_watch(bus, (GstBusFunc)__mmplayer_mused_gst_callback, player);
 
 	player->context.thread_default = g_main_context_get_thread_default();
 
@@ -435,7 +464,7 @@ static int _mmplayer_mused_realize(mm_player_t *player, char *string_caps)
 	debug_log("bus watcher thread context = %p, watcher : %d", player->context.thread_default, player->bus_watcher);
 
 	/* set sync handler to get tag synchronously */
-	gst_bus_set_sync_handler(bus, __mmplayer_bus_sync_callback, player, NULL);
+	gst_bus_set_sync_handler(bus, __mmplayer_mused_bus_sync_callback, player, NULL);
 
 	gst_object_unref(GST_OBJECT(bus));
 
@@ -460,7 +489,7 @@ static int _mmplayer_mused_realize(mm_player_t *player, char *string_caps)
 		goto REALIZE_ERROR;
 	}
 
-	MMPLAYER_SET_STATE ( player, MM_PLAYER_STATE_READY );
+	MMPLAYER_MUSED_SET_STATE ( player, MM_PLAYER_STATE_READY );
 	return result;
 
 REALIZE_ERROR:
@@ -576,7 +605,7 @@ static int _mmplayer_mused_unrealize(mm_player_t *player)
 
 	ret = __mmplayer_mused_gst_destroy_pipeline(player);
 
-	MMPLAYER_SET_STATE ( player, MM_PLAYER_STATE_NULL );
+	MMPLAYER_MUSED_SET_STATE ( player, MM_PLAYER_STATE_NULL );
 
 	return ret;
 }
@@ -641,7 +670,7 @@ static int _mmplayer_mused_gst_pause(mm_player_t *player)
 				return MM_ERROR_PLAYER_INTERNAL;
 			}
 			debug_log("succeeded in chaning state to PAUSED");
-			MMPLAYER_SET_STATE ( player, MM_PLAYER_STATE_PAUSED );
+			MMPLAYER_MUSED_SET_STATE ( player, MM_PLAYER_STATE_PAUSED );
 		}
 	}
 
@@ -659,6 +688,21 @@ int mm_player_mused_pre_unrealize(MMHandleType player)
 	result = _mmplayer_mused_gst_pause(player);
 
 	MMPLAYER_CMD_UNLOCK( player );
+
+	return result;
+}
+
+int mm_player_set_attribute(MMHandleType player,  char **err_attr_name, const char *first_attribute_name, ...)
+{
+	int result = MM_ERROR_NONE;
+	va_list var_args;
+
+	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	return_val_if_fail(first_attribute_name, MM_ERROR_COMMON_INVALID_ARGUMENT);
+
+	va_start (var_args, first_attribute_name);
+	result = _mmplayer_set_attribute(player, err_attr_name, first_attribute_name, var_args);
+	va_end (var_args);
 
 	return result;
 }
@@ -809,77 +853,251 @@ static MMHandleType _mmplayer_mused_construct_attribute(mm_player_t *player)
 	return attrs;
 }
 
-/*
- * Server uses functions
- */
-int mm_player_get_raw_video_caps(MMHandleType player, char **caps)
+
+static GstBusSyncReply
+__mmplayer_mused_bus_sync_callback (GstBus * bus, GstMessage * message, gpointer data)
 {
-	int result = MM_ERROR_NONE;
+	mm_player_t *player = (mm_player_t *)data;
+	GstBusSyncReply reply = GST_BUS_DROP;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
-	return_val_if_fail(caps, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	if ( ! ( player->pipeline && player->pipeline->mainbin ) )
+	{
+		debug_error("player pipeline handle is null");
+		return GST_BUS_PASS;
+	}
 
-	MMPLAYER_CMD_LOCK( player );
+	if (!__mmplayer_check_useful_message(player, message))
+	{
+		gst_message_unref (message);
+		return GST_BUS_DROP;
+	}
 
-	result = _mmplayer_get_raw_video_caps(player, caps);
+	switch (GST_MESSAGE_TYPE (message))
+	{
+		case GST_MESSAGE_STATE_CHANGED:
+			/* post directly for fast launch */
+			if (player->sync_handler) {
+				__mmplayer_mused_gst_callback(NULL, message, player);
+				reply = GST_BUS_DROP;
+			}
+			else {
+				reply = GST_BUS_PASS;
+			}
+			break;
+		default:
+			reply = GST_BUS_PASS;
+			break;
+	}
 
-	MMPLAYER_CMD_UNLOCK( player );
+	if (reply == GST_BUS_DROP)
+		gst_message_unref (message);
 
-	return result;
+	return reply;
 }
 
-static int _mmplayer_get_raw_video_caps(mm_player_t *player, char **caps)
+static gboolean
+__mmplayer_mused_gst_callback(GstBus *bus, GstMessage *msg, gpointer data) // @
 {
-	GstCaps *v_caps = NULL;
-	GstPad *pad = NULL;
-	GstElement *gst;
-	gint stype = 0;
+	mm_player_t* player = (mm_player_t*) data;
+	gboolean ret = TRUE;
 
-	if(!player->videosink_linked) {
-		debug_log("No video sink");
-		return MM_ERROR_NONE;
-	}
-	mm_attrs_get_int_by_name (player->attrs, "display_surface_type", &stype);
+	return_val_if_fail ( player, FALSE );
+	return_val_if_fail ( msg && GST_IS_MESSAGE(msg), FALSE );
 
-	if (stype == MM_DISPLAY_SURFACE_NULL) {
-		debug_log("Display type is NULL");
-		if(!player->video_fakesink) {
-			debug_error("No fakesink");
-			return MM_ERROR_PLAYER_INVALID_STATE;
+	switch ( GST_MESSAGE_TYPE( msg ) )
+	{
+		case GST_MESSAGE_UNKNOWN:
+			debug_log("unknown message received\n");
+		break;
+
+		case GST_MESSAGE_EOS:
+		{
+			debug_log("GST_MESSAGE_EOS received\n");
+
+			/* NOTE : EOS event is comming multiple time. watch out it */
+			/* check state. we only process EOS when pipeline state goes to PLAYING */
+			if ( ! (player->cmd == MMPLAYER_COMMAND_START || player->cmd == MMPLAYER_COMMAND_RESUME) )
+			{
+				debug_log("EOS received on non-playing state. ignoring it\n");
+				break;
+			}
 		}
-		gst = player->video_fakesink;
-	}
-	else {
-		if ( !player->pipeline || !player->pipeline->videobin ||
-				!player->pipeline->videobin[MMPLAYER_V_SINK].gst ) {
-			debug_error("No video pipeline");
-			return MM_ERROR_PLAYER_INVALID_STATE;
+		break;
+
+		case GST_MESSAGE_ERROR:
+		{
+			GError *error = NULL;
+			gchar* debug = NULL;
+
+			/* generating debug info before returning error */
+			MMPLAYER_GENERATE_DOT_IF_ENABLED ( player, "pipeline-status-error" );
+
+			/* get error code */
+			gst_message_parse_error( msg, &error, &debug );
+
+			/* traslate gst error code to msl error code. then post it
+			 * to application if needed
+			 */
+			__mmplayer_handle_gst_error( player, msg, error );
+
+			if (debug)
+			{
+				debug_error ("error debug : %s", debug);
+			}
+
+			MMPLAYER_FREEIF( debug );
+			g_error_free( error );
 		}
-		gst = player->pipeline->videobin[MMPLAYER_V_SINK].gst;
+		break;
+
+		case GST_MESSAGE_WARNING:
+		{
+			char* debug = NULL;
+			GError* error = NULL;
+
+			gst_message_parse_warning(msg, &error, &debug);
+
+			debug_log("warning : %s\n", error->message);
+			debug_log("debug : %s\n", debug);
+
+			MMPLAYER_FREEIF( debug );
+			g_error_free( error );
+		}
+		break;
+
+		case GST_MESSAGE_TAG:
+		{
+			debug_log("GST_MESSAGE_TAG\n");
+		}
+		break;
+
+		case GST_MESSAGE_BUFFERING:
+		break;
+
+		case GST_MESSAGE_STATE_CHANGED:
+		{
+			MMPlayerGstElement *mainbin;
+			const GValue *voldstate, *vnewstate, *vpending;
+			GstState oldstate, newstate, pending;
+
+			if ( ! ( player->pipeline && player->pipeline->mainbin ) )
+			{
+				debug_error("player pipeline handle is null");
+				break;
+			}
+
+			mainbin = player->pipeline->mainbin;
+
+			/* we only handle messages from pipeline */
+			if( msg->src != (GstObject *)mainbin[MMPLAYER_M_PIPE].gst )
+				break;
+
+			/* get state info from msg */
+			voldstate = gst_structure_get_value (gst_message_get_structure(msg), "old-state");
+			vnewstate = gst_structure_get_value (gst_message_get_structure(msg), "new-state");
+			vpending = gst_structure_get_value (gst_message_get_structure(msg), "pending-state");
+
+			oldstate = (GstState)voldstate->data[0].v_int;
+			newstate = (GstState)vnewstate->data[0].v_int;
+			pending = (GstState)vpending->data[0].v_int;
+
+			debug_log("state changed [%s] : %s ---> %s     final : %s\n",
+				GST_OBJECT_NAME(GST_MESSAGE_SRC(msg)),
+				gst_element_state_get_name( (GstState)oldstate ),
+				gst_element_state_get_name( (GstState)newstate ),
+				gst_element_state_get_name( (GstState)pending ) );
+
+			if (oldstate == newstate)
+			{
+				debug_log("pipeline reports state transition to old state");
+				break;
+			}
+
+			switch(newstate)
+			{
+				case GST_STATE_VOID_PENDING:
+				break;
+
+				case GST_STATE_NULL:
+				break;
+
+				case GST_STATE_READY:
+				break;
+
+				case GST_STATE_PAUSED:
+				{
+					gboolean prepare_async = FALSE;
+
+					if ( ! player->sent_bos && oldstate == GST_STATE_READY) // managed prepare async case
+					{
+						mm_attrs_get_int_by_name(player->attrs, "profile_prepare_async", &prepare_async);
+						debug_log("checking prepare mode for async transition - %d", prepare_async);
+					}
+				}
+				break;
+
+				case GST_STATE_PLAYING:
+				break;
+
+				default:
+				break;
+			}
+		}
+		break;
+
+		case GST_MESSAGE_CLOCK_LOST:
+		{
+			GstClock *clock = NULL;
+			gst_message_parse_clock_lost (msg, &clock);
+			debug_log("GST_MESSAGE_CLOCK_LOST : %s\n", (clock ? GST_OBJECT_NAME (clock) : "NULL"));
+		}
+		break;
+
+		case GST_MESSAGE_NEW_CLOCK:
+		{
+			GstClock *clock = NULL;
+			gst_message_parse_new_clock (msg, &clock);
+			debug_log("GST_MESSAGE_NEW_CLOCK : %s\n", (clock ? GST_OBJECT_NAME (clock) : "NULL"));
+		}
+		break;
+
+		case GST_MESSAGE_ELEMENT:
+		{
+			debug_log("GST_MESSAGE_ELEMENT");
+		}
+		break;
+
+		case GST_MESSAGE_DURATION_CHANGED:
+		{
+			debug_log("GST_MESSAGE_DURATION_CHANGED");
+		}
+
+		break;
+
+		case GST_MESSAGE_ASYNC_START:
+		{
+			debug_log("GST_MESSAGE_ASYNC_START : %s", GST_ELEMENT_NAME(GST_MESSAGE_SRC(msg)));
+		}
+		break;
+
+		case GST_MESSAGE_ASYNC_DONE:
+		{
+			debug_log("GST_MESSAGE_ASYNC_DONE : %s", GST_ELEMENT_NAME(GST_MESSAGE_SRC(msg)));
+		}
+		break;
+
+		default:
+		break;
 	}
-	pad = gst_element_get_static_pad(gst, "sink");
-	if(!pad) {
-		debug_error("static pad is NULL");
-		return MM_ERROR_PLAYER_INVALID_STATE;
-	}
-	v_caps = gst_pad_get_current_caps(pad);
-	gst_object_unref( pad );
 
-	if(!v_caps) {
-		debug_error("fail to get caps");
-		return MM_ERROR_PLAYER_INVALID_STATE;
-	}
+	/* FIXIT : this cause so many warnings/errors from glib/gstreamer. we should not call it since
+	 * gst_element_post_message api takes ownership of the message.
+	 */
+	//gst_message_unref( msg );
 
-	*caps = gst_caps_to_string(v_caps);
-
-	gst_caps_unref(v_caps);
-
-	return MM_ERROR_NONE;
+	return ret;
 }
 
-/*
- * Server and client both use functions
- */
 int mm_player_set_shm_stream_path(MMHandleType player, const char *path)
 {
 	int result = MM_ERROR_NONE;
@@ -897,18 +1115,45 @@ int mm_player_set_shm_stream_path(MMHandleType player, const char *path)
 
 }
 
-static int _mmplayer_set_shm_stream_path(MMHandleType hplayer, const char *path)
+static int __mmplayer_mused_set_state(mm_player_t* player, int state)
 {
-	mm_player_t* player = (mm_player_t*) hplayer;
-	int result;
+	int ret = MM_ERROR_NONE;
 
-	MMPLAYER_FENTER();
+	return_val_if_fail ( player, FALSE );
 
-	return_val_if_fail ( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
-	return_val_if_fail(path, MM_ERROR_INVALID_ARGUMENT);
+	if ( MMPLAYER_CURRENT_STATE(player) == state )
+	{
+		debug_warning("already same state(%s)\n", MMPLAYER_STATE_GET_NAME(state));
+		MMPLAYER_PENDING_STATE(player) = MM_PLAYER_STATE_NONE;
+		return ret;
+	}
 
-	result = mm_attrs_set_string_by_name(player->attrs, "shm_stream_path", path)
+	/* update player states */
+	MMPLAYER_PREV_STATE(player) = MMPLAYER_CURRENT_STATE(player);
+	MMPLAYER_CURRENT_STATE(player) = state;
 
-	MMPLAYER_FLEAVE();
-	return result;
+	/* FIXIT : it's better to do like below code
+	if ( MMPLAYER_CURRENT_STATE(player) == MMPLAYER_TARGET_STATE(player) )
+			MMPLAYER_PENDING_STATE(player) = MM_PLAYER_STATE_NONE;
+	and add more code to handling PENDING_STATE.
+	*/
+	if ( MMPLAYER_CURRENT_STATE(player) == MMPLAYER_PENDING_STATE(player) )
+		MMPLAYER_PENDING_STATE(player) = MM_PLAYER_STATE_NONE;
+
+	/* print state */
+	MMPLAYER_PRINT_STATE(player);
+
+	/* post message to application */
+	if (MMPLAYER_TARGET_STATE(player) == state)
+	{
+		debug_log ("player reach the target state (%s)", MMPLAYER_STATE_GET_NAME(MMPLAYER_TARGET_STATE(player)));
+	}
+	else
+	{
+		debug_log ("intermediate state, do nothing.\n");
+		MMPLAYER_PRINT_STATE(player);
+		return ret;
+	}
+
+	return ret;
 }

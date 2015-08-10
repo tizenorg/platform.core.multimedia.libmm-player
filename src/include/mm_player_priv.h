@@ -845,11 +845,29 @@ void _mm_player_media_packet_video_stream_internal_buffer_unref(void *buffer);
 int _mmplayer_set_pcm_spec(MMHandleType hplayer, int samplerate, int channel);
 int __mmplayer_gst_set_state (mm_player_t* player, GstElement * pipeline,  GstState state, gboolean async, gint timeout );
 int __mmplayer_set_state(mm_player_t* player, int state);
-gboolean __mmplayer_gst_callback(GstBus *bus, GstMessage *msg, gpointer data);
 int __mmplayer_check_state(mm_player_t* player, enum PlayerCommandState command);
 gboolean __mmplayer_dump_pipeline_state( mm_player_t* player );
-GstBusSyncReply __mmplayer_bus_sync_callback (GstBus * bus, GstMessage * message, gpointer data);
 void __mmplayer_remove_g_source_from_context(GMainContext *context, guint source_id);
+/* util */
+const gchar * __get_state_name ( int state );
+gboolean __is_streaming( mm_player_t* player );
+gboolean __is_rtsp_streaming( mm_player_t* player );
+gboolean __is_wfd_streaming( mm_player_t* player );
+gboolean __is_live_streaming ( mm_player_t* player );
+gboolean __is_http_streaming( mm_player_t* player );
+gboolean __is_http_live_streaming( mm_player_t* player );
+gboolean __is_dash_streaming( mm_player_t* player );
+gboolean __is_smooth_streaming( mm_player_t* player );
+gboolean __is_http_progressive_down(mm_player_t* player);
+
+gboolean __mmplayer_check_useful_message(mm_player_t *player, GstMessage * message);
+gboolean __mmplayer_handle_gst_error ( mm_player_t* player, GstMessage * message, GError* error );
+gint __gst_handle_core_error( mm_player_t* player, int code );
+gint __gst_handle_library_error( mm_player_t* player, int code );
+gint __gst_handle_resource_error( mm_player_t* player, int code );
+gint __gst_handle_stream_error( mm_player_t* player, GError* error, GstMessage * message );
+int _mmplayer_set_shm_stream_path(MMHandleType hplayer, const char *path);
+int _mmplayer_get_raw_video_caps(mm_player_t *player, char **caps);
 
 #ifdef __cplusplus
 	}

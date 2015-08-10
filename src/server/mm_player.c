@@ -1266,3 +1266,36 @@ int mm_player_set_pcm_spec(MMHandleType player, int samplerate, int channel)
 
 	return result;
 }
+
+int mm_player_set_shm_stream_path(MMHandleType player, const char *path)
+{
+	int result = MM_ERROR_NONE;
+
+	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	return_val_if_fail(path, MM_ERROR_INVALID_ARGUMENT);
+
+	MMPLAYER_CMD_LOCK( player );
+
+	result = _mmplayer_set_shm_stream_path(player, path);
+
+	MMPLAYER_CMD_UNLOCK( player );
+
+	return result;
+
+}
+
+int mm_player_get_raw_video_caps(MMHandleType player, char **caps)
+{
+	int result = MM_ERROR_NONE;
+
+	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	return_val_if_fail(caps, MM_ERROR_PLAYER_NOT_INITIALIZED);
+
+	MMPLAYER_CMD_LOCK( player );
+
+	result = _mmplayer_get_raw_video_caps(player, caps);
+
+	MMPLAYER_CMD_UNLOCK( player );
+
+	return result;
+}
