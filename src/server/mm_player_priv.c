@@ -6204,7 +6204,9 @@ __mmplayer_gst_create_pipeline(mm_player_t* player) // @
 	GList* element_bucket = NULL;
 	gboolean need_state_holder = TRUE;
 	gint i = 0;
-
+#ifdef SW_CODEC_ONLY
+	int surface_type = 0;
+#endif
 	MMPLAYER_FENTER();
 
 	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
@@ -6253,6 +6255,24 @@ __mmplayer_gst_create_pipeline(mm_player_t* player) // @
 	player->last_multiwin_status = FALSE;
 
 	_mmplayer_track_initialize(player);
+
+#ifdef SW_CODEC_ONLY
+	mm_attrs_get_int_by_name (player->attrs, "display_surface_type", &surface_type);
+	if(surface_type == MM_DISPLAY_SURFACE_REMOTE)
+	{
+		int idx = 0;
+		while (player->ini.exclude_element_keyword[idx][0] != '\0')
+		{
+			idx++;
+		}
+		if(idx < PLAYER_INI_MAX_ELEMENT)
+		{
+			strncpy(player->ini.exclude_element_keyword[idx],
+					"omx", PLAYER_INI_MAX_STRLEN);
+			debug_log("Remote surface uses s/w codec");
+		}
+	}
+#endif
 
 	/* create source element */
 	switch ( player->profile.uri_type )
