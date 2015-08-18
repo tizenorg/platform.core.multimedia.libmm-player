@@ -5231,6 +5231,8 @@ __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps, MMDispl
 			case MM_DISPLAY_SURFACE_REMOTE:
 			{
 				char *stream_path = NULL;
+				/* viceo_zc is the result of check ST12/SN12 */
+				bool use_tbm = player->set_mode.video_zc;
 				int attr_ret = mm_attrs_get_string_by_name (
 						attrs, "shm_stream_path", &stream_path );
 				if(attr_ret == MM_ERROR_NONE && stream_path) {
@@ -5238,6 +5240,7 @@ __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps, MMDispl
 							"socket-path", stream_path,
 							"wait-for-connection", FALSE,
 							"sync", TRUE,
+							"use-tbm", use_tbm,
 							NULL);
 					debug_log("set path \"%s\" for shmsink", stream_path);
 				} else {
@@ -6255,24 +6258,6 @@ __mmplayer_gst_create_pipeline(mm_player_t* player) // @
 	player->last_multiwin_status = FALSE;
 
 	_mmplayer_track_initialize(player);
-
-#ifdef SW_CODEC_ONLY
-	mm_attrs_get_int_by_name (player->attrs, "display_surface_type", &surface_type);
-	if(surface_type == MM_DISPLAY_SURFACE_REMOTE)
-	{
-		int idx = 0;
-		while (player->ini.exclude_element_keyword[idx][0] != '\0')
-		{
-			idx++;
-		}
-		if(idx < PLAYER_INI_MAX_ELEMENT)
-		{
-			strncpy(player->ini.exclude_element_keyword[idx],
-					"omx", PLAYER_INI_MAX_STRLEN);
-			debug_log("Remote surface uses s/w codec");
-		}
-	}
-#endif
 
 	/* create source element */
 	switch ( player->profile.uri_type )

@@ -327,6 +327,7 @@ static int _mmplayer_mused_realize(mm_player_t *player, char *string_caps)
 	int surface_type = 0;
 	gchar *videosink_element = NULL;
 	gchar *videosrc_element = NULL;
+	gboolean use_tbm = FALSE;
 
 	/* check current state */
 	MMPLAYER_CHECK_STATE_RETURN_IF_FAIL( player, MMPLAYER_COMMAND_REALIZE );
@@ -375,6 +376,12 @@ static int _mmplayer_mused_realize(mm_player_t *player, char *string_caps)
 		result = MM_ERROR_PLAYER_INTERNAL;
 		goto REALIZE_ERROR;
 	}
+
+	if(string_caps && (strstr(string_caps, "ST12") || strstr(string_caps, "SN12"))) {
+		debug_log("using TBM");
+		use_tbm = TRUE;
+	}
+
 	if(strcmp(videosrc_element, "shmsrc") == 0) {
 		attr_ret = mm_attrs_get_string_by_name ( attrs, "shm_stream_path", &stream_path );
 		if(attr_ret == MM_ERROR_NONE && stream_path) {
@@ -382,6 +389,7 @@ static int _mmplayer_mused_realize(mm_player_t *player, char *string_caps)
 			g_object_set(G_OBJECT(src),
 					"socket-path", stream_path,
 					"is-live", TRUE,
+					"use-tbm", use_tbm,
 					NULL);
 		} else {
 			result = MM_ERROR_PLAYER_INTERNAL;
