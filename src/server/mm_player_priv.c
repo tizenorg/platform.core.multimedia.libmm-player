@@ -5240,6 +5240,7 @@ __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps, MMDispl
 							"socket-path", stream_path,
 							"wait-for-connection", FALSE,
 							"sync", TRUE,
+							"perms", 0777,
 							"use-tbm", use_tbm,
 							NULL);
 					debug_log("set path \"%s\" for shmsink", stream_path);

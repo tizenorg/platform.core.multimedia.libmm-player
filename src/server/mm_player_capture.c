@@ -383,7 +383,9 @@ __mmplayer_capture_thread(gpointer data)
 			char *src_buffer = NULL;
 			/* using original width otherwises, app can't know aligned to resize */
 			int width_align = player->captured.width[0];
-			int src_buffer_size = width_align * player->captured.height[0] * 3/2;
+			int y_size = width_align * player->captured.height[0];
+			int uv_size = width_align * player->captured.height[1];
+			int src_buffer_size = y_size + uv_size;
 			int i, j;
 			char*temp = NULL;
 			char*dst_buf = NULL;
@@ -418,7 +420,7 @@ __mmplayer_capture_thread(gpointer data)
 			for (j = 0; j < player->captured.height[1]; j++) {
 				memcpy(dst_buf, temp, width_align);
 				dst_buf += width_align;
-				temp += player->captured.stride_width[0];
+				temp += player->captured.stride_width[1];
 			}
 
 			/* free captured buf */
@@ -433,7 +435,6 @@ __mmplayer_capture_thread(gpointer data)
 				debug_error("failed to convert nv12 linear");
 				goto ERROR;
 			}
-
 		}
 
 		ret = _mmplayer_get_video_rotate_angle ((MMHandleType)player, &orientation);
@@ -475,6 +476,9 @@ ERROR:
 			/* clean */
 			MMPLAYER_FREEIF(linear_y_plane);
 			MMPLAYER_FREEIF(linear_uv_plane);
+			MMPLAYER_FREEIF(player->captured.data[0]);
+			MMPLAYER_FREEIF(player->captured.data[1]);
+		} else if (MM_PLAYER_COLORSPACE_NV12 == player->video_cs) {
 			MMPLAYER_FREEIF(player->captured.data[0]);
 			MMPLAYER_FREEIF(player->captured.data[1]);
 		}
@@ -536,6 +540,8 @@ __mmplayer_get_video_frame_from_buffer(mm_player_t* player, GstPad *pad, GstBuff
 		if(!g_strcmp0(gst_format, "ST12") || !g_strcmp0(gst_format, "SN12"))
 		{
 			guint n;
+			tbm_bo_handle y_hnd;
+			tbm_bo_handle uv_hnd;
 			debug_msg ("captured format is %s\n", gst_format);
 
 			MMVideoBuffer *proved = NULL;
@@ -555,17 +561,11 @@ __mmplayer_get_video_frame_from_buffer(mm_player_t* player, GstPad *pad, GstBuff
 				return MM_ERROR_PLAYER_INTERNAL;
 			}
 
-#if 0
+			memcpy(&player->captured, proved, sizeof(MMVideoBuffer));
+
 			yplane_size = proved->size[0];
 			uvplane_size = proved->size[1];
-#else
-			yplane_size = proved->stride_width[0] * proved->stride_height[0];
-			uvplane_size = proved->stride_width[1] * proved->stride_height[1];
-#endif
-
-			debug_msg ("yplane_size=%d, uvplane_size=%d\n", yplane_size, uvplane_size);
-			memset(&player->captured, 0x00, sizeof(MMVideoBuffer));
-			memcpy(&player->captured, proved, sizeof(MMVideoBuffer));
+			debug_msg ("yplane_size=%d, uvplane_size=%d", yplane_size, uvplane_size);
 
 			player->captured.data[0] = g_try_malloc(yplane_size);
 			if ( !player->captured.data[0] ) {
@@ -573,14 +573,40 @@ __mmplayer_get_video_frame_from_buffer(mm_player_t* player, GstPad *pad, GstBuff
 				return MM_ERROR_SOUND_NO_FREE_SPACE;
 			}
 
+/* FIXME */
+#if 0
 			player->captured.data[1] = g_try_malloc(uvplane_size);
+#else
+			if(uvplane_size < proved->stride_width[1] * proved->stride_height[1]) {
+				player->captured.data[1] =
+					g_try_malloc(proved->stride_width[1] * proved->stride_height[1]);
+			}
+			else
+				player->captured.data[1] = g_try_malloc(uvplane_size);
+#endif
 			if ( !player->captured.data[1] ) {
 				gst_memory_unmap(memory, &mapinfo);
 				return MM_ERROR_SOUND_NO_FREE_SPACE;
 			}
 
-			memcpy(player->captured.data[0], proved->data[0], yplane_size);
-			memcpy(player->captured.data[1], proved->data[1], uvplane_size);
+			debug_log("Buffer type %d", proved->type);
+			if(proved->type == MM_VIDEO_BUFFER_TYPE_TBM_BO) {
+				tbm_bo_ref(proved->handle.bo[0]);
+				tbm_bo_ref(proved->handle.bo[1]);
+				y_hnd = tbm_bo_get_handle(proved->handle.bo[0], TBM_DEVICE_CPU);
+				debug_log("source y : %p, size %d", y_hnd.ptr, yplane_size);
+				if(y_hnd.ptr) {
+					memcpy(player->captured.data[0], y_hnd.ptr, yplane_size);
+				}
+
+				uv_hnd = tbm_bo_get_handle(proved->handle.bo[1], TBM_DEVICE_CPU);
+				debug_log("source uv : %p, size %d",uv_hnd.ptr, uvplane_size);
+				if(uv_hnd.ptr) {
+					memcpy(player->captured.data[1], uv_hnd.ptr, uvplane_size);
+				}
+				tbm_bo_unref(proved->handle.bo[0]);
+				tbm_bo_unref(proved->handle.bo[1]);
+			}
 
 			gst_memory_unmap(memory, &mapinfo);
 
