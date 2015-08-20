@@ -4954,15 +4954,16 @@ __mmplayer_video_stream_probe (GstPad *pad, GstPadProbeInfo *info, gpointer user
 			stream.elevation[1] = stream.elevation[2] = elevation / 2;
 		}
 		else {
-			debug_error("default #plane is 2, format %d", stream.format);
-			stream.stride[1] = stride;
-			stream.elevation[1] = elevation / 2;
+			debug_error("Not support format %d", stream.format);
+			gst_memory_unmap(dataBlock, &mapinfo);
+			return GST_PAD_PROBE_OK;
 		}
 
 		stream.bo[0] = tbm_bo_alloc(player->bufmgr, size, TBM_BO_DEFAULT);
 		if(!stream.bo[0]) {
 			debug_error("Fail to tbm_bo_alloc!!");
-			return TRUE;
+			gst_memory_unmap(dataBlock, &mapinfo);
+			return GST_PAD_PROBE_OK;
 		}
 		thandle = tbm_bo_map(stream.bo[0], TBM_DEVICE_CPU, TBM_OPTION_WRITE);
 		if(thandle.ptr && mapinfo.data)
