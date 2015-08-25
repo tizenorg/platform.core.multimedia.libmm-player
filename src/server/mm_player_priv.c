@@ -12227,6 +12227,17 @@ GstCaps* caps, GstElementFactory* factory, gpointer data)
 		__mmplayer_update_content_type_info(player);
 	}
 
+	/* To support evasimagesink, omx is excluded temporarily*/
+	int surface_type = 0;
+	mm_attrs_get_int_by_name(player->attrs, "display_surface_type", &surface_type);
+	debug_log("check display surface type attribute: %d", surface_type);
+	if (surface_type == MM_DISPLAY_SURFACE_EVAS && strstr(factory_name, "omx"))
+	{
+		debug_warning("skipping [%s] for supporting evasimagesink temporarily.\n", factory_name);
+		result = GST_AUTOPLUG_SELECT_SKIP;
+		goto DONE;
+	}
+
 	/* filtering exclude keyword */
 	for ( idx = 0; player->ini.exclude_element_keyword[idx][0] != '\0'; idx++ )
 	{
