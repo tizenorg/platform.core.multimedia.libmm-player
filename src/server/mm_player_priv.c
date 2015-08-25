@@ -12229,7 +12229,9 @@ GstCaps* caps, GstElementFactory* factory, gpointer data)
 
 	/* To support evasimagesink, omx is excluded temporarily*/
 	int surface_type = 0;
-	mm_attrs_get_int_by_name(player->attrs, "display_surface_type", &surface_type);
+	mm_attrs_get_int_by_name(player->attrs, "display_surface_client_type", &surface_type);
+	if (surface_type == MM_DISPLAY_SURFACE_NULL)
+		mm_attrs_get_int_by_name(player->attrs, "display_surface_type", &surface_type);
 	debug_log("check display surface type attribute: %d", surface_type);
 	if (surface_type == MM_DISPLAY_SURFACE_EVAS && strstr(factory_name, "omx"))
 	{

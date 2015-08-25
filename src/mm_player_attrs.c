@@ -1069,6 +1069,15 @@ _mmplayer_construct_attribute(MMHandleType handle)
 			MM_ATTRS_VALID_TYPE_NONE,
 			0,
 			0
+		},
+		{
+			"display_surface_client_type",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) MM_DISPLAY_SURFACE_NULL,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			MM_DISPLAY_SURFACE_X,
+			MM_DISPLAY_SURFACE_NUM - 1
 		}
 	};
 
