@@ -6618,36 +6618,33 @@ __mmplayer_gst_create_pipeline(mm_player_t* player) // @
 																G_CALLBACK(__gst_seek_subtitle_data), player);
 			}
 
-			if (!player->es_player_push_mode)
+			if (player->v_stream_caps && element)
 			{
-				if (player->v_stream_caps && element)
-				{
-					MMPLAYER_SIGNAL_CONNECT( player, element, MM_PLAYER_SIGNAL_TYPE_OTHERS, "need-data",
-															G_CALLBACK(__gst_appsrc_feed_video_data), player);
-					MMPLAYER_SIGNAL_CONNECT( player, element, MM_PLAYER_SIGNAL_TYPE_OTHERS, "enough-data",
-															G_CALLBACK(__gst_appsrc_enough_video_data), player);
+				MMPLAYER_SIGNAL_CONNECT( player, element, MM_PLAYER_SIGNAL_TYPE_OTHERS, "need-data",
+														G_CALLBACK(__gst_appsrc_feed_video_data), player);
+				MMPLAYER_SIGNAL_CONNECT( player, element, MM_PLAYER_SIGNAL_TYPE_OTHERS, "enough-data",
+														G_CALLBACK(__gst_appsrc_enough_video_data), player);
 
-					if (player->a_stream_caps && elem_src_audio)
-					{
-						MMPLAYER_SIGNAL_CONNECT( player, elem_src_audio, MM_PLAYER_SIGNAL_TYPE_OTHERS, "need-data",
-															G_CALLBACK(__gst_appsrc_feed_audio_data), player);
-						MMPLAYER_SIGNAL_CONNECT( player, element, MM_PLAYER_SIGNAL_TYPE_OTHERS, "enough-data",
-															G_CALLBACK(__gst_appsrc_enough_audio_data), player);
-					}
-				}
-				else if (player->a_stream_caps && element)
+				if (player->a_stream_caps && elem_src_audio)
 				{
-					MMPLAYER_SIGNAL_CONNECT( player, element, MM_PLAYER_SIGNAL_TYPE_OTHERS, "need-data",
-															G_CALLBACK(__gst_appsrc_feed_audio_data), player);
+					MMPLAYER_SIGNAL_CONNECT( player, elem_src_audio, MM_PLAYER_SIGNAL_TYPE_OTHERS, "need-data",
+														G_CALLBACK(__gst_appsrc_feed_audio_data), player);
 					MMPLAYER_SIGNAL_CONNECT( player, element, MM_PLAYER_SIGNAL_TYPE_OTHERS, "enough-data",
-															G_CALLBACK(__gst_appsrc_enough_audio_data), player);
+														G_CALLBACK(__gst_appsrc_enough_audio_data), player);
 				}
+			}
+			else if (player->a_stream_caps && element)
+			{
+				MMPLAYER_SIGNAL_CONNECT( player, element, MM_PLAYER_SIGNAL_TYPE_OTHERS, "need-data",
+														G_CALLBACK(__gst_appsrc_feed_audio_data), player);
+				MMPLAYER_SIGNAL_CONNECT( player, element, MM_PLAYER_SIGNAL_TYPE_OTHERS, "enough-data",
+														G_CALLBACK(__gst_appsrc_enough_audio_data), player);
+			}
 
-				if (player->s_stream_caps && elem_src_subtitle)
-				{
-					MMPLAYER_SIGNAL_CONNECT( player, elem_src_subtitle, MM_PLAYER_SIGNAL_TYPE_OTHERS, "need-data",
-															G_CALLBACK(__gst_appsrc_feed_subtitle_data), player);
-				}
+			if (player->s_stream_caps && elem_src_subtitle)
+			{
+				MMPLAYER_SIGNAL_CONNECT( player, elem_src_subtitle, MM_PLAYER_SIGNAL_TYPE_OTHERS, "need-data",
+														G_CALLBACK(__gst_appsrc_feed_subtitle_data), player);
 			}
 
 			need_state_holder = FALSE;
