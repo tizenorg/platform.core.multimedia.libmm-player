@@ -243,8 +243,8 @@ _mmplayer_sound_register(MMPlayerSoundFocus* sound_focus,
 
 	if ((sound_focus->watch_id == 0) &&
 		(strstr(stream_type, "media")) &&
-		!(sound_focus->session_flags & ASM_SESSION_OPTION_PAUSE_OTHERS) &&
-		!(sound_focus->session_flags & ASM_SESSION_OPTION_UNINTERRUPTIBLE))
+		!(sound_focus->session_flags & MM_SESSION_OPTION_PAUSE_OTHERS) &&
+		!(sound_focus->session_flags & MM_SESSION_OPTION_UNINTERRUPTIBLE))
 	{
 		debug_log("register focus watch callback\n");
 
