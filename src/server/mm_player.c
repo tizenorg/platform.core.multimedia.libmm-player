@@ -538,7 +538,7 @@ int mm_player_set_position(MMHandleType player, MMPlayerPosFormatType format, in
 	return result;
 }
 
-int mm_player_get_position(MMHandleType player, MMPlayerPosFormatType format, int *pos)
+int mm_player_get_position(MMHandleType player, MMPlayerPosFormatType format, unsigned long *pos)
 {
 	int result = MM_ERROR_NONE;
 
@@ -553,14 +553,14 @@ int mm_player_get_position(MMHandleType player, MMPlayerPosFormatType format, in
 
 	MMPLAYER_CMD_LOCK( player );
 
-	result = _mmplayer_get_position(player, (int)format, (unsigned long*)pos);
+	result = _mmplayer_get_position(player, (int)format, pos);
 
 	MMPLAYER_CMD_UNLOCK( player );
 
 	return result;
 }
 
-int mm_player_get_buffer_position(MMHandleType player, MMPlayerPosFormatType format, int  *start_pos, int  *stop_pos)
+int mm_player_get_buffer_position(MMHandleType player, MMPlayerPosFormatType format, unsigned long *start_pos, unsigned long *stop_pos)
 {
 	int result = MM_ERROR_NONE;
 
@@ -569,7 +569,7 @@ int mm_player_get_buffer_position(MMHandleType player, MMPlayerPosFormatType for
 
 	MMPLAYER_CMD_LOCK( player );
 
-	result = _mmplayer_get_buffer_position(player, (int)format, (unsigned long*)start_pos, (unsigned long*)stop_pos );
+	result = _mmplayer_get_buffer_position(player, (int)format, start_pos, stop_pos );
 
 	MMPLAYER_CMD_UNLOCK( player );
 

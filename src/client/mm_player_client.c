@@ -106,7 +106,7 @@ static int __mmplayer_mused_set_state(mm_player_t* player, int state);
 /*===========================================================================================
 |																							|
 |  FUNCTION DEFINITIONS																		|
-|  																							|
+|																							|
 ========================================================================================== */
 
 int mm_player_mused_create(MMHandleType *player)
@@ -182,7 +182,7 @@ _mmplayer_mused_init_gst(mm_player_t *player)
 {
 	static gboolean initialized = FALSE;
 	static const int max_argc = 50;
-  	gint* argc = NULL;
+	gint* argc = NULL;
 	gchar** argv = NULL;
 	gchar** argv2 = NULL;
 	GError *err = NULL;
@@ -601,8 +601,8 @@ static int _mmplayer_mused_update_video_param(mm_player_t *player)
 						wl_surface );
 				/* After setting window handle, set render	rectangle */
 				gst_video_overlay_set_render_rectangle(
-					 GST_VIDEO_OVERLAY( mainbin[MMPLAYER_M_V_SINK].gst ),
-					 wl_window_x,wl_window_y,wl_window_width,wl_window_height);
+					GST_VIDEO_OVERLAY( mainbin[MMPLAYER_M_V_SINK].gst ),
+					wl_window_x,wl_window_y,wl_window_width,wl_window_height);
 #else
 				int xwin_id = 0;
 				xwin_id = *(int*)surface;

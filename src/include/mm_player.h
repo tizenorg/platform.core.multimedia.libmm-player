@@ -1306,7 +1306,7 @@ mm_player_get_attribute(g_player, &g_err_name, "content_duration", &duration, NU
 debug_log("pos: [%d/%d] msec\n", position, duration);
  * @endcode
  */
-int mm_player_get_position(MMHandleType player, MMPlayerPosFormatType format, int *pos);
+int mm_player_get_position(MMHandleType player, MMPlayerPosFormatType format, unsigned long *pos);
 
 /**
  * This function is to get current buffer position of playback content.
@@ -1328,7 +1328,7 @@ mm_player_get_buffer_position(g_player, MM_PLAYER_POS_FORMAT_PERCENT, &start_pos
 debug_log("buffer position: [%d] ~ [%d] \%\n", start_pos, stop_pos );
  * @endcode
  */
-int mm_player_get_buffer_position(MMHandleType player, MMPlayerPosFormatType format, int *start_pos, int *stop_pos);
+int mm_player_get_buffer_position(MMHandleType player, MMPlayerPosFormatType format, unsigned long *start_pos, unsigned long *stop_pos);
 
 /**
  * This function is to activate the section repeat. If it's set, selected section will be played \n

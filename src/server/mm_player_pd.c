@@ -26,7 +26,7 @@
 #include "mm_player_priv.h"
 
 /*---------------------------------------------------------------------------------------
-|    LOCAL FUNCTION PROTOTYPES:								                                                        |
+|    LOCAL FUNCTION PROTOTYPES:															|
 ---------------------------------------------------------------------------------------*/
 
 /* It's callback to process whenever there is some changes in PD downloader. */
@@ -37,7 +37,7 @@ static gboolean __pd_downloader_callback(GstBus *bus, GstMessage *msg, gpointer 
 static gboolean __pd_downloader_post_message(mm_player_t * player, enum MMMessageType msgtype, MMMessageParamType* param);
 
 /*=======================================================================================
-|  FUNCTION DEFINITIONS									                                                                                      |
+|  FUNCTION DEFINITIONS																	|
 =======================================================================================*/
 static gboolean
 __pd_downloader_callback(GstBus *bus, GstMessage *msg, gpointer data)
@@ -124,8 +124,8 @@ __pd_downloader_callback(GstBus *bus, GstMessage *msg, gpointer data)
 				break;
 
 			/* we only care about pipeline state changes */
-		      	if (GST_MESSAGE_SRC (msg) != GST_OBJECT (pd->downloader_pipeline))
-			  	break;
+			if (GST_MESSAGE_SRC (msg) != GST_OBJECT (pd->downloader_pipeline))
+				break;
 
 			src_name = gst_object_get_name (msg->src);
 			debug_log ("%s changed state from %s to %s", src_name,

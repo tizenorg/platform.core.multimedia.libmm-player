@@ -23,7 +23,7 @@
 /*===========================================================================================
 |																							|
 |  INCLUDE FILES																			|
-|  																							|
+|																							|
 ========================================================================================== */
 #include <glib.h>
 #include <gst/gst.h>
@@ -60,7 +60,7 @@
 /*===========================================================================================
 |																							|
 |  LOCAL DEFINITIONS AND DECLARATIONS FOR MODULE											|
-|  																							|
+|																							|
 ========================================================================================== */
 
 /*---------------------------------------------------------------------------
@@ -81,7 +81,7 @@
 #define TRICK_PLAY_MUTE_THRESHOLD_MAX	2.0
 #define TRICK_PLAY_MUTE_THRESHOLD_MIN	0.0
 
-#define MM_VOLUME_FACTOR_DEFAULT 		1.0
+#define MM_VOLUME_FACTOR_DEFAULT		1.0
 #define MM_VOLUME_FACTOR_MIN			0
 #define MM_VOLUME_FACTOR_MAX			1.0
 
@@ -288,7 +288,7 @@ static gboolean	__gst_seek_subtitle_data (GstElement * appsrc, guint64 position,
 /*===========================================================================================
 |																							|
 |  FUNCTION DEFINITIONS																		|
-|  																							|
+|																							|
 ========================================================================================== */
 
 #if 0 //debug
@@ -327,7 +327,7 @@ static void
 __mmplayer_videostream_cb(GstElement *element, void *data,
 int width, int height, gpointer user_data) // @
 {
- 	mm_player_t* player = (mm_player_t*)user_data;
+	mm_player_t* player = (mm_player_t*)user_data;
 
 	return_if_fail ( player );
 
@@ -352,7 +352,7 @@ int width, int height, gpointer user_data) // @
 		stream.height = height;
 		stream.width = width;
 		player->video_stream_cb(&stream, player->video_stream_cb_user_param);
-    	}
+	}
 
 	MMPLAYER_FLEAVE();
 }
@@ -8803,7 +8803,7 @@ _mmplayer_create_player(MMHandleType handle) // @
 
 	/* initialize factories if not using decodebin */
 	if( player->factories == NULL )
-	    __mmplayer_init_factories(player);
+		__mmplayer_init_factories(player);
 
 	/* create lock. note that g_tread_init() has already called in gst_init() */
 	g_mutex_init(&player->fsink_lock);
@@ -9403,7 +9403,7 @@ _mmplayer_set_message_callback(MMHandleType hplayer, MMMessageCallback callback,
 {
 	mm_player_t* player = (mm_player_t*)hplayer;
 
-    	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	return __gst_set_message_callback(player, callback, user_param);
 }
