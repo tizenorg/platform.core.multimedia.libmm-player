@@ -4173,7 +4173,7 @@ static void __mmplayer_gst_caps_notify_cb (GstPad * pad, GParamSpec * unused, gp
 	return_if_fail ( unused )
 	return_if_fail ( data )
 
-	caps = gst_pad_query_caps(pad, NULL);
+	caps = gst_pad_get_current_caps( pad );
 	if ( !caps )
 	{
 		return;
