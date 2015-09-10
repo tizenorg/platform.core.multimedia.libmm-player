@@ -4445,9 +4445,9 @@ void __mmplayer_gst_set_audiosink_property(mm_player_t* player, MMHandleType att
 	mm_attrs_get_int_by_name(attrs, "sound_stream_index", &stream_id);
 	mm_attrs_get_string_by_name (attrs, "sound_stream_type", &stream_type );
 
-	if ( stream_id < 1 || !stream_type || strlen(stream_type) < 1)
+	if (!stream_type)
 	{
-		debug_error("stream_id[%d] or stream_type[%s] is not valid.\n", stream_id, stream_type);
+		debug_error("stream_type is null.\n");
 	}
 	else
 	{
