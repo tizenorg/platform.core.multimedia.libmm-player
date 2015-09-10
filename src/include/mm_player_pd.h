@@ -102,14 +102,14 @@ gboolean _mmplayer_start_pd_downloader (MMHandleType handle);
  * This function get pd current status.
  *
  * @param[in]	handle	Handle of player.
- * @param[in]	current_pos	current downloaded size
- * @param[in]	total_size		total file size to download
- * @return	This function returns true on success, or false on failure.
+ * @param[out]	current_pos	current downloaded size
+ * @param[out]	total_size		total file size to download
+ * @return	This function returns zero on success, or negative value with error
  * @remarks
  * @see
  *
  */
-gboolean _mmplayer_get_pd_downloader_status(MMHandleType handle, guint64 *current_pos, guint64 *total_size);
+int _mmplayer_get_pd_downloader_status(MMHandleType handle, guint64 *current_pos, guint64 *total_size);
 /**
  * This function set message callback of PD downloader.
  *

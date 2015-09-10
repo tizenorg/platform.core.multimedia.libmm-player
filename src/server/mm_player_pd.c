@@ -214,7 +214,7 @@ gboolean __pd_downloader_post_message(mm_player_t * player, enum MMMessageType m
 }
 
 
-gboolean _mmplayer_get_pd_downloader_status(MMHandleType handle, guint64 *current_pos, guint64 *total_size)
+int _mmplayer_get_pd_downloader_status(MMHandleType handle, guint64 *current_pos, guint64 *total_size)
 {
 	MMPLAYER_FENTER();
 
@@ -231,7 +231,7 @@ gboolean _mmplayer_get_pd_downloader_status(MMHandleType handle, guint64 *curren
 	if ( !pd->total_size )
 	{
 		debug_warning("not ready to get total size\n");
-		return FALSE;
+		return MM_ERROR_PLAYER_INTERNAL;
 	}
 
 	g_object_get(pd->downloader_sink, "current-bytes", &bytes, NULL);
@@ -243,7 +243,7 @@ gboolean _mmplayer_get_pd_downloader_status(MMHandleType handle, guint64 *curren
 
 	MMPLAYER_FLEAVE();
 
-	return TRUE;
+	return MM_ERROR_NONE;
 }
 
 
