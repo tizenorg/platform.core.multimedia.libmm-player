@@ -19,7 +19,8 @@
  * limitations under the License.
  *
  */
-
+#include <sys/types.h>
+#include <unistd.h>
 #include <mm_debug.h>
 #include <mm_error.h>
 #include <vconf.h>
@@ -171,11 +172,11 @@ _mmplayer_sound_register(MMPlayerSoundFocus* sound_focus,
 
 	/* check if it's running on the media_server */
 	if (sound_focus->pid > 0)
-	{
 		pid = sound_focus->pid;
-		debug_log("mm-player is running on different process. Just faking pid to [%d]. :-p\n", pid);
-	}
+	else
+		return MM_ERROR_INVALID_ARGUMENT;
 
+	debug_log("sound register focus pid[%d]", pid);
 	/* read session information */
 	ret = _mm_session_util_read_information(pid, &sound_focus->session_type, &sound_focus->session_flags);
 	if (ret != MM_ERROR_NONE)
@@ -201,7 +202,8 @@ _mmplayer_sound_register(MMPlayerSoundFocus* sound_focus,
 
 				debug_log("register focus watch callback for the value is 0, sub_cb id %d\n", sound_focus->subscribe_id);
 
-				ret = mm_sound_set_focus_watch_callback(FOCUS_FOR_BOTH, watch_cb, (void*)param, &sound_focus->watch_id);
+				ret = mm_sound_set_focus_watch_callback_for_session(pid ,
+						FOCUS_FOR_BOTH, watch_cb, (void*)param, &sound_focus->watch_id);
 				if (ret != MM_ERROR_NONE)
 				{
 					debug_error("mm_sound_set_focus_watch_callback is failed\n");
@@ -233,7 +235,8 @@ _mmplayer_sound_register(MMPlayerSoundFocus* sound_focus,
 		}
 
 		/* register sound focus callback */
-		ret = mm_sound_register_focus(sound_focus->focus_id, stream_type, focus_cb, (void*)param);
+		ret = mm_sound_register_focus_for_session(pid, sound_focus->focus_id,
+				stream_type, focus_cb, (void*)param);
 		if (ret != MM_ERROR_NONE)
 		{
 			debug_error("mm_sound_register_focus is failed\n");
@@ -248,7 +251,8 @@ _mmplayer_sound_register(MMPlayerSoundFocus* sound_focus,
 	{
 		debug_log("register focus watch callback\n");
 
-		ret = mm_sound_set_focus_watch_callback(FOCUS_FOR_BOTH, watch_cb, (void*)param, &sound_focus->watch_id);
+		ret = mm_sound_set_focus_watch_callback_for_session(pid,
+				FOCUS_FOR_BOTH, watch_cb, (void*)param, &sound_focus->watch_id);
 		if (ret != MM_ERROR_NONE)
 		{
 			debug_error("mm_sound_set_focus_watch_callback is failed\n");

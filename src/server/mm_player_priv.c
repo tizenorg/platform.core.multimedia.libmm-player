@@ -8811,17 +8811,6 @@ _mmplayer_create_player(MMHandleType handle) // @
 		goto ERROR;
 	}
 
-	/* register to asm */
-	if ( MM_ERROR_NONE != _mmplayer_sound_register(&player->sound_focus,
-						(mm_sound_focus_changed_cb)__mmplayer_sound_focus_callback,
-						(mm_sound_focus_changed_watch_cb)__mmplayer_sound_focus_watch_callback,
-						(void*)player) )
-
-	{
-		/* NOTE : we are dealing it as an error since we cannot expect it's behavior */
-		debug_error("failed to register asm server\n");
-		return MM_ERROR_POLICY_INTERNAL;
-	}
 #if 0 //need to change and test
 	/* to add active device callback */
 	if ( MM_ERROR_NONE != mm_sound_add_device_information_changed_callback(MM_SOUND_DEVICE_STATE_ACTIVATED_FLAG, __mmplayer_sound_device_info_changed_cb_func, (void*)player))
@@ -9205,12 +9194,41 @@ __mmplayer_realize_streaming_ext(mm_player_t* player)
 }
 
 int
+_mmplayer_sound_register_with_pid(MMHandleType hplayer, int pid) // @
+{
+	mm_player_t* player =  (mm_player_t*)hplayer;
+	MMHandleType attrs = 0;
+	int ret = MM_ERROR_NONE;
+
+	attrs = MMPLAYER_GET_ATTRS(player);
+	if ( !attrs )
+	{
+		debug_error("fail to get attributes.\n");
+		return MM_ERROR_PLAYER_INTERNAL;
+	}
+
+	player->sound_focus.pid = pid;
+
+	/* register to asm */
+	if ( MM_ERROR_NONE != _mmplayer_sound_register(&player->sound_focus,
+						(mm_sound_focus_changed_cb)__mmplayer_sound_focus_callback,
+						(mm_sound_focus_changed_watch_cb)__mmplayer_sound_focus_watch_callback,
+						(void*)player) )
+
+	{
+		/* NOTE : we are dealing it as an error since we cannot expect it's behavior */
+		debug_error("failed to register asm server\n");
+		return MM_ERROR_POLICY_INTERNAL;
+	}
+	return ret;
+}
+
+int
 _mmplayer_realize(MMHandleType hplayer) // @
 {
 	mm_player_t* player =  (mm_player_t*)hplayer;
 	char *uri =NULL;
 	void *param = NULL;
-	int application_pid = -1;
 	gboolean update_registry = FALSE;
 	MMHandleType attrs = 0;
 	int ret = MM_ERROR_NONE;
@@ -9229,10 +9247,6 @@ _mmplayer_realize(MMHandleType hplayer) // @
 		debug_error("fail to get attributes.\n");
 		return MM_ERROR_PLAYER_INTERNAL;
 	}
-
-	mm_attrs_get_int_by_name(attrs, "sound_application_pid", &application_pid );
-	player->sound_focus.pid = application_pid;
-
 	mm_attrs_get_string_by_name(attrs, "profile_uri", &uri);
 	mm_attrs_get_data_by_name(attrs, "profile_user_param", &param);
 

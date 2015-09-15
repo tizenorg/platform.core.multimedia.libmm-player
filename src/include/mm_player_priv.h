@@ -26,7 +26,7 @@
 /*===========================================================================================
 |																							|
 |  INCLUDE FILES																			|
-|  																							|
+|																						|
 ========================================================================================== */
 #include <glib.h>
 #include <gst/gst.h>
@@ -869,7 +869,7 @@ gint __gst_handle_resource_error( mm_player_t* player, int code );
 gint __gst_handle_stream_error( mm_player_t* player, GError* error, GstMessage * message );
 int _mmplayer_set_shm_stream_path(MMHandleType hplayer, const char *path);
 int _mmplayer_get_raw_video_caps(mm_player_t *player, char **caps);
-
+int _mmplayer_sound_register_with_pid(MMHandleType hplayer, int pid);
 #ifdef __cplusplus
 	}
 #endif

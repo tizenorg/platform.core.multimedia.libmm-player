@@ -1053,6 +1053,19 @@ if (mm_player_destroy(g_player) != MM_ERROR_NONE)
 int mm_player_destroy(MMHandleType player);
 
 /**
+ * This function register the sound focus using application PID \n
+ * So, application PID should be set before realizing with mm_player_set_attribute(). \n
+ *
+ * @param	player		[in]	Handle of player
+ *
+ * @return	This function returns zero on success, or negative value with error code.
+ *
+ * @pre		Player state should be MM_PLAYER_STATE_NULL.
+ * @remark	None
+ */
+int mm_player_sound_register(MMHandleType player, int pid);
+
+/**
  * This function parses uri and makes gstreamer pipeline by uri scheme. \n
  * So, uri should be set before realizing with mm_player_set_attribute(). \n
  *

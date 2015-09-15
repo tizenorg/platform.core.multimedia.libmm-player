@@ -130,6 +130,21 @@ int  mm_player_destroy(MMHandleType player)
 	return result;
 }
 
+int mm_player_sound_register(MMHandleType player, int pid)
+{
+	int result = MM_ERROR_NONE;
+
+	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+
+	MMPLAYER_CMD_LOCK( player );
+
+	result = _mmplayer_sound_register_with_pid(player, pid);
+
+	MMPLAYER_CMD_UNLOCK( player );
+
+	return result;
+}
+
 int mm_player_realize(MMHandleType player)
 {
 	int result = MM_ERROR_NONE;

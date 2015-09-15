@@ -219,7 +219,7 @@ _mmplayer_construct_attribute(MMHandleType handle)
 		{
 			"profile_uri",					// name
 			MM_ATTRS_TYPE_STRING,		// type
-			MM_ATTRS_FLAG_RW, 			// flag
+			MM_ATTRS_FLAG_RW,			// flag
 			(void *) NULL,				// default value
 			MM_ATTRS_VALID_TYPE_NONE,	// validity type
 			0,							// validity min value
