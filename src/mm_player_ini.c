@@ -170,8 +170,7 @@ mm_player_ini_load(mm_player_ini_t* ini)
 		ini->disable_segtrap = iniparser_getboolean(dict, "general:disable segtrap", DEFAULT_DISABLE_SEGTRAP);
 		ini->skip_rescan = iniparser_getboolean(dict, "general:skip rescan", DEFAULT_SKIP_RESCAN);
 		ini->generate_dot = iniparser_getboolean(dict, "general:generate dot", DEFAULT_GENERATE_DOT);
-		ini->provide_clock_for_music = iniparser_getboolean(dict, "general:provide clock for music", DEFAULT_PROVIDE_CLOCK_FOR_MUSIC);
-		ini->provide_clock_for_movie = iniparser_getboolean(dict, "general:provide clock for movie", DEFAULT_PROVIDE_CLOCK_FOR_MOVIE);
+		ini->use_system_clock = iniparser_getboolean(dict, "general:use system clock", DEFAULT_USE_SYSTEM_CLOCK);
 		ini->live_state_change_timeout = iniparser_getint(dict, "general:live state change timeout", DEFAULT_LIVE_STATE_CHANGE_TIMEOUT);
 		ini->localplayback_state_change_timeout = iniparser_getint(dict, "general:localplayback state change timeout", DEFAULT_LOCALPLAYBACK_STATE_CHANGE_TIMEOUT);
 		ini->eos_delay = iniparser_getint(dict, "general:eos delay", DEFAULT_EOS_DELAY);
@@ -184,9 +183,9 @@ mm_player_ini_load(mm_player_ini_t* ini)
 		MMPLAYER_INI_GET_STRING(dict, ini->videosink_element_fake, "general:videosink element fake", DEFAULT_VIDEOSINK_FAKE);
 		MMPLAYER_INI_GET_STRING(dict, ini->videosink_element_remote, "general:videosink element remote", DEFAULT_VIDEOSINK_REMOTE);
 		MMPLAYER_INI_GET_STRING(dict, ini->videosrc_element_remote, "general:videosrc element remote", DEFAULT_VIDEOSRC_REMOTE);
-		MMPLAYER_INI_GET_STRING(dict, ini->name_of_audio_resampler, "general:audio resampler element", DEFAULT_AUDIORESAMPLER );
-		MMPLAYER_INI_GET_STRING(dict, ini->name_of_audiosink, "general:audiosink element", DEFAULT_AUDIOSINK );
-		MMPLAYER_INI_GET_STRING(dict, ini->name_of_video_converter, "general:video converter element", DEFAULT_VIDEO_CONVERTER );
+		MMPLAYER_INI_GET_STRING(dict, ini->audioresampler_element, "general:audio resampler element", DEFAULT_AUDIORESAMPLER );
+		MMPLAYER_INI_GET_STRING(dict, ini->audiosink_element, "general:audiosink element", DEFAULT_AUDIOSINK );
+		MMPLAYER_INI_GET_STRING(dict, ini->videoconverter_element, "general:video converter element", DEFAULT_VIDEO_CONVERTER );
 
 		__get_element_list(ini,
 			iniparser_getstring(dict, "general:element exclude keyword", DEFAULT_EXCLUDE_KEYWORD), KEYWORD_EXCLUDE);
@@ -198,18 +197,12 @@ mm_player_ini_load(mm_player_ini_t* ini)
 		MMPLAYER_INI_GET_STRING(dict, ini->gst_param[4], "general:gstparam5", DEFAULT_GST_PARAM );
 
 		/* http streaming */
-		MMPLAYER_INI_GET_STRING( dict, ini->name_of_httpsrc, "http streaming:httpsrc element", DEFAULT_HTTPSRC );
+		MMPLAYER_INI_GET_STRING( dict, ini->httpsrc_element, "http streaming:httpsrc element", DEFAULT_HTTPSRC );
 		MMPLAYER_INI_GET_STRING( dict, ini->http_file_buffer_path, "http streaming:http file buffer path", DEFAULT_HTTP_FILE_BUFFER_PATH );
 		ini->http_buffering_limit = iniparser_getdouble(dict, "http streaming:http buffering high limit", DEFAULT_HTTP_BUFFERING_LIMIT);
 		ini->http_max_size_bytes = iniparser_getint(dict, "http streaming:http max size bytes", DEFAULT_HTTP_MAX_SIZE_BYTES);
 		ini->http_buffering_time = iniparser_getdouble(dict, "http streaming:http buffering time", DEFAULT_HTTP_BUFFERING_TIME);
 		ini->http_timeout = iniparser_getint(dict, "http streaming:http timeout", DEFAULT_HTTP_TIMEOUT);
-
-		/* rtsp streaming */
-		MMPLAYER_INI_GET_STRING( dict, ini->name_of_rtspsrc, "rtsp streaming:rtspsrc element", DEFAULT_RTSPSRC );
-		ini->rtsp_buffering_time = iniparser_getint(dict, "rtsp streaming:rtsp buffering time", DEFAULT_RTSP_BUFFERING);
-		ini->rtsp_rebuffering_time = iniparser_getint(dict, "rtsp streaming:rtsp rebuffering time", DEFAULT_RTSP_REBUFFERING);
-		ini->rtsp_do_typefinding = iniparser_getboolean(dict, "rtsp streaming:rtsp do typefinding", DEFAULT_RTSP_DO_TYPEFINDING);
 
 		/* dump buffer for debug */
 		__get_element_list(ini,
@@ -228,22 +221,18 @@ mm_player_ini_load(mm_player_ini_t* ini)
 		strncpy( ini->videosink_element_evas, DEFAULT_VIDEOSINK_EVAS, PLAYER_INI_MAX_STRLEN - 1 );
 		strncpy( ini->videosink_element_fake, DEFAULT_VIDEOSINK_FAKE, PLAYER_INI_MAX_STRLEN - 1 );
 		ini->generate_dot = DEFAULT_GENERATE_DOT;
-		ini->provide_clock_for_music = DEFAULT_PROVIDE_CLOCK_FOR_MUSIC;
-		ini->provide_clock_for_movie = DEFAULT_PROVIDE_CLOCK_FOR_MOVIE;
+		ini->use_system_clock = DEFAULT_USE_SYSTEM_CLOCK;
 		ini->live_state_change_timeout = DEFAULT_LIVE_STATE_CHANGE_TIMEOUT;
 		ini->localplayback_state_change_timeout = DEFAULT_LOCALPLAYBACK_STATE_CHANGE_TIMEOUT;
 		ini->eos_delay = DEFAULT_EOS_DELAY;
 		ini->async_start = DEFAULT_ASYNC_START;
 		ini->delay_before_repeat = DEFAULT_DELAY_BEFORE_REPEAT;
 
-		strncpy( ini->name_of_audio_resampler, DEFAULT_AUDIORESAMPLER, PLAYER_INI_MAX_STRLEN -1 );
-		strncpy( ini->name_of_audiosink, DEFAULT_AUDIOSINK, PLAYER_INI_MAX_STRLEN -1 );
-		strncpy( ini->name_of_video_converter, DEFAULT_VIDEO_CONVERTER, PLAYER_INI_MAX_STRLEN -1 );
+		strncpy( ini->audioresampler_element, DEFAULT_AUDIORESAMPLER, PLAYER_INI_MAX_STRLEN -1 );
+		strncpy( ini->audiosink_element, DEFAULT_AUDIOSINK, PLAYER_INI_MAX_STRLEN -1 );
+		strncpy( ini->videoconverter_element, DEFAULT_VIDEO_CONVERTER, PLAYER_INI_MAX_STRLEN -1 );
 
-		{
-			__get_element_list(ini, DEFAULT_EXCLUDE_KEYWORD, KEYWORD_EXCLUDE);
-		}
-
+		__get_element_list(ini, DEFAULT_EXCLUDE_KEYWORD, KEYWORD_EXCLUDE);
 
 		strncpy( ini->gst_param[0], DEFAULT_GST_PARAM, PLAYER_INI_MAX_PARAM_STRLEN - 1 );
 		strncpy( ini->gst_param[1], DEFAULT_GST_PARAM, PLAYER_INI_MAX_PARAM_STRLEN - 1 );
@@ -252,18 +241,12 @@ mm_player_ini_load(mm_player_ini_t* ini)
 		strncpy( ini->gst_param[4], DEFAULT_GST_PARAM, PLAYER_INI_MAX_PARAM_STRLEN - 1 );
 
 		/* http streaming */
-		strncpy( ini->name_of_httpsrc, DEFAULT_HTTPSRC, PLAYER_INI_MAX_STRLEN - 1 );
+		strncpy( ini->httpsrc_element, DEFAULT_HTTPSRC, PLAYER_INI_MAX_STRLEN - 1 );
 		strncpy( ini->http_file_buffer_path, DEFAULT_HTTP_FILE_BUFFER_PATH, PLAYER_INI_MAX_STRLEN - 1 );
 		ini->http_buffering_limit = DEFAULT_HTTP_BUFFERING_LIMIT;
 		ini->http_max_size_bytes = DEFAULT_HTTP_MAX_SIZE_BYTES;
 		ini->http_buffering_time = DEFAULT_HTTP_BUFFERING_TIME;
 		ini->http_timeout = DEFAULT_HTTP_TIMEOUT;
-
-		/* rtsp streaming */
-		strncpy( ini->name_of_rtspsrc, DEFAULT_RTSPSRC, PLAYER_INI_MAX_STRLEN - 1 );
-		ini->rtsp_buffering_time = DEFAULT_RTSP_BUFFERING;
-		ini->rtsp_rebuffering_time = DEFAULT_RTSP_REBUFFERING;
-		ini->rtsp_do_typefinding = DEFAULT_RTSP_DO_TYPEFINDING;
 
 		/* dump buffer for debug */
 		__get_element_list(ini, DEFAULT_DUMP_ELEMENT_KEYWORD, KEYWORD_DUMP);
@@ -277,28 +260,27 @@ mm_player_ini_load(mm_player_ini_t* ini)
 	debug_log("player settings -----------------------------------\n");
 
 	/* general */
-	debug_log("disable_segtrap : %d\n", ini->disable_segtrap);
+	debug_log("disable segtrap : %d\n", ini->disable_segtrap);
 	debug_log("skip rescan : %d\n", ini->skip_rescan);
 	debug_log("videosink element x: %s\n", ini->videosink_element_x);
 	debug_log("videosink element evas: %s\n", ini->videosink_element_evas);
 	debug_log("videosink element fake: %s\n", ini->videosink_element_fake);
-	debug_log("generate_dot : %d\n", ini->generate_dot);
-	debug_log("provide_clock for music : %d\n", ini->provide_clock_for_music);
-	debug_log("provide_clock for movie : %d\n", ini->provide_clock_for_movie);
-	debug_log("live_state_change_timeout(sec) : %d\n", ini->live_state_change_timeout);
-	debug_log("localplayback_state_change_timeout(sec) : %d\n", ini->localplayback_state_change_timeout);
+	debug_log("video converter element : %s\n", ini->videoconverter_element);
+	debug_log("audio resampler element : %s\n", ini->audioresampler_element);
+	debug_log("audiosink element : %s\n", ini->audiosink_element);
+	debug_log("generate dot : %d\n", ini->generate_dot);
+	debug_log("use system clock(video only) : %d\n", ini->use_system_clock);
+	debug_log("live state change timeout(sec) : %d\n", ini->live_state_change_timeout);
+	debug_log("localplayback state change timeout(sec) : %d\n", ini->localplayback_state_change_timeout);
 	debug_log("eos_delay(msec) : %d\n", ini->eos_delay);
-	debug_log("delay_before_repeat(msec) : %d\n", ini->delay_before_repeat);
-	debug_log("name_of_audioresampler : %s\n", ini->name_of_audio_resampler);
-	debug_log("name_of_audiosink : %s\n", ini->name_of_audiosink);
-	debug_log("name_of_video_converter : %s\n", ini->name_of_video_converter);
+	debug_log("delay before repeat(msec) : %d\n", ini->delay_before_repeat);
 	debug_log("async_start : %d\n", ini->async_start);
 
-	debug_log("gst_param1 : %s\n", ini->gst_param[0]);
-	debug_log("gst_param2 : %s\n", ini->gst_param[1]);
-	debug_log("gst_param3 : %s\n", ini->gst_param[2]);
-	debug_log("gst_param4 : %s\n", ini->gst_param[3]);
-	debug_log("gst_param5 : %s\n", ini->gst_param[4]);
+	debug_log("gst param1 : %s\n", ini->gst_param[0]);
+	debug_log("gst param2 : %s\n", ini->gst_param[1]);
+	debug_log("gst param3 : %s\n", ini->gst_param[2]);
+	debug_log("gst param4 : %s\n", ini->gst_param[3]);
+	debug_log("gst param5 : %s\n", ini->gst_param[4]);
 
 	for ( idx = 0; ini->exclude_element_keyword[idx][0] != '\0'; idx++ )
 	{
@@ -311,22 +293,15 @@ mm_player_ini_load(mm_player_ini_t* ini)
 	}
 
 	/* http streaming */
-	debug_log("name_of_httpsrc : %s\n", ini->name_of_httpsrc);
-	debug_log("http_file_buffer_path : %s \n", ini->http_file_buffer_path);
-	debug_log("http_buffering_limit : %f \n", ini->http_buffering_limit);
-	debug_log("http_max_size_bytes : %d \n", ini->http_max_size_bytes);
-	debug_log("http_buffering_time : %f \n", ini->http_buffering_time);
-	debug_log("http_timeout : %d \n", ini->http_timeout);
-
-	/* rtsp streaming */
-	debug_log("name_of_rtspsrc : %s\n", ini->name_of_rtspsrc);
-	debug_log("rtsp_buffering_time(msec) : %d\n", ini->rtsp_buffering_time);
-	debug_log("rtsp_rebuffering_time(msec) : %d\n", ini->rtsp_rebuffering_time);
-	debug_log("rtsp_do_typefinding : %d \n", ini->rtsp_do_typefinding);
+	debug_log("httpsrc element : %s\n", ini->httpsrc_element);
+	debug_log("http file buffer path : %s \n", ini->http_file_buffer_path);
+	debug_log("http buffering limit : %f \n", ini->http_buffering_limit);
+	debug_log("http max_size bytes : %d \n", ini->http_max_size_bytes);
+	debug_log("http buffering time : %f \n", ini->http_buffering_time);
+	debug_log("http timeout : %d \n", ini->http_timeout);
 
 	return MM_ERROR_NONE;
 }
-
 
 int
 mm_player_audio_effect_ini_load(mm_player_ini_t* ini)
@@ -341,8 +316,8 @@ mm_player_audio_effect_ini_load(mm_player_ini_t* ini)
 	}
 
 	/* audio effect element name */
-	MMPLAYER_INI_GET_STRING( dict_audioeffect, ini->name_of_audio_effect, "audio effect:audio effect element", DEFAULT_AUDIO_EFFECT_ELEMENT );
-	if (!ini->name_of_audio_effect[0])
+	MMPLAYER_INI_GET_STRING( dict_audioeffect, ini->audioeffect_element, "audio effect:audio effect element", DEFAULT_AUDIO_EFFECT_ELEMENT );
+	if (!ini->audioeffect_element[0])
 	{
 		debug_warning("could not parse name of audio effect. \n");
 		iniparser_freedict (dict_audioeffect);
@@ -360,7 +335,7 @@ mm_player_audio_effect_ini_load(mm_player_ini_t* ini)
 				"audio effect:audio effect preset earphone only", DEFAULT_AUDIO_EFFECT_PRESET_LIST_EARPHONE_ONLY );
 	}
 
-	/* audio effect custom (EQ / Extension effects) */
+	/* audio effect user (EQ / Extension effects) */
 	ini->use_audio_effect_custom = iniparser_getboolean(dict_audioeffect, "audio effect:audio effect custom", DEFAULT_USE_AUDIO_EFFECT_CUSTOM);
 	if (ini->use_audio_effect_custom)
 	{
@@ -411,29 +386,22 @@ mm_player_audio_effect_ini_load(mm_player_ini_t* ini)
 		}
 	}
 
-	ini->use_audio_effect_square= iniparser_getboolean(dict_audioeffect, "audio effect:audio effect square", DEFAULT_USE_AUDIO_EFFECT_SQUARE);
-	if (ini->use_audio_effect_custom)
-	{
-		ini->audio_effect_square_max_row= iniparser_getint(dict_audioeffect, "audio effect:audio effect square max row",
-				DEFAULT_AUDIO_EFFECT_SQUARE_ROW_MAX);
-		ini->audio_effect_square_max_col= iniparser_getint(dict_audioeffect, "audio effect:audio effect square max col",
-				DEFAULT_AUDIO_EFFECT_SQUARE_COL_MAX);
-	}
-
 	/* audio effect element name */
-	MMPLAYER_INI_GET_STRING( dict_audioeffect, ini->name_of_audio_effect_sec, "audio effect:audio effect element sec", DEFAULT_AUDIO_EFFECT_ELEMENT );
-	if (!ini->name_of_audio_effect_sec[0])
+	MMPLAYER_INI_GET_STRING(dict_audioeffect, ini->audioeffect_element_custom, "audio effect:audio effect element custom", DEFAULT_AUDIO_EFFECT_ELEMENT );
+	if (!ini->audioeffect_element_custom[0])
 	{
-		debug_warning("could not parse name of secondary audio effect. \n");
+		debug_warning("no secondary audio effect \n");
+	}
+	else
+	{
+		debug_log("audioeffect element custom : %s\n", ini->audioeffect_element_custom);
 	}
 
 	/* dump structure */
-	debug_log("name_of_audio_effect : %s\n", ini->name_of_audio_effect);
-	debug_log("use_audio_effect_preset : %d\n", ini->use_audio_effect_preset);
-	debug_log("use_audio_effect_custom : %d\n", ini->use_audio_effect_custom);
-	debug_log("name_of_audio_effect_sec : %s\n", ini->name_of_audio_effect_sec);
-	debug_log("Use_audio_effect_square : %d\n", ini->use_audio_effect_square);
-#if 0
+	debug_log("audioeffect element : %s\n", ini->audioeffect_element);
+	debug_log("audio effect preset mode : %d\n", ini->use_audio_effect_preset);
+	debug_log("audio effect custom mode : %d\n", ini->use_audio_effect_custom);
+#if 0 // debug
 	int i;
 	for (i=0; i<MM_AUDIO_EFFECT_PRESET_NUM; i++)
 	{
@@ -459,7 +427,6 @@ mm_player_audio_effect_ini_load(mm_player_ini_t* ini)
 	return MM_ERROR_NONE;
 
 }
-
 
 static
 void __mm_player_ini_check_ini_status(void)
@@ -590,6 +557,3 @@ void	__get_element_list(mm_player_ini_t* ini, gchar* str, int keyword_type)
 }
 
 #endif
-
-
-

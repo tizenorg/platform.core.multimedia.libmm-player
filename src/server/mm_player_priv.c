@@ -1880,13 +1880,21 @@ __mmplayer_gst_callback(GstBus *bus, GstMessage *msg, gpointer data) // @
 		case GST_MESSAGE_CLOCK_LOST:
 			{
 				GstClock *clock = NULL;
+				gboolean need_new_clock = FALSE;
+
 				gst_message_parse_clock_lost (msg, &clock);
 				debug_log("GST_MESSAGE_CLOCK_LOST : %s\n", (clock ? GST_OBJECT_NAME (clock) : "NULL"));
-				g_print ("GST_MESSAGE_CLOCK_LOST : %s\n", (clock ? GST_OBJECT_NAME (clock) : "NULL"));
 
-				if (((player->ini.provide_clock_for_music) && (!player->videodec_linked)) ||
-					((player->ini.provide_clock_for_movie) && (player->videodec_linked)))
+				if (!player->videodec_linked)
 				{
+					need_new_clock = TRUE;
+				}
+				else if (!player->ini.use_system_clock)
+				{
+					need_new_clock = TRUE;
+				}
+
+				if (need_new_clock) {
 					debug_log ("Provide clock is TRUE, do pause->resume\n");
 					__gst_pause(player, FALSE);
 					__gst_resume(player, FALSE);
@@ -2436,94 +2444,67 @@ __mmplayer_gst_rtp_dynamic_pad (GstElement *element, GstPad *pad, gpointer data)
 	player->num_dynamic_pad++;
 	debug_log("stream count inc : %d\n", player->num_dynamic_pad);
 
-	/* perform autoplugging if dump is disabled */
-	if ( player->ini.rtsp_do_typefinding )
+	caps = gst_pad_query_caps( pad, NULL );
+
+	MMPLAYER_CHECK_NULL( caps );
+
+	/* clear  previous result*/
+	player->have_dynamic_pad = FALSE;
+
+	str = gst_caps_get_structure(caps, 0);
+
+	if ( ! str )
 	{
-		/* create typefind */
-		new_element = gst_element_factory_make( "typefind", NULL );
-		if ( ! new_element )
-		{
-			debug_error("failed to create typefind\n");
-			goto ERROR;
-		}
-
-		MMPLAYER_SIGNAL_CONNECT( 	player,
-									G_OBJECT(new_element),
-									MM_PLAYER_SIGNAL_TYPE_AUTOPLUG,
-									"have-type",
-									G_CALLBACK(__mmplayer_typefind_have_type),
-									(gpointer)player);
-
-		/* FIXIT : try to remove it */
-		player->have_dynamic_pad = FALSE;
+		debug_error ("cannot get structure from caps.\n");
+		goto ERROR;
 	}
-	else  /* NOTE : use pad's caps directely. if enabled. what I am assuming is there's no elemnt has dynamic pad */
+
+	name = gst_structure_get_name (str);
+	if ( ! name )
 	{
-		debug_log("using pad caps to autopluging instead of doing typefind\n");
+		debug_error ("cannot get mimetype from structure.\n");
+		goto ERROR;
+	}
 
-		caps = gst_pad_query_caps( pad, NULL );
+	if (strstr(name, "video"))
+	{
+		gint stype = 0;
+		mm_attrs_get_int_by_name (player->attrs, "display_surface_type", &stype);
 
-		MMPLAYER_CHECK_NULL( caps );
-
-		/* clear  previous result*/
-		player->have_dynamic_pad = FALSE;
-
-		str = gst_caps_get_structure(caps, 0);
-
-		if ( ! str )
+		if (stype == MM_DISPLAY_SURFACE_NULL)
 		{
-			debug_error ("cannot get structure from caps.\n");
-			goto ERROR;
-		}
-
-		name = gst_structure_get_name (str);
-		if ( ! name )
-		{
-			debug_error ("cannot get mimetype from structure.\n");
-			goto ERROR;
-		}
-
-		if (strstr(name, "video"))
-		{
-			gint stype = 0;
-			mm_attrs_get_int_by_name (player->attrs, "display_surface_type", &stype);
-
-			if (stype == MM_DISPLAY_SURFACE_NULL)
+			if (player->v_stream_caps)
 			{
-				if (player->v_stream_caps)
-				{
-					gst_caps_unref(player->v_stream_caps);
-					player->v_stream_caps = NULL;
-				}
-
-				new_element = gst_element_factory_make("fakesink", NULL);
-				player->num_dynamic_pad--;
-				goto NEW_ELEMENT;
+				gst_caps_unref(player->v_stream_caps);
+				player->v_stream_caps = NULL;
 			}
+
+			new_element = gst_element_factory_make("fakesink", NULL);
+			player->num_dynamic_pad--;
+			goto NEW_ELEMENT;
 		}
-
-		/* clear  previous result*/
-		player->have_dynamic_pad = FALSE;
-
-		if ( !__mmplayer_try_to_plug_decodebin(player, pad, caps))
-		{
-			debug_error("failed to autoplug for caps");
-			goto ERROR;
-		}
-
-		/* check if there's dynamic pad*/
-		if( player->have_dynamic_pad )
-		{
-			debug_error("using pad caps assums there's no dynamic pad !\n");
-			debug_error("try with enalbing rtsp_do_typefinding\n");
-			goto ERROR;
-		}
-
-		gst_caps_unref( caps );
-		caps = NULL;
 	}
 
-	NEW_ELEMENT:
+	/* clear  previous result*/
+	player->have_dynamic_pad = FALSE;
+
+	if ( !__mmplayer_try_to_plug_decodebin(player, pad, caps))
+	{
+		debug_error("failed to autoplug for caps");
+		goto ERROR;
+	}
+
+	/* check if there's dynamic pad*/
+	if( player->have_dynamic_pad )
+	{
+		debug_error("using pad caps assums there's no dynamic pad !\n");
+		goto ERROR;
+	}
+
+	gst_caps_unref( caps );
+	caps = NULL;
+
+NEW_ELEMENT:
 
 	/* excute new_element if created*/
 	if ( new_element )
@@ -4554,7 +4535,7 @@ __mmplayer_gst_create_audio_pipeline(mm_player_t* player)
 	MMPLAYER_CREATE_ELEMENT(audiobin, MMPLAYER_A_CONV, "audioconvert", "audio converter", TRUE, player);
 
 	/* resampler */
-	MMPLAYER_CREATE_ELEMENT(audiobin, MMPLAYER_A_RESAMPLER,  player->ini.name_of_audio_resampler, "audio resampler", TRUE, player);
+	MMPLAYER_CREATE_ELEMENT(audiobin, MMPLAYER_A_RESAMPLER,  player->ini.audioresampler_element, "audio resampler", TRUE, player);
 
 	if (player->set_mode.pcm_extraction) // pcm extraction only and no sound output
 	{
@@ -4681,11 +4662,11 @@ __mmplayer_gst_create_audio_pipeline(mm_player_t* player)
 		}
 
 		/* audio effect element. if audio effect is enabled */
-		if ( (strcmp(player->ini.name_of_audio_effect, ""))
+		if ( (strcmp(player->ini.audioeffect_element, ""))
 			&& (channels <= 2)
-			&& (player->ini.use_audio_effect_preset || player->ini.use_audio_effect_custom) )
+			&& (player->ini.use_audio_effect_preset || player->ini.use_audio_effect_custom))
 		{
-			MMPLAYER_CREATE_ELEMENT(audiobin, MMPLAYER_A_FILTER, player->ini.name_of_audio_effect, "audio effect filter", TRUE, player);
+			MMPLAYER_CREATE_ELEMENT(audiobin, MMPLAYER_A_FILTER, player->ini.audioeffect_element, "audio effect filter", TRUE, player);
 
 			debug_log("audio effect config. bypass = %d, effect type  = %d", player->bypass_audio_effect, player->audio_effect_info.effect_type);
 
@@ -4701,10 +4682,10 @@ __mmplayer_gst_create_audio_pipeline(mm_player_t* player)
 				}
 			}
 
-			if ( (strcmp(player->ini.name_of_audio_effect_sec, ""))
+			if ( (strcmp(player->ini.audioeffect_element_custom, ""))
 				&& (player->set_mode.rich_audio) )
 			{
-				MMPLAYER_CREATE_ELEMENT(audiobin, MMPLAYER_A_FILTER_SEC, player->ini.name_of_audio_effect_sec, "audio effect filter", TRUE, player);
+				MMPLAYER_CREATE_ELEMENT(audiobin, MMPLAYER_A_FILTER_SEC, player->ini.audioeffect_element_custom, "audio effect filter custom", TRUE, player);
 			}
 		}
 		if (!MMPLAYER_IS_RTSP_STREAMING(player))
@@ -4714,25 +4695,19 @@ __mmplayer_gst_create_audio_pipeline(mm_player_t* player)
 		}
 
 		/* create audio sink */
-		MMPLAYER_CREATE_ELEMENT(audiobin, MMPLAYER_A_SINK, player->ini.name_of_audiosink, "audiosink", link_audio_sink_now, player);
+		MMPLAYER_CREATE_ELEMENT(audiobin, MMPLAYER_A_SINK, player->ini.audiosink_element, "audiosink", link_audio_sink_now, player);
 
 		/* qos on */
 		g_object_set (G_OBJECT (audiobin[MMPLAYER_A_SINK].gst), "qos", TRUE, NULL); 	/* qos on */
 		g_object_set (G_OBJECT (audiobin[MMPLAYER_A_SINK].gst), "slave-method", GST_AUDIO_BASE_SINK_SLAVE_NONE, NULL);
 
-		/* FIXIT : using system clock. isn't there another way? */
-		if (player->videodec_linked)
+		if (player->videodec_linked && player->ini.use_system_clock)
 		{
-			debug_log("provide clock for movie = %s", (player->ini.provide_clock_for_movie)?"audio_clock":"sys_clock");
-			g_object_set (G_OBJECT (audiobin[MMPLAYER_A_SINK].gst), "provide-clock", player->ini.provide_clock_for_movie,  NULL);
-		}
-		else
-		{
-			debug_log("provide clock for music = %s", (player->ini.provide_clock_for_music)?"audio_clock":"sys_clock");
-			g_object_set (G_OBJECT (audiobin[MMPLAYER_A_SINK].gst), "provide-clock", player->ini.provide_clock_for_music,  NULL);
+			debug_log("system clock will be used.\n");
+			g_object_set (G_OBJECT (audiobin[MMPLAYER_A_SINK].gst), "provide-clock", FALSE,  NULL);
 		}
 
-		if (g_strrstr(player->ini.name_of_audiosink, "pulsesink"))
+		if (g_strrstr(player->ini.audiosink_element, "pulsesink"))
 			__mmplayer_gst_set_audiosink_property(player, attrs);
 	}
 
@@ -5011,9 +4986,9 @@ __mmplayer_gst_create_video_filters(mm_player_t* player, GList** bucket, gboolea
 
 	if (!player->set_mode.media_packet_video_stream && use_video_stream)
 	{
-		if (player->set_mode.video_zc && strlen(player->ini.name_of_video_converter) > 0)
+		if (player->set_mode.video_zc && strlen(player->ini.videoconverter_element) > 0)
 		{
-			video_csc = player->ini.name_of_video_converter;
+			video_csc = player->ini.videoconverter_element;
 		}
 
 		MMPLAYER_CREATE_ELEMENT(player->pipeline->videobin, MMPLAYER_V_CONV, video_csc, "video converter", TRUE, player);
@@ -5065,7 +5040,7 @@ __mmplayer_gst_create_video_filters(mm_player_t* player, GList** bucket, gboolea
 		{
 			if ( (surface_type == MM_DISPLAY_SURFACE_EVAS) && ( !strcmp(player->ini.videosink_element_evas, "evasimagesink")) )
 			{
-				video_csc = player->ini.name_of_video_converter;
+				video_csc = player->ini.videoconverter_element;
 			}
 			else
 			{
@@ -6288,15 +6263,13 @@ __mmplayer_gst_create_pipeline(mm_player_t* player) // @
 			gint network_bandwidth;
 			gchar *user_agent, *wap_profile;
 
-			element = gst_element_factory_make(player->ini.name_of_rtspsrc, "streaming_source");
+			element = gst_element_factory_make("rtspsrc", "rtsp source");
 
 			if ( !element )
 			{
 				debug_error("failed to create streaming source element\n");
 				break;
 			}
-
-			debug_log("using streamming source [%s].\n", player->ini.name_of_rtspsrc);
 
 			/* make it zero */
 			network_bandwidth = 0;
@@ -6325,27 +6298,7 @@ __mmplayer_gst_create_pipeline(mm_player_t* player) // @
 			player->use_decodebin = FALSE;
 		}
 		break;
-#if 0
-		/* WFD streamming */
-		case MM_PLAYER_URI_TYPE_URL_WFD:
-		{
-			element = gst_element_factory_make("wfdrtspsrc", "wfd_source");
-			if ( !element )
-			{
-				debug_error("failed to create wfd streaming source element\n");
-				break;
-			}
-			debug_log("using wfd streamming source wfdrtspsrc.\n");
-			g_object_set(G_OBJECT(element), "location", player->profile.uri, NULL);
-			g_object_set(G_OBJECT(element), "debug", TRUE, NULL);
-			g_object_set(G_OBJECT(element), "latency", 0, NULL);
-			MMPLAYER_SIGNAL_CONNECT ( player, G_OBJECT(element), MM_PLAYER_SIGNAL_TYPE_AUTOPLUG, "pad-added",
-			       G_CALLBACK (__mmplayer_gst_wfd_dynamic_pad), player );
 
-			player->use_decodebin = FALSE;
-		}
-		break;
-#endif
 		/* http streaming*/
 		case MM_PLAYER_URI_TYPE_URL_HTTP:
 		{
@@ -6363,13 +6316,13 @@ __mmplayer_gst_create_pipeline(mm_player_t* player) // @
 
 			if ( ! MMPLAYER_IS_HTTP_PD(player) )
 			{
-				element = gst_element_factory_make(player->ini.name_of_httpsrc, "http_streaming_source");
+				element = gst_element_factory_make(player->ini.httpsrc_element, "http_streaming_source");
 				if ( !element )
 				{
-					debug_error("failed to create http streaming source element[%s].\n", player->ini.name_of_httpsrc);
+					debug_error("failed to create http streaming source element[%s].\n", player->ini.httpsrc_element);
 					break;
 				}
-				debug_log("using http streamming source [%s].\n", player->ini.name_of_httpsrc);
+				debug_log("using http streamming source [%s].\n", player->ini.httpsrc_element);
 
 				/* get attribute */
 				mm_attrs_get_string_by_name ( attrs, "streaming_cookie", &cookies );
@@ -6480,7 +6433,7 @@ __mmplayer_gst_create_pipeline(mm_player_t* player) // @
 			element = gst_element_factory_make("souphttpsrc", "http streaming source");
 			if ( !element )
 			{
-				debug_error("failed to create http streaming source element[%s]", player->ini.name_of_httpsrc);
+				debug_error("failed to create http streaming source element[%s]", player->ini.httpsrc_element);
 				break;
 			}
 
@@ -8990,7 +8943,7 @@ __mmplayer_init_gstreamer(mm_player_t* player) // @
 	argv = malloc( sizeof(gchar*) * max_argc );
 	argv2 = malloc( sizeof(gchar*) * max_argc );
 
-	if ( !argc || !argv || !argv2 )
+	if ( !argc || !argv || !argv2)
 		goto ERROR;
 
 	memset( argv, 0, sizeof(gchar*) * max_argc );
@@ -11747,13 +11700,13 @@ __mmplayer_activate_next_source(mm_player_t *player, GstState target)
 			user_agent = proxy = cookies = NULL;
 			cookie_list = NULL;
 
-			element = gst_element_factory_make(player->ini.name_of_httpsrc, "http_streaming_source");
+			element = gst_element_factory_make(player->ini.httpsrc_element, "http_streaming_source");
 			if ( !element )
 			{
-				debug_error("failed to create http streaming source element[%s].\n", player->ini.name_of_httpsrc);
+				debug_error("failed to create http streaming source element[%s].\n", player->ini.httpsrc_element);
 				break;
 			}
-			debug_log("using http streamming source [%s].\n", player->ini.name_of_httpsrc);
+			debug_log("using http streamming source [%s].\n", player->ini.httpsrc_element);
 
 			/* get attribute */
 			mm_attrs_get_string_by_name ( attrs, "streaming_cookie", &cookies );
@@ -15523,22 +15476,6 @@ _mmplayer_enable_sync_handler(MMHandleType hplayer, bool enable)
 
 	debug_log("enable sync handler : %s", (enable)?"ON":"OFF");
 	player->sync_handler = enable;
-
-	return MM_ERROR_NONE;
-}
-
-int
-_mmplayer_use_system_clock (MMHandleType hplayer)
-{
-	mm_player_t* player = (mm_player_t*) hplayer;
-
-	return_val_if_fail (player, MM_ERROR_PLAYER_NOT_INITIALIZED);
-
-	debug_log("change clock provider to system");
-
-	// to use system clock
-	player->ini.provide_clock_for_movie = FALSE;
-	player->ini.provide_clock_for_music = FALSE;
 
 	return MM_ERROR_NONE;
 }
