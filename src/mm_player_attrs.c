@@ -25,10 +25,8 @@
 |  INCLUDE FILES																			|
 |  																							|
 ========================================================================================== */
-#include <vconf.h>
 #include <mm_attrs_private.h>
 #include <mm_attrs.h>
-#include <gst/video/videooverlay.h>
 #include "mm_player_utils.h"
 #include "mm_player_priv.h"
 #include "mm_player_attrs.h"
@@ -207,8 +205,6 @@ _mmplayer_construct_attribute(MMHandleType handle)
 	MMHandleType attrs = 0;
 	int num_of_attrs = 0;
 	mmf_attrs_construct_info_t *base = NULL;
-	//gchar *system_ua = NULL;
-	gchar *system_proxy = NULL;
 
 	return_val_if_fail (handle, 0);
 
@@ -1137,24 +1133,6 @@ _mmplayer_construct_attribute(MMHandleType handle)
 			default:
 			break;
 		}
-	}
-
-	#if 0
-	/* set proxy and user agent */
-	system_ua = vconf_get_str(VCONFKEY_ADMIN_UAGENT);
-	system_proxy = vconf_get_str(VCONFKEY_NETWORK_PROXY);
-
-	if (system_ua)
-	{
-			mm_attrs_set_string_by_name(attrs, "streaming_user_agent", system_ua);
-			g_free(system_ua);
-	}
-	#endif
-
-	if (system_proxy)
-	{
-			mm_attrs_set_string_by_name(attrs, "streaming_proxy", system_proxy);
-			g_free(system_proxy);
 	}
 
 	/* commit */
