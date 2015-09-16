@@ -43,6 +43,8 @@
 #include <mm_attrs.h>
 #include <mm_attrs_private.h>
 #include <mm_debug.h>
+#include <mm_sound.h>
+#include <mm_sound_focus.h>
 
 #include "mm_player_priv.h"
 #include "mm_player_ini.h"
@@ -50,12 +52,6 @@
 #include "mm_player_capture.h"
 #include "mm_player_utils.h"
 #include "mm_player_tracks.h"
-#include <sched.h>
-
-#include <mm_sound.h>
-#include <mm_sound_focus.h>
-
-#define MM_SMOOTH_STREAMING
 
 /*===========================================================================================
 |																							|
@@ -87,8 +83,8 @@
 
 #define MM_PLAYER_FADEOUT_TIME_DEFAULT	700000 // 700 msec
 
-#define MM_PLAYER_MPEG_VNAME				"mpegversion"
-#define MM_PLAYER_DIVX_VNAME				"divxversion"
+#define MM_PLAYER_MPEG_VNAME			"mpegversion"
+#define MM_PLAYER_DIVX_VNAME			"divxversion"
 #define MM_PLAYER_WMV_VNAME				"wmvversion"
 #define MM_PLAYER_WMA_VNAME				"wmaversion"
 
@@ -101,21 +97,8 @@
 #define GST_QUEUE_DEFAULT_TIME			4
 #define GST_QUEUE_HLS_TIME				8
 
-#define DEFAULT_AUDIO_CH				0
-
 #define MMPLAYER_USE_FILE_FOR_BUFFERING(player) (((player)->profile.uri_type != MM_PLAYER_URI_TYPE_HLS) && (player->ini.http_file_buffer_path) && (strlen(player->ini.http_file_buffer_path) > 0) )
-
-#define	LAZY_PAUSE_TIMEOUT_MSEC	700
 #define MM_PLAYER_NAME	"mmplayer"
-
-#define SMOOTH_STREAMING_DEMUX "mssdemux"
-/*
- * g_array_index(a,t,i) does not calculate gst private structure.
- * It replaces the g_array_index(a,t,i)
- */
-#define g_array_undef_struct_idx_p(a,t,i)	((t *)(void *)((a)->data + ((i) * (a)->len)))
-
-//#define ENABLE_DRMSRC
 
 /*---------------------------------------------------------------------------
 |    LOCAL CONSTANT DEFINITIONS:											|
@@ -3256,6 +3239,7 @@ __mmplayer_gst_deinterleave_no_more_pads (GstElement *elem, gpointer data)
 	gint active_index = 0;
 	gchar* change_pad_name = NULL;
 	GstCaps* caps = NULL;	// no need to unref
+	gint default_audio_ch = 0;
 
 	MMPLAYER_FENTER();
 	player = (mm_player_t*) data;
@@ -3270,9 +3254,9 @@ __mmplayer_gst_deinterleave_no_more_pads (GstElement *elem, gpointer data)
 
 	active_index = player->audio_mode.active_pad_index;
 
-	if (active_index != DEFAULT_AUDIO_CH)
+	if (active_index != default_audio_ch)
 	{
-		gint audio_ch = DEFAULT_AUDIO_CH;
+		gint audio_ch = default_audio_ch;
 
 		/*To get the new pad from the selector*/
 		change_pad_name = g_strdup_printf ("sink%d", active_index);
@@ -8128,14 +8112,13 @@ static int __mmfplayer_parse_profile(const char *uri, void *param, MMPlayerParse
 	{
 		if (strlen(path)) {
 			strcpy(data->uri, uri);
-#ifdef MM_SMOOTH_STREAMING
+
 			if (g_str_has_suffix (g_ascii_strdown(uri, strlen(uri)), ".ism/manifest") ||
 				g_str_has_suffix (g_ascii_strdown(uri, strlen(uri)), ".isml/manifest"))
 			{
 				data->uri_type = MM_PLAYER_URI_TYPE_SS;
 			}
 			else
-#endif
 			        data->uri_type = MM_PLAYER_URI_TYPE_URL_HTTP;
 
 			ret = MM_ERROR_NONE;
@@ -8145,14 +8128,14 @@ static int __mmfplayer_parse_profile(const char *uri, void *param, MMPlayerParse
 	{
 		if (strlen(path)) {
 			strcpy(data->uri, uri);
-#ifdef MM_SMOOTH_STREAMING
+
 		if (g_str_has_suffix (g_ascii_strdown(uri, strlen(uri)), ".ism/manifest") ||
 				g_str_has_suffix (g_ascii_strdown(uri, strlen(uri)), ".isml/manifest"))
 			{
 				data->uri_type = MM_PLAYER_URI_TYPE_SS;
 			}
-#endif
-				data->uri_type = MM_PLAYER_URI_TYPE_URL_HTTP;
+
+			data->uri_type = MM_PLAYER_URI_TYPE_URL_HTTP;
 
 			ret = MM_ERROR_NONE;
 		}
@@ -8679,20 +8662,6 @@ __mmplayer_sound_focus_callback(int id, mm_sound_focus_type_e focus_type, mm_sou
 				_mmplayer_unrealize((MMHandleType)player);
 			}
 		}
-#if 0
-#ifdef USE_LAZY_PAUSE // if enabled, should consider event id and context when removed
-		else if(event_src == ASM_EVENT_SOURCE_OTHER_PLAYER_APP)
-		{
-			lazy_pause = TRUE; // return as soon as possible, for fast start of other app
-
-			if ( player->pipeline->audiobin && player->pipeline->audiobin[MMPLAYER_A_SINK].gst )
-				g_object_set( player->pipeline->audiobin[MMPLAYER_A_SINK].gst, "mute", 2, NULL);
-
-			player->lazy_pause_event_id = g_timeout_add(LAZY_PAUSE_TIMEOUT_MSEC, (GSourceFunc)_asm_lazy_pause, (gpointer)player);
-			debug_warning ("set lazy pause timer (id=[%d], timeout=[%d ms])", player->lazy_pause_event_id, LAZY_PAUSE_TIMEOUT_MSEC);
-		}
-#endif
-#endif
 		else
 		{
 			debug_warning ("pause immediately");
@@ -12249,7 +12218,7 @@ GstCaps* caps, GstElementFactory* factory, gpointer data)
 		goto DONE;
 	}
 
-	if (g_strrstr(factory_name, SMOOTH_STREAMING_DEMUX))
+	if (g_strrstr(factory_name, "mssdemux"))
 		player->smooth_streaming = TRUE;
 
 	/* check ALP Codec can be used or not */
@@ -12512,9 +12481,9 @@ __mmplayer_gst_element_added (GstElement *bin, GstElement *element, gpointer dat
 			g_object_set (G_OBJECT(element), "downloading-mode", player->video_hub_download_mode, NULL);
 		}
 	}
-	else if (g_strrstr(factory_name, "legacyh264parse"))	// SMOOTH_STREAMING_DEMUX
+	else if (g_strrstr(factory_name, "legacyh264parse"))
 	{
-		debug_log ("[%s] output-format to legacyh264parse\n", SMOOTH_STREAMING_DEMUX);
+		debug_log ("[%s] output-format to legacyh264parse\n", "mssdemux");
 		g_object_set (G_OBJECT(element), "output-format", 1, NULL); /* NALU/Byte Stream format */
 	}
 	else if (g_strrstr(factory_name, "mpegaudioparse"))
@@ -12974,7 +12943,7 @@ const char *padname, const GList *templlist)
 	{
 		gchar *name = g_strdup(GST_ELEMENT_NAME( GST_PAD_PARENT ( srcpad )));
 
-		if (g_strrstr(name, "mpegtsdemux")|| g_strrstr(name, SMOOTH_STREAMING_DEMUX))
+		if (g_strrstr(name, "mpegtsdemux")|| g_strrstr(name, "mssdemux"))
 		{
 			gchar *src_demux_caps_str = NULL;
 			gchar *needed_parser = NULL;
@@ -12988,7 +12957,7 @@ const char *padname, const GList *templlist)
 
 			if (g_strrstr(src_demux_caps_str, "video/x-h264"))
 			{
-				if (g_strrstr(name, SMOOTH_STREAMING_DEMUX))
+				if (g_strrstr(name, "mssdemux"))
 				{
 					needed_parser = g_strdup("legacyh264parse");
 					smooth_streaming = TRUE;
