@@ -25,29 +25,17 @@
 |  INCLUDE FILES																			|
 |																							|
 ========================================================================================== */
-#include <glib.h>
-#include <gst/gst.h>
-#include <gst/app/gstappsrc.h>
-#include <gst/video/videooverlay.h>
 #ifdef HAVE_WAYLAND
 #include <gst/wayland/wayland.h>
 #endif
-#include <unistd.h>
-#include <sys/stat.h>
-#include <string.h>
-#include <sys/time.h>
-#include <stdlib.h>
+#include <gst/video/videooverlay.h>
 
 #include <mm_error.h>
-#include <mm_attrs.h>
 #include <mm_attrs_private.h>
-#include <mm_debug.h>
 
 #include "mm_player_priv.h"
-#include "mm_player_ini.h"
 #include "mm_player_attrs.h"
 #include "mm_player_utils.h"
-#include <sched.h>
 
 /*===========================================================================================
 |																							|
@@ -102,8 +90,6 @@ __mmplayer_check_state(mm_player_t* player, enum PlayerCommandState command)
 {
 	MMPlayerStateType current_state = MM_PLAYER_STATE_NUM;
 	MMPlayerStateType pending_state = MM_PLAYER_STATE_NUM;
-//	MMPlayerStateType target_state = MM_PLAYER_STATE_NUM;
-//	MMPlayerStateType prev_state = MM_PLAYER_STATE_NUM;
 
 	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
@@ -111,8 +97,6 @@ __mmplayer_check_state(mm_player_t* player, enum PlayerCommandState command)
 
 	current_state = MMPLAYER_CURRENT_STATE(player);
 	pending_state = MMPLAYER_PENDING_STATE(player);
-//	target_state = MMPLAYER_TARGET_STATE(player);
-//	prev_state = MMPLAYER_PREV_STATE(player);
 
 	MMPLAYER_PRINT_STATE(player);
 
@@ -296,7 +280,7 @@ ALREADY_GOING:
 }
 
 int
-__mmplayer_gst_set_state (mm_player_t* player, GstElement * element,  GstState state, gboolean async, gint timeout) // @
+__mmplayer_gst_set_state (mm_player_t* player, GstElement * element,  GstState state, gboolean async, gint timeout)
 {
 	GstState element_state = GST_STATE_VOID_PENDING;
 	GstState element_pending_state = GST_STATE_VOID_PENDING;
@@ -545,6 +529,7 @@ __is_http_progressive_down(mm_player_t* player)
 
 	return ((player->pd_mode) ? TRUE:FALSE);
 }
+
 /* if retval is FALSE, it will be dropped for perfomance. */
 gboolean
 __mmplayer_check_useful_message(mm_player_t *player, GstMessage * message)
@@ -605,7 +590,7 @@ __mmplayer_check_useful_message(mm_player_t *player, GstMessage * message)
 }
 
 gboolean
-__mmplayer_post_message(mm_player_t* player, enum MMMessageType msgtype, MMMessageParamType* param) // @
+__mmplayer_post_message(mm_player_t* player, enum MMMessageType msgtype, MMMessageParamType* param)
 {
 	return_val_if_fail( player, FALSE );
 
@@ -754,7 +739,6 @@ __gst_handle_library_error( mm_player_t* player, int code )
 	return trans_err;
 }
 
-
 gint
 __gst_handle_resource_error( mm_player_t* player, int code )
 {
@@ -803,7 +787,6 @@ __gst_handle_resource_error( mm_player_t* player, int code )
 
 	return trans_err;
 }
-
 
 gint
 __gst_handle_stream_error( mm_player_t* player, GError* error, GstMessage * message )
@@ -855,7 +838,6 @@ __gst_transform_gsterror( mm_player_t* player, GstMessage * message, GError* err
 
 	MMPLAYER_FENTER();
 
-	/* FIXIT */
 	return_val_if_fail ( message, MM_ERROR_INVALID_ARGUMENT );
 	return_val_if_fail ( message->src, MM_ERROR_INVALID_ARGUMENT );
 	return_val_if_fail ( error, MM_ERROR_INVALID_ARGUMENT );
@@ -911,7 +893,7 @@ __gst_transform_gsterror( mm_player_t* player, GstMessage * message, GError* err
 			}
 		}
 	}
-	//-> temp code
+	//-> check!! if needed or not
 
 	switch ( error->code )
 	{
@@ -1085,7 +1067,7 @@ __mmplayer_get_property_value_for_rotation(mm_player_t* player, int rotation_ang
 		}
 		else
 		{
-			rotation_type = ROTATION_USING_FLIP; //C
+			rotation_type = ROTATION_USING_FLIP;
 		}
 
 		debug_log("using %d type for rotation", rotation_type);
@@ -1165,7 +1147,7 @@ __mmplayer_get_property_value_for_rotation(mm_player_t* player, int rotation_ang
 }
 
 int
-_mmplayer_update_video_param(mm_player_t* player) // @
+_mmplayer_update_video_param(mm_player_t* player)
 {
 	MMHandleType attrs = 0;
 	int surface_type = 0;
@@ -1625,8 +1607,6 @@ _mmplayer_update_video_param(mm_player_t* player) // @
 
 	return MM_ERROR_NONE;
 }
-
-
 
 int _mmplayer_set_shm_stream_path(MMHandleType hplayer, const char *path)
 {
