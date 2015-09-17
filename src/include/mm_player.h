@@ -1937,17 +1937,6 @@ int mm_player_get_display_zoom(MMHandleType player, float *level, int *x, int *y
 int mm_player_set_external_subtitle_path(MMHandleType player, const char* path);
 
 /**
- * This function is to change clock provider to system clock
- *
- * @param       player  [in]    handle of player
- * @return      This function returns zero on success, or negative value with error code.
- *
- * @see
- * @remark      None
- */
-int mm_player_use_system_clock(MMHandleType player);
-
-/**
  * This function is to set the clock which is from master player
  *
  * @param       player  [in]    handle of player

@@ -850,22 +850,6 @@ int mm_player_get_display_zoom(MMHandleType player, float *level, int *x, int *y
 	return result;
 }
 
-
-int mm_player_use_system_clock(MMHandleType player)
-{
-	int result = MM_ERROR_NONE;
-
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
-
-	MMPLAYER_CMD_LOCK( player );
-
-	result = _mmplayer_use_system_clock(player);
-
-	MMPLAYER_CMD_UNLOCK( player );
-
-	return result;
-}
-
 int mm_player_set_video_share_master_clock(MMHandleType player,
 						long long clock,
 						long long clock_delta,
