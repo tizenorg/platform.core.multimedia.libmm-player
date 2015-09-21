@@ -235,7 +235,7 @@ _mmplayer_sound_register(MMPlayerSoundFocus* sound_focus,
 		}
 
 		/* register sound focus callback */
-		ret = mm_sound_register_focus_for_session(pid, sound_focus->focus_id,
+		ret = mm_sound_register_focus_for_session(sound_focus->focus_id, pid,
 				stream_type, focus_cb, (void*)param);
 		if (ret != MM_ERROR_NONE)
 		{
