@@ -247,8 +247,6 @@ int util_is_midi_type_by_file(const char *file_path);
 char** util_get_cookie_list ( const char *cookies );
 bool util_check_valid_url ( const char *proxy );
 const char* util_get_charset(const char *file_path);
-
-int util_get_is_connected_external_display(void);
 int util_get_pixtype(unsigned int fourcc);
 
 #ifdef __cplusplus
