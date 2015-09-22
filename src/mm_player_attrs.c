@@ -23,7 +23,7 @@
 /*===========================================================================================
 |																							|
 |  INCLUDE FILES																			|
-|  																							|
+|																							|
 ========================================================================================== */
 #include <mm_attrs_private.h>
 #include <mm_attrs.h>
@@ -34,7 +34,7 @@
 /*===========================================================================================
 |																							|
 |  LOCAL DEFINITIONS AND DECLARATIONS FOR MODULE											|
-|  																							|
+|																							|
 ========================================================================================== */
 
 /*---------------------------------------------------------------------------
@@ -46,7 +46,7 @@ __mmplayer_apply_attribute(MMHandleType handle, const char *attribute_name);
 /*===========================================================================================
 |																										|
 |  FUNCTION DEFINITIONS																					|
-|  																										|
+|																										|
 ========================================================================================== */
 
 int
@@ -174,17 +174,19 @@ __mmplayer_apply_attribute(MMHandleType handle, const char *attribute_name)
 
 	if ( g_strrstr(attribute_name, "display") )
 	{
+		int pipeline_type = 0;
+		MMPlayerGstPipelineInfo	*pipeline = player->pipeline;
+
 		/* check videosink element is created */
-		if ( !player->pipeline ||
-			!player->pipeline->videobin ||
-			!player->pipeline->videobin[MMPLAYER_V_SINK].gst )
-		{
-			/*
-			 * The attribute should be committed even though videobin is not created yet.
-			 * So, true should be returned here.
-			 * Otherwise, video can be diaplayed abnormal.
-			 */
+		if(!pipeline)
 			return MM_ERROR_NONE;
+		mm_attrs_get_int_by_name(player->attrs, "pipeline_type", &pipeline_type);
+		if (pipeline_type == MM_PLAYER_PIPELINE_CLIENT) {
+			if(!pipeline->mainbin || !pipeline->mainbin[MMPLAYER_M_V_SINK].gst)
+				return MM_ERROR_NONE;
+		} else {
+			if(!pipeline->videobin || !pipeline->videobin[MMPLAYER_V_SINK].gst)
+				return MM_ERROR_NONE;
 		}
 
 		if ( MM_ERROR_NONE != _mmplayer_update_video_param( player ) )
@@ -1074,6 +1076,15 @@ _mmplayer_construct_attribute(MMHandleType handle)
 			MM_ATTRS_VALID_TYPE_INT_RANGE,
 			MM_DISPLAY_SURFACE_X,
 			MM_DISPLAY_SURFACE_NUM - 1
+		},
+		{
+			"pipeline_type",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) MM_PLAYER_PIPELINE_LEGACY,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			MM_PLAYER_PIPELINE_LEGACY,
+			MM_PLAYER_PIPELINE_MAX - 1
 		}
 	};
 

@@ -4048,6 +4048,559 @@ ERROR:
 	return;
 }
 
+static gboolean
+__mmplayer_get_property_value_for_rotation(mm_player_t* player, int rotation_angle, int *value)
+{
+	int pro_value = 0; // in the case of expection, default will be returned.
+	int dest_angle = rotation_angle;
+	int rotation_type = -1;
+
+	return_val_if_fail(player, FALSE);
+	return_val_if_fail(value, FALSE);
+	return_val_if_fail(rotation_angle >= 0, FALSE);
+
+	if (rotation_angle >= 360)
+	{
+		dest_angle = rotation_angle - 360;
+	}
+
+	/* chech if supported or not */
+	if ( dest_angle % 90 )
+	{
+		debug_log("not supported rotation angle = %d", rotation_angle);
+		return FALSE;
+	}
+
+	/*
+	  * xvimagesink only 	 (A)
+	  * custom_convert - no xv (e.g. memsink, evasimagesink	 (B)
+	  * videoflip - avsysmemsink (C)
+	  */
+	if (player->set_mode.video_zc)
+	{
+		if (player->pipeline->videobin[MMPLAYER_V_CONV].gst) // B
+		{
+			rotation_type = ROTATION_USING_CUSTOM;
+		}
+		else // A
+		{
+			rotation_type = ROTATION_USING_SINK;
+		}
+	}
+	else
+	{
+		int surface_type = 0;
+		rotation_type = ROTATION_USING_FLIP;
+
+		mm_attrs_get_int_by_name(player->attrs, "display_surface_type", &surface_type);
+		debug_log("check display surface type attribute: %d", surface_type);
+
+		if ((surface_type == MM_DISPLAY_SURFACE_X) ||
+			(surface_type == MM_DISPLAY_SURFACE_EVAS && !strcmp(player->ini.videosink_element_evas, "evaspixmapsink")))
+		{
+			rotation_type = ROTATION_USING_SINK;
+		}
+		else
+		{
+			rotation_type = ROTATION_USING_FLIP; //C
+		}
+
+		debug_log("using %d type for rotation", rotation_type);
+	}
+
+	/* get property value for setting */
+	switch(rotation_type)
+	{
+		case ROTATION_USING_SINK: // xvimagesink, pixmap
+			{
+				switch (dest_angle)
+				{
+					case 0:
+						break;
+					case 90:
+						pro_value = 3; // clockwise 90
+						break;
+					case 180:
+						pro_value = 2;
+						break;
+					case 270:
+						pro_value = 1; // counter-clockwise 90
+						break;
+				}
+			}
+			break;
+		case ROTATION_USING_CUSTOM:
+			{
+				gchar *ename = NULL;
+				ename = GST_OBJECT_NAME(gst_element_get_factory(player->pipeline->videobin[MMPLAYER_V_CONV].gst));
+
+				if (g_strrstr(ename, "fimcconvert"))
+				{
+					switch (dest_angle)
+					{
+						case 0:
+							break;
+						case 90:
+							pro_value = 90; // clockwise 90
+							break;
+						case 180:
+							pro_value = 180;
+							break;
+						case 270:
+							pro_value = 270; // counter-clockwise 90
+							break;
+					}
+				}
+			}
+			break;
+		case ROTATION_USING_FLIP: // videoflip
+			{
+					switch (dest_angle)
+					{
+
+						case 0:
+							break;
+						case 90:
+							pro_value = 1; // clockwise 90
+							break;
+						case 180:
+							pro_value = 2;
+							break;
+						case 270:
+							pro_value = 3; // counter-clockwise 90
+							break;
+					}
+			}
+			break;
+	}
+
+	debug_log("setting rotation property value : %d, used rotation type : %d", pro_value, rotation_type);
+
+	*value = pro_value;
+
+	return TRUE;
+}
+
+int
+_mmplayer_update_video_param(mm_player_t* player) // @
+{
+	MMHandleType attrs = 0;
+	int surface_type = 0;
+	int org_angle = 0; // current supported angle values are 0, 90, 180, 270
+	int user_angle = 0;
+	int rotation_value = 0;
+
+	MMPLAYER_FENTER();
+
+	/* check video sinkbin is created */
+	return_val_if_fail ( player &&
+		player->pipeline &&
+		player->pipeline->videobin &&
+		player->pipeline->videobin[MMPLAYER_V_BIN].gst &&
+		player->pipeline->videobin[MMPLAYER_V_SINK].gst,
+		MM_ERROR_PLAYER_NOT_INITIALIZED );
+	attrs = MMPLAYER_GET_ATTRS(player);
+
+	if ( !attrs )
+	{
+		debug_error("cannot get content attribute");
+		return MM_ERROR_PLAYER_INTERNAL;
+	}
+	__mmplayer_get_video_angle(player, &user_angle, &org_angle);
+
+	/* check video stream callback is used */
+	if(!player->set_mode.media_packet_video_stream && player->use_video_stream )
+	{
+		if (player->set_mode.video_zc)
+		{
+			gchar *ename = NULL;
+			int width = 0;
+			int height = 0;
+
+			mm_attrs_get_int_by_name(attrs, "display_width", &width);
+			mm_attrs_get_int_by_name(attrs, "display_height", &height);
+
+			/* resize video frame with requested values for fimcconvert */
+			ename = GST_OBJECT_NAME(gst_element_get_factory(player->pipeline->videobin[MMPLAYER_V_CONV].gst));
+
+			if (ename && g_strrstr(ename, "fimcconvert"))
+			{
+				if (width)
+					g_object_set(player->pipeline->videobin[MMPLAYER_V_CONV].gst, "dst-width", width, NULL);
+
+				if (height)
+					g_object_set(player->pipeline->videobin[MMPLAYER_V_CONV].gst, "dst-height", height, NULL);
+
+				/* NOTE: fimcconvert does not manage index of src buffer from upstream src-plugin, decoder gives frame information in output buffer with no ordering */
+				g_object_set(player->pipeline->videobin[MMPLAYER_V_CONV].gst, "src-rand-idx", TRUE, NULL);
+
+				/* get rotation value to set */
+				__mmplayer_get_property_value_for_rotation(player, org_angle+user_angle, &rotation_value);
+
+				g_object_set(player->pipeline->videobin[MMPLAYER_V_CONV].gst, "rotate", rotation_value, NULL);
+
+				debug_log("updating fimcconvert - r[%d], w[%d], h[%d]", rotation_value, width, height);
+			}
+		}
+		else
+		{
+			debug_log("using video stream callback with memsink. player handle : [%p]", player);
+
+			/* get rotation value to set */
+			__mmplayer_get_property_value_for_rotation(player, org_angle+user_angle, &rotation_value);
+
+			g_object_set(player->pipeline->videobin[MMPLAYER_V_FLIP].gst, "method", rotation_value, NULL);
+		}
+
+		return MM_ERROR_NONE;
+	}
+
+	/* update display surface */
+	mm_attrs_get_int_by_name(attrs, "display_surface_type", &surface_type);
+	debug_log("check display surface type attribute: %d", surface_type);
+
+	/* configuring display */
+	switch ( surface_type )
+	{
+		case MM_DISPLAY_SURFACE_X:
+		{
+			/* ximagesink or xvimagesink */
+			void *surface = NULL;
+			int display_method = 0;
+			int roi_x = 0;
+			int roi_y = 0;
+			int roi_w = 0;
+			int roi_h = 0;
+			int src_crop_x = 0;
+			int src_crop_y = 0;
+			int src_crop_w = 0;
+			int src_crop_h = 0;
+			int force_aspect_ratio = 0;
+			gboolean visible = TRUE;
+
+#ifdef HAVE_WAYLAND
+			/*set wl_display*/
+			void* wl_display = NULL;
+			GstContext *context = NULL;
+			int wl_window_x = 0;
+			int wl_window_y = 0;
+			int wl_window_width = 0;
+			int wl_window_height = 0;
+
+			mm_attrs_get_data_by_name(attrs, "wl_display", &wl_display);
+			if (wl_display)
+				context = gst_wayland_display_handle_context_new(wl_display);
+			if (context)
+				gst_element_set_context(GST_ELEMENT(player->pipeline->videobin[MMPLAYER_V_SINK].gst), context);
+
+			/*It should be set after setting window*/
+			mm_attrs_get_int_by_name(attrs, "wl_window_render_x", &wl_window_x);
+			mm_attrs_get_int_by_name(attrs, "wl_window_render_y", &wl_window_y);
+			mm_attrs_get_int_by_name(attrs, "wl_window_render_width", &wl_window_width);
+			mm_attrs_get_int_by_name(attrs, "wl_window_render_height", &wl_window_height);
+#endif
+			/* common case if using x surface */
+			mm_attrs_get_data_by_name(attrs, "display_overlay", &surface);
+			if ( surface )
+			{
+#ifdef HAVE_WAYLAND
+				guintptr wl_surface = (guintptr)surface;
+				debug_log("set video param : wayland surface %p", surface);
+				gst_video_overlay_set_window_handle(
+						GST_VIDEO_OVERLAY( player->pipeline->videobin[MMPLAYER_V_SINK].gst ),
+						wl_surface );
+				/* After setting window handle, set render	rectangle */
+				gst_video_overlay_set_render_rectangle(
+					 GST_VIDEO_OVERLAY( player->pipeline->videobin[MMPLAYER_V_SINK].gst ),
+					 wl_window_x,wl_window_y,wl_window_width,wl_window_height);
+#else // HAVE_X11
+				int xwin_id = 0;
+				xwin_id = *(int*)surface;
+				debug_log("set video param : xid %p", *(int*)surface);
+				if (xwin_id)
+				{
+					gst_video_overlay_set_window_handle( GST_VIDEO_OVERLAY( player->pipeline->videobin[MMPLAYER_V_SINK].gst ), *(int*)surface );
+				}
+#endif
+			}
+			else
+			{
+				/* FIXIT : is it error case? */
+				debug_warning("still we don't have xid on player attribute. create it's own surface.");
+			}
+
+			/* if xvimagesink */
+			if (!strcmp(player->ini.videosink_element_x,"xvimagesink"))
+			{
+				mm_attrs_get_int_by_name(attrs, "display_force_aspect_ration", &force_aspect_ratio);
+				mm_attrs_get_int_by_name(attrs, "display_method", &display_method);
+				mm_attrs_get_int_by_name(attrs, "display_src_crop_x", &src_crop_x);
+				mm_attrs_get_int_by_name(attrs, "display_src_crop_y", &src_crop_y);
+				mm_attrs_get_int_by_name(attrs, "display_src_crop_width", &src_crop_w);
+				mm_attrs_get_int_by_name(attrs, "display_src_crop_height", &src_crop_h);
+				mm_attrs_get_int_by_name(attrs, "display_roi_x", &roi_x);
+				mm_attrs_get_int_by_name(attrs, "display_roi_y", &roi_y);
+				mm_attrs_get_int_by_name(attrs, "display_roi_width", &roi_w);
+				mm_attrs_get_int_by_name(attrs, "display_roi_height", &roi_h);
+				mm_attrs_get_int_by_name(attrs, "display_visible", &visible);
+				#define DEFAULT_DISPLAY_MODE	2	// TV only, PRI_VIDEO_OFF_AND_SEC_VIDEO_FULL_SCREEN
+
+				/* setting for cropping media source */
+				if (src_crop_w && src_crop_h)
+				{
+					g_object_set(player->pipeline->videobin[MMPLAYER_V_SINK].gst,
+						"src-crop-x", src_crop_x,
+						"src-crop-y", src_crop_y,
+						"src-crop-w", src_crop_w,
+						"src-crop-h", src_crop_h,
+						NULL );
+				}
+
+				/* setting for ROI mode */
+				if (display_method == 5)	// 5 for ROI mode
+				{
+					int roi_mode = 0;
+					mm_attrs_get_int_by_name(attrs, "display_roi_mode", &roi_mode);
+					g_object_set(player->pipeline->videobin[MMPLAYER_V_SINK].gst,
+						"dst-roi-mode", roi_mode,
+						"dst-roi-x", roi_x,
+						"dst-roi-y", roi_y,
+						"dst-roi-w", roi_w,
+						"dst-roi-h", roi_h,
+						NULL );
+					/* get rotation value to set,
+					   do not use org_angle because ROI mode in xvimagesink needs both a rotation value and an orientation value */
+					__mmplayer_get_property_value_for_rotation(player, user_angle, &rotation_value);
+				}
+				else
+				{
+					/* get rotation value to set */
+					__mmplayer_get_property_value_for_rotation(player, org_angle+user_angle, &rotation_value);
+				}
+
+				g_object_set(player->pipeline->videobin[MMPLAYER_V_SINK].gst,
+					"force-aspect-ratio", force_aspect_ratio,
+					"orientation", org_angle/90, // setting for orientation of media, it is used for ROI/ZOOM feature in xvimagesink
+					"rotate", rotation_value,
+					"handle-events", TRUE,
+					"display-geometry-method", display_method,
+					"draw-borders", FALSE,
+					"handle-expose", FALSE,
+					"visible", visible,
+					"display-mode", DEFAULT_DISPLAY_MODE,
+					NULL );
+
+				debug_log("set video param : rotate %d, method %d visible %d", rotation_value, display_method, visible);
+				debug_log("set video param : dst-roi-x: %d, dst-roi-y: %d, dst-roi-w: %d, dst-roi-h: %d", roi_x, roi_y, roi_w, roi_h );
+				debug_log("set video param : force aspect ratio %d, display mode %d", force_aspect_ratio, DEFAULT_DISPLAY_MODE);
+			}
+		}
+		break;
+		case MM_DISPLAY_SURFACE_EVAS:
+		{
+			void *object = NULL;
+			int scaling = 0;
+			gboolean visible = TRUE;
+			int display_method = 0;
+
+			/* common case if using evas surface */
+			mm_attrs_get_data_by_name(attrs, "display_overlay", &object);
+			mm_attrs_get_int_by_name(attrs, "display_visible", &visible);
+			mm_attrs_get_int_by_name(attrs, "display_evas_do_scaling", &scaling);
+			mm_attrs_get_int_by_name(attrs, "display_method", &display_method);
+
+			/* if evasimagesink */
+			if (!strcmp(player->ini.videosink_element_evas,"evasimagesink"))
+			{
+				if (object)
+				{
+					/* if it is evasimagesink, we are not supporting rotation */
+					if (user_angle != 0)
+					{
+						mm_attrs_set_int_by_name(attrs, "display_rotation", MM_DISPLAY_ROTATION_NONE);
+						if (mmf_attrs_commit (attrs)) /* return -1 if error */
+							debug_error("failed to commit\n");
+						debug_warning("unsupported feature");
+						return MM_ERROR_NOT_SUPPORT_API;
+					}
+					__mmplayer_get_property_value_for_rotation(player, org_angle+user_angle, &rotation_value);
+					g_object_set(player->pipeline->videobin[MMPLAYER_V_SINK].gst,
+							"evas-object", object,
+							"visible", visible,
+							"display-geometry-method", display_method,
+							"rotate", rotation_value,
+							NULL);
+					debug_log("set video param : method %d", display_method);
+					debug_log("set video param : evas-object %x, visible %d", object, visible);
+					debug_log("set video param : evas-object %x, rotate %d", object, rotation_value);
+				}
+				else
+				{
+					debug_error("no evas object");
+					return MM_ERROR_PLAYER_INTERNAL;
+				}
+
+
+				/* if evasimagesink using converter */
+				if (player->set_mode.video_zc && player->pipeline->videobin[MMPLAYER_V_CONV].gst)
+				{
+					int width = 0;
+					int height = 0;
+					int no_scaling = !scaling;
+
+					mm_attrs_get_int_by_name(attrs, "display_width", &width);
+					mm_attrs_get_int_by_name(attrs, "display_height", &height);
+
+					/* NOTE: fimcconvert does not manage index of src buffer from upstream src-plugin, decoder gives frame information in output buffer with no ordering */
+					g_object_set(player->pipeline->videobin[MMPLAYER_V_CONV].gst, "src-rand-idx", TRUE, NULL);
+					g_object_set(player->pipeline->videobin[MMPLAYER_V_CONV].gst, "dst-buffer-num", 5, NULL);
+
+					if (no_scaling)
+					{
+						/* no-scaling order to fimcconvert, original width, height size of media src will be passed to sink plugin */
+						g_object_set(player->pipeline->videobin[MMPLAYER_V_CONV].gst,
+								"dst-width", 0, /* setting 0, output video width will be media src's width */
+								"dst-height", 0, /* setting 0, output video height will be media src's height */
+								NULL);
+					}
+					else
+					{
+						/* scaling order to fimcconvert */
+						if (width)
+						{
+							g_object_set(player->pipeline->videobin[MMPLAYER_V_CONV].gst, "dst-width", width, NULL);
+						}
+						if (height)
+						{
+							g_object_set(player->pipeline->videobin[MMPLAYER_V_CONV].gst, "dst-height", height, NULL);
+						}
+						debug_log("set video param : video frame scaling down to width(%d) height(%d)", width, height);
+					}
+					debug_log("set video param : display_evas_do_scaling %d", scaling);
+				}
+			}
+
+			/* if evaspixmapsink */
+			if (!strcmp(player->ini.videosink_element_evas,"evaspixmapsink"))
+			{
+				if (object)
+				{
+					__mmplayer_get_property_value_for_rotation(player, org_angle+user_angle, &rotation_value);
+					g_object_set(player->pipeline->videobin[MMPLAYER_V_SINK].gst,
+							"evas-object", object,
+							"visible", visible,
+							"display-geometry-method", display_method,
+							"rotate", rotation_value,
+							NULL);
+					debug_log("set video param : method %d", display_method);
+					debug_log("set video param : evas-object %x, visible %d", object, visible);
+					debug_log("set video param : evas-object %x, rotate %d", object, rotation_value);
+				}
+				else
+				{
+					debug_error("no evas object");
+					return MM_ERROR_PLAYER_INTERNAL;
+				}
+
+				int display_method = 0;
+				int roi_x = 0;
+				int roi_y = 0;
+				int roi_w = 0;
+				int roi_h = 0;
+				int origin_size = !scaling;
+
+				mm_attrs_get_int_by_name(attrs, "display_method", &display_method);
+				mm_attrs_get_int_by_name(attrs, "display_roi_x", &roi_x);
+				mm_attrs_get_int_by_name(attrs, "display_roi_y", &roi_y);
+				mm_attrs_get_int_by_name(attrs, "display_roi_width", &roi_w);
+				mm_attrs_get_int_by_name(attrs, "display_roi_height", &roi_h);
+
+				/* get rotation value to set */
+				__mmplayer_get_property_value_for_rotation(player, org_angle+user_angle, &rotation_value);
+
+				g_object_set(player->pipeline->videobin[MMPLAYER_V_SINK].gst,
+					"origin-size", origin_size,
+					"rotate", rotation_value,
+					"dst-roi-x", roi_x,
+					"dst-roi-y", roi_y,
+					"dst-roi-w", roi_w,
+					"dst-roi-h", roi_h,
+					"display-geometry-method", display_method,
+					NULL );
+
+				debug_log("set video param : method %d", display_method);
+				debug_log("set video param : dst-roi-x: %d, dst-roi-y: %d, dst-roi-w: %d, dst-roi-h: %d",
+								roi_x, roi_y, roi_w, roi_h );
+				debug_log("set video param : display_evas_do_scaling %d (origin-size %d)", scaling, origin_size);
+			}
+		}
+		break;
+		case MM_DISPLAY_SURFACE_X_EXT:	/* NOTE : this surface type is used for the videoTexture(canvasTexture) overlay */
+		{
+			void *pixmap_id_cb = NULL;
+			void *pixmap_id_cb_user_data = NULL;
+			int display_method = 0;
+			gboolean visible = TRUE;
+
+			/* if xvimagesink */
+			if (strcmp(player->ini.videosink_element_x,"xvimagesink"))
+			{
+				debug_error("videosink is not xvimagesink");
+				return MM_ERROR_PLAYER_INTERNAL;
+			}
+
+			/* get information from attributes */
+			mm_attrs_get_data_by_name(attrs, "display_overlay", &pixmap_id_cb);
+			mm_attrs_get_data_by_name(attrs, "display_overlay_user_data", &pixmap_id_cb_user_data);
+			mm_attrs_get_int_by_name(attrs, "display_method", &display_method);
+			mm_attrs_get_int_by_name(attrs, "display_visible", &visible);
+
+			if ( pixmap_id_cb )
+			{
+				debug_log("set video param : display_overlay(0x%x)", pixmap_id_cb);
+				if (pixmap_id_cb_user_data)
+				{
+					debug_log("set video param : display_overlay_user_data(0x%x)", pixmap_id_cb_user_data);
+				}
+			}
+			else
+			{
+				debug_error("failed to set pixmap-id-callback");
+				return MM_ERROR_PLAYER_INTERNAL;
+			}
+			/* get rotation value to set */
+			__mmplayer_get_property_value_for_rotation(player, org_angle+user_angle, &rotation_value);
+
+			debug_log("set video param : rotate %d, method %d, visible %d", rotation_value, display_method, visible);
+
+			/* set properties of videosink plugin */
+			g_object_set(player->pipeline->videobin[MMPLAYER_V_SINK].gst,
+				"display-geometry-method", display_method,
+				"draw-borders", FALSE,
+				"visible", visible,
+				"rotate", rotation_value,
+				"pixmap-id-callback", pixmap_id_cb,
+				"pixmap-id-callback-userdata", pixmap_id_cb_user_data,
+				NULL );
+		}
+		break;
+		case MM_DISPLAY_SURFACE_NULL:
+		{
+			/* do nothing */
+		}
+		break;
+		case MM_DISPLAY_SURFACE_REMOTE:
+		{
+			/* do nothing */
+		}
+		break;
+	}
+
+	MMPLAYER_FLEAVE();
+
+	return MM_ERROR_NONE;
+}
+
 static int
 __mmplayer_gst_element_link_bucket(GList* element_bucket) // @
 {
@@ -12163,12 +12716,13 @@ GstCaps* caps, GstElementFactory* factory, gpointer data)
 	gchar* caps_str = NULL;
 	const gchar* klass = NULL;
 	gint idx = 0;
+	int surface_type = 0;
+	int pipeline_type = 0;
 
 	factory_name = GST_OBJECT_NAME (factory);
 	klass = gst_element_factory_get_metadata (factory, GST_ELEMENT_METADATA_KLASS);
 	caps_str = gst_caps_to_string(caps);
 
-//	debug_log("found new element [%s] to link for caps [%s]", factory_name, caps_str);
 	debug_log("found new element [%s] to link", factory_name);
 
 	/* store type string */
@@ -12179,10 +12733,13 @@ GstCaps* caps, GstElementFactory* factory, gpointer data)
 	}
 
 	/* To support evasimagesink, omx is excluded temporarily*/
-	int surface_type = 0;
-	mm_attrs_get_int_by_name(player->attrs, "display_surface_client_type", &surface_type);
-	if (surface_type == MM_DISPLAY_SURFACE_NULL)
-		mm_attrs_get_int_by_name(player->attrs, "display_surface_type", &surface_type);
+	mm_attrs_get_int_by_name(player->attrs, "pipeline_type", &pipeline_type);
+	if (pipeline_type == MM_PLAYER_PIPELINE_LEGACY)
+		mm_attrs_get_int_by_name(player->attrs,
+				"display_surface_type", &surface_type);
+	else
+		mm_attrs_get_int_by_name(player->attrs,
+				"display_surface_client_type", &surface_type);
 	debug_log("check display surface type attribute: %d", surface_type);
 	if (surface_type == MM_DISPLAY_SURFACE_EVAS && strstr(factory_name, "omx"))
 	{
@@ -13397,8 +13954,7 @@ ERROR:
 
 static gboolean __mmplayer_feature_filter(GstPluginFeature *feature, gpointer data) // @
 {
-    	const gchar *klass;
-    	//const gchar *name;
+		const gchar *klass;
 
 	/* we only care about element factories */
 	if (!GST_IS_ELEMENT_FACTORY(feature))
@@ -13406,20 +13962,19 @@ static gboolean __mmplayer_feature_filter(GstPluginFeature *feature, gpointer da
 
 	/* only parsers, demuxers and decoders */
 		klass = gst_element_factory_get_metadata (GST_ELEMENT_FACTORY(feature), GST_ELEMENT_METADATA_KLASS);
-	    //name = gst_element_factory_get_longname(GST_ELEMENT_FACTORY(feature));
 
-    	if( g_strrstr(klass, "Demux") == NULL &&
-        	g_strrstr(klass, "Codec/Decoder") == NULL &&
-        	g_strrstr(klass, "Depayloader") == NULL &&
-        	g_strrstr(klass, "Parse") == NULL)
-    	{
-        	return FALSE;
-    	}
+	if( g_strrstr(klass, "Demux") == NULL &&
+			g_strrstr(klass, "Codec/Decoder") == NULL &&
+			g_strrstr(klass, "Depayloader") == NULL &&
+			g_strrstr(klass, "Parse") == NULL)
+	{
+		return FALSE;
+	}
     return TRUE;
 }
 
 
-static void 	__mmplayer_add_new_caps(GstPad* pad, GParamSpec* unused, gpointer data)
+static void	__mmplayer_add_new_caps(GstPad* pad, GParamSpec* unused, gpointer data)
 {
 	mm_player_t* player = (mm_player_t*) data;
 	GstCaps *caps = NULL;

@@ -22,7 +22,7 @@
 /*===========================================================================================
 |																							|
 |  INCLUDE FILES																			|
-|  																							|
+|																							|
 ========================================================================================== */
 #include <glib.h>
 #include <gst/gst.h>
@@ -97,7 +97,6 @@ static gboolean _mmplayer_mused_init_gst(mm_player_t* player);
 static int _mmplayer_mused_realize(mm_player_t *player, char *string_caps);
 static int _mmplayer_mused_unrealize(mm_player_t *player);
 static MMHandleType _mmplayer_mused_construct_attribute(mm_player_t *player);
-static int _mmplayer_mused_update_video_param(mm_player_t *player);
 static int __mmplayer_mused_gst_destroy_pipeline(mm_player_t *player);
 static int _mmplayer_mused_gst_pause(mm_player_t *player);
 static gboolean __mmplayer_mused_gst_callback(GstBus *bus, GstMessage *msg, gpointer data);
@@ -438,7 +437,7 @@ static int _mmplayer_mused_realize(mm_player_t *player, char *string_caps)
 	/* now we have completed mainbin. take it */
 	player->pipeline->mainbin = mainbin;
 
-	result = _mmplayer_mused_update_video_param(player);
+	result = _mmplayer_update_video_param(player);
 	if(result != MM_ERROR_NONE)
 		goto REALIZE_ERROR;
 
@@ -542,11 +541,75 @@ REALIZE_ERROR:
 	return result;
 }
 
-static int _mmplayer_mused_update_video_param(mm_player_t *player)
+static gboolean
+__mmplayer_get_property_value_for_rotation(mm_player_t* player, int rotation_angle, int *value)
+{
+	int pro_value = 0; // in the case of expection, default will be returned.
+	int dest_angle = rotation_angle;
+	int rotation_type = ROTATION_USING_FLIP;
+	int surface_type = 0;
+
+	return_val_if_fail(player, FALSE);
+	return_val_if_fail(value, FALSE);
+	return_val_if_fail(rotation_angle >= 0, FALSE);
+
+	if (rotation_angle >= 360)
+	{
+		dest_angle = rotation_angle - 360;
+	}
+
+	/* chech if supported or not */
+	if ( dest_angle % 90 )
+	{
+		debug_log("not supported rotation angle = %d", rotation_angle);
+		return FALSE;
+	}
+
+	mm_attrs_get_int_by_name(player->attrs, "display_surface_type", &surface_type);
+	debug_log("check display surface type attribute: %d", surface_type);
+
+	if ((surface_type == MM_DISPLAY_SURFACE_X) ||
+			(surface_type == MM_DISPLAY_SURFACE_EVAS &&
+			 !strcmp(player->ini.videosink_element_evas, "evaspixmapsink")))
+		rotation_type = ROTATION_USING_SINK;
+
+	debug_log("using %d type for rotation", rotation_type);
+
+	/* get property value for setting */
+	switch(rotation_type) {
+	case ROTATION_USING_SINK: // waylandsink, xvimagesink
+		switch (dest_angle) {
+			case 0:
+				break;
+			case 90:
+				pro_value = 3; // clockwise 90
+				break;
+			case 180:
+				pro_value = 2;
+				break;
+			case 270:
+				pro_value = 1; // counter-clockwise 90
+				break;
+		}
+		break;
+	case ROTATION_USING_FLIP: // videoflip
+		pro_value = dest_angle / 90;
+		break;
+	}
+
+	debug_log("setting rotation property value : %d, used rotation type : %d", pro_value, rotation_type);
+
+	*value = pro_value;
+
+	return TRUE;
+}
+int _mmplayer_update_video_param(mm_player_t *player)
 {
 	MMHandleType attrs = 0;
 	int surface_type = 0;
 	int rotation_value = 0;
+	int org_angle = 0;
+	int user_angle = 0;
 	MMPlayerGstElement* mainbin = player->pipeline->mainbin;
 
 	if( !mainbin ) {
@@ -558,6 +621,9 @@ static int _mmplayer_mused_update_video_param(mm_player_t *player)
 		debug_error("cannot get content attribute");
 		return MM_ERROR_PLAYER_INTERNAL;
 	}
+
+	__mmplayer_get_video_angle(player, &user_angle, &org_angle);
+
 	/* update display surface */
 	mm_attrs_get_int_by_name(attrs, "display_surface_type", &surface_type);
 	debug_log("check display surface type attribute: %d", surface_type);
@@ -578,6 +644,7 @@ static int _mmplayer_mused_update_video_param(mm_player_t *player)
 			int wl_window_y = 0;
 			int wl_window_width = 0;
 			int wl_window_height = 0;
+			int display_method = 0;
 
 			mm_attrs_get_data_by_name(attrs, "wl_display", &wl_display);
 			if (wl_display)
@@ -590,6 +657,7 @@ static int _mmplayer_mused_update_video_param(mm_player_t *player)
 			mm_attrs_get_int_by_name(attrs, "wl_window_render_y", &wl_window_y);
 			mm_attrs_get_int_by_name(attrs, "wl_window_render_width", &wl_window_width);
 			mm_attrs_get_int_by_name(attrs, "wl_window_render_height", &wl_window_height);
+			mm_attrs_get_int_by_name(attrs, "display_method", &display_method);
 #endif
 			mm_attrs_get_data_by_name(attrs, "display_overlay", &surface);
 			if ( surface ) {
@@ -599,10 +667,16 @@ static int _mmplayer_mused_update_video_param(mm_player_t *player)
 				gst_video_overlay_set_window_handle(
 						GST_VIDEO_OVERLAY( mainbin[MMPLAYER_M_V_SINK].gst ),
 						wl_surface );
-				/* After setting window handle, set render	rectangle */
+				/* After setting window handle, set render rectangle */
 				gst_video_overlay_set_render_rectangle(
-					GST_VIDEO_OVERLAY( mainbin[MMPLAYER_M_V_SINK].gst ),
-					wl_window_x,wl_window_y,wl_window_width,wl_window_height);
+						GST_VIDEO_OVERLAY( mainbin[MMPLAYER_M_V_SINK].gst ),
+						wl_window_x,wl_window_y,wl_window_width,wl_window_height);
+
+				__mmplayer_get_property_value_for_rotation(player, org_angle+user_angle, &rotation_value);
+				g_object_set(mainbin[MMPLAYER_M_V_SINK].gst,
+						"display-geometry-method", display_method,
+						"rotate", rotation_value,
+						NULL);
 #else
 				int xwin_id = 0;
 				xwin_id = *(int*)surface;
@@ -637,9 +711,8 @@ static int _mmplayer_mused_update_video_param(mm_player_t *player)
 			{
 				if (object)
 				{
-#if 0
 					/* if it is evasimagesink, we are not supporting rotation */
-					if (user_angle_type!=MM_DISPLAY_ROTATION_NONE)
+					if (user_angle!=0)
 					{
 						mm_attrs_set_int_by_name(attrs, "display_rotation", MM_DISPLAY_ROTATION_NONE);
 						if (mmf_attrs_commit (attrs)) /* return -1 if error */
@@ -647,8 +720,7 @@ static int _mmplayer_mused_update_video_param(mm_player_t *player)
 						debug_warning("unsupported feature");
 						return MM_ERROR_NOT_SUPPORT_API;
 					}
-#endif
-					//__mmplayer_get_property_value_for_rotation(player, org_angle+user_angle, &rotation_value);
+					__mmplayer_get_property_value_for_rotation(player, org_angle+user_angle, &rotation_value);
 					g_object_set(mainbin[MMPLAYER_M_V_SINK].gst,
 							"evas-object", object,
 							"visible", visible,
@@ -887,9 +959,13 @@ int mm_player_set_attribute(MMHandleType player,  char **err_attr_name, const ch
 	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 	return_val_if_fail(first_attribute_name, MM_ERROR_COMMON_INVALID_ARGUMENT);
 
+	MMPLAYER_CMD_LOCK( player );
+
 	va_start (var_args, first_attribute_name);
 	result = _mmplayer_set_attribute(player, err_attr_name, first_attribute_name, var_args);
 	va_end (var_args);
+
+	MMPLAYER_CMD_UNLOCK( player );
 
 	return result;
 }
@@ -902,9 +978,13 @@ int mm_player_get_attribute(MMHandleType player,  char **err_attr_name, const ch
 	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 	return_val_if_fail(first_attribute_name, MM_ERROR_COMMON_INVALID_ARGUMENT);
 
+	MMPLAYER_CMD_LOCK( player );
+
 	va_start (var_args, first_attribute_name);
 	result = _mmplayer_get_attribute(player, err_attr_name, first_attribute_name, var_args);
 	va_end (var_args);
+
+	MMPLAYER_CMD_UNLOCK( player );
 
 	return result;
 }
@@ -984,6 +1064,15 @@ static MMHandleType _mmplayer_mused_construct_attribute(mm_player_t *player)
 		},
 #endif
 		{
+			"display_rotation",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) MM_DISPLAY_ROTATION_NONE,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			MM_DISPLAY_ROTATION_NONE,
+			MM_DISPLAY_ROTATION_270
+		},
+		{
 			"display_visible",
 			MM_ATTRS_TYPE_INT,
 			MM_ATTRS_FLAG_RW,
@@ -993,6 +1082,15 @@ static MMHandleType _mmplayer_mused_construct_attribute(mm_player_t *player)
 			1
 		},
 		{
+			"display_method",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) MM_DISPLAY_METHOD_LETTER_BOX,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			MM_DISPLAY_METHOD_LETTER_BOX,
+			MM_DISPLAY_METHOD_CUSTOM_ROI
+		},
+		{
 			"shm_stream_path",
 			MM_ATTRS_TYPE_STRING,
 			MM_ATTRS_FLAG_RW,
@@ -1000,6 +1098,15 @@ static MMHandleType _mmplayer_mused_construct_attribute(mm_player_t *player)
 			MM_ATTRS_VALID_TYPE_NONE,
 			0,
 			0
+		},
+		{
+			"pipeline_type",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) MM_PLAYER_PIPELINE_LEGACY,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			MM_PLAYER_PIPELINE_LEGACY,
+			MM_PLAYER_PIPELINE_MAX - 1
 		}
 	};
 	num_of_attrs = ARRAY_SIZE(player_attrs);
