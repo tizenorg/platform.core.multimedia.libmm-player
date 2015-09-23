@@ -21,7 +21,7 @@
  */
 #include <sys/types.h>
 #include <unistd.h>
-#include <mm_debug.h>
+#include <dlog.h>
 #include <mm_error.h>
 #include <vconf.h>
 #include <vconf-internal-sound-keys.h>
@@ -35,7 +35,7 @@ do \
 { \
 	if (!x_player_sound_focus) \
 	{ \
-		debug_log("no sound focus instance");\
+		LOGD("no sound focus instance");\
 		return MM_ERROR_SOUND_NOT_INITIALIZED; \
 	} \
 }while(0);
@@ -44,7 +44,7 @@ void __mmplayer_sound_signal_callback (mm_sound_signal_name_t signal, int value,
 {
 	MMPlayerSoundFocus *sound_focus = (MMPlayerSoundFocus*)user_data;
 
-	debug_log("sound signal callback %d / %d", signal, value);
+	LOGD("sound signal callback %d / %d", signal, value);
 
 	if (signal == MM_SOUND_SIGNAL_RELEASE_INTERNAL_FOCUS)
 	{
@@ -52,7 +52,7 @@ void __mmplayer_sound_signal_callback (mm_sound_signal_name_t signal, int value,
 		{
 			if (sound_focus->watch_id > 0)
 			{
-				debug_log("unset the focus watch cb");
+				LOGD("unset the focus watch cb");
 
 				mm_sound_unset_focus_watch_callback(sound_focus->watch_id);
 				sound_focus->watch_id = 0;
@@ -83,7 +83,7 @@ __mmplayer_sound_get_stream_type(gint type)
 		case MM_SESSION_TYPE_EMERGENCY:
 			return "emergency";
 		default:
-			debug_warning("unexpected case!\n");
+			LOGW("unexpected case!\n");
 			return "media";
 	}
 
@@ -101,7 +101,7 @@ _mmplayer_sound_acquire_focus(MMPlayerSoundFocus* sound_focus)
 
 	if (sound_focus->acquired)
 	{
-		debug_warning("focus is already acquired. can't acquire again.");
+		LOGW("focus is already acquired. can't acquire again.");
 		return MM_ERROR_NONE;
 	}
 
@@ -114,7 +114,7 @@ _mmplayer_sound_acquire_focus(MMPlayerSoundFocus* sound_focus)
 		ret = mm_sound_acquire_focus(sound_focus->focus_id, FOCUS_FOR_BOTH, NULL);
 		if (ret != MM_ERROR_NONE)
 		{
-			debug_error("failed to acquire sound focus\n");
+			LOGE("failed to acquire sound focus\n");
 			return ret;
 		}
 
@@ -136,7 +136,7 @@ _mmplayer_sound_release_focus(MMPlayerSoundFocus* sound_focus)
 
 	if (!sound_focus->acquired)
 	{
-		debug_warning("focus is not acquired. no need to release.");
+		LOGW("focus is not acquired. no need to release.");
 		return MM_ERROR_NONE;
 	}
 
@@ -148,7 +148,7 @@ _mmplayer_sound_release_focus(MMPlayerSoundFocus* sound_focus)
 		ret = mm_sound_release_focus(sound_focus->focus_id, FOCUS_FOR_BOTH, NULL);
 		if (ret != MM_ERROR_NONE)
 		{
-			debug_error("failed to release sound focus\n");
+			LOGE("failed to release sound focus\n");
 			return ret;
 		}
 
@@ -176,19 +176,19 @@ _mmplayer_sound_register(MMPlayerSoundFocus* sound_focus,
 	else
 		return MM_ERROR_INVALID_ARGUMENT;
 
-	debug_log("sound register focus pid[%d]", pid);
+	LOGD("sound register focus pid[%d]", pid);
 	/* read session information */
 	ret = _mm_session_util_read_information(pid, &sound_focus->session_type, &sound_focus->session_flags);
 	if (ret != MM_ERROR_NONE)
 	{
-		debug_error("Read Session Type failed. ret:0x%X \n", ret);
+		LOGE("Read Session Type failed. ret:0x%X \n", ret);
 
 		if (ret == MM_ERROR_INVALID_HANDLE)
 		{
 			int sig_value = 0;
 
 			mm_sound_get_signal_value(MM_SOUND_SIGNAL_RELEASE_INTERNAL_FOCUS, &sig_value);
-			debug_warning("internal focus signal value=%d, id=%d\n", sig_value, sound_focus->subscribe_id);
+			LOGW("internal focus signal value=%d, id=%d\n", sig_value, sound_focus->subscribe_id);
 
 			if ((sig_value == 0) && (sound_focus->subscribe_id == 0))
 			{
@@ -196,17 +196,17 @@ _mmplayer_sound_register(MMPlayerSoundFocus* sound_focus,
 										(mm_sound_signal_callback)__mmplayer_sound_signal_callback, (void*)sound_focus);
 				if (ret != MM_ERROR_NONE)
 				{
-					debug_error("mm_sound_subscribe_signal is failed\n");
+					LOGE("mm_sound_subscribe_signal is failed\n");
 					return MM_ERROR_POLICY_BLOCKED;
 				}
 
-				debug_log("register focus watch callback for the value is 0, sub_cb id %d\n", sound_focus->subscribe_id);
+				LOGD("register focus watch callback for the value is 0, sub_cb id %d\n", sound_focus->subscribe_id);
 
 				ret = mm_sound_set_focus_watch_callback_for_session(pid ,
 						FOCUS_FOR_BOTH, watch_cb, (void*)param, &sound_focus->watch_id);
 				if (ret != MM_ERROR_NONE)
 				{
-					debug_error("mm_sound_set_focus_watch_callback is failed\n");
+					LOGE("mm_sound_set_focus_watch_callback is failed\n");
 					return MM_ERROR_POLICY_BLOCKED;
 				}
 			}
@@ -221,7 +221,7 @@ _mmplayer_sound_register(MMPlayerSoundFocus* sound_focus,
 
 	/* interpret session information */
 	stream_type = __mmplayer_sound_get_stream_type(sound_focus->session_type);
-	debug_log("fid [%d] wid [%d] type[%s], flags[0x%02X]\n",
+	LOGD("fid [%d] wid [%d] type[%s], flags[0x%02X]\n",
 		sound_focus->focus_id, sound_focus->watch_id, stream_type, sound_focus->session_flags);
 
 	if (sound_focus->focus_id == 0)
@@ -230,7 +230,7 @@ _mmplayer_sound_register(MMPlayerSoundFocus* sound_focus,
 		ret = mm_sound_focus_get_id(&sound_focus->focus_id);
 		if (ret != MM_ERROR_NONE)
 		{
-			debug_error("failed to get unique focus id\n");
+			LOGE("failed to get unique focus id\n");
 			return MM_ERROR_POLICY_BLOCKED;
 		}
 
@@ -239,7 +239,7 @@ _mmplayer_sound_register(MMPlayerSoundFocus* sound_focus,
 				stream_type, focus_cb, (void*)param);
 		if (ret != MM_ERROR_NONE)
 		{
-			debug_error("mm_sound_register_focus is failed\n");
+			LOGE("mm_sound_register_focus is failed\n");
 			return MM_ERROR_POLICY_BLOCKED;
 		}
 	}
@@ -249,13 +249,13 @@ _mmplayer_sound_register(MMPlayerSoundFocus* sound_focus,
 		!(sound_focus->session_flags & MM_SESSION_OPTION_PAUSE_OTHERS) &&
 		!(sound_focus->session_flags & MM_SESSION_OPTION_UNINTERRUPTIBLE))
 	{
-		debug_log("register focus watch callback\n");
+		LOGD("register focus watch callback\n");
 
 		ret = mm_sound_set_focus_watch_callback_for_session(pid,
 				FOCUS_FOR_BOTH, watch_cb, (void*)param, &sound_focus->watch_id);
 		if (ret != MM_ERROR_NONE)
 		{
-			debug_error("mm_sound_set_focus_watch_callback is failed\n");
+			LOGE("mm_sound_set_focus_watch_callback is failed\n");
 			return MM_ERROR_POLICY_BLOCKED;
 		}
 	}
@@ -272,7 +272,7 @@ _mmplayer_sound_unregister(MMPlayerSoundFocus* sound_focus)
 
 	MMPLAYER_CHECK_SOUND_FOCUS_INSTANCE(sound_focus);
 
-	debug_log("unregister sound focus callback\n");
+	LOGD("unregister sound focus callback\n");
 
 	if (sound_focus->focus_id > 0)
 	{

@@ -24,11 +24,11 @@
 #define __MM_PLAYER_INI_C__
 
 /* includes here */
+#include <dlog.h>
 #include <glib.h>
 #include <stdlib.h>
 #include "iniparser.h"
 #include <mm_player_ini.h>
-#include "mm_debug.h"
 #include <mm_error.h>
 #include <glib/gstdio.h>
 
@@ -91,7 +91,7 @@ do \
 			index = atoi(token); \
 			if (index < 0 || index > x_list_max -1) \
 			{ \
-				debug_warning("%d is not valid index\n", index); \
+				LOGW("%d is not valid index\n", index); \
 			} \
 			else \
 			{ \
@@ -117,7 +117,7 @@ do \
 		{ \
 			if ( index > x_list_max -1) \
 			{ \
-				debug_error("%d is not valid index\n", index); \
+				LOGE("%d is not valid index\n", index); \
 				break; \
 			} \
 			else \
@@ -145,10 +145,10 @@ mm_player_ini_load(mm_player_ini_t* ini)
 	if ( !dict )
 	{
 #ifdef MM_PLAYER_DEFAULT_INI
-		debug_log("No inifile found. player will create default inifile.\n");
+		LOGD("No inifile found. player will create default inifile.\n");
 		if ( FALSE == __generate_default_ini() )
 		{
-			debug_warning("Creating default inifile failed. Player will use default values.\n");
+			LOGW("Creating default inifile failed. Player will use default values.\n");
 		}
 		else
 		{
@@ -156,7 +156,7 @@ mm_player_ini_load(mm_player_ini_t* ini)
 			dict = iniparser_load(MM_PLAYER_INI_DEFAULT_PATH);
 		}
 #else
-		debug_log("No ini file found. \n");
+		LOGD("No ini file found. \n");
 		return MM_ERROR_FILE_NOT_FOUND;
 #endif
 	}
@@ -212,7 +212,7 @@ mm_player_ini_load(mm_player_ini_t* ini)
 	}
 	else /* if dict is not available just fill the structure with default value */
 	{
-		debug_warning("failed to load ini. using hardcoded default\n");
+		LOGW("failed to load ini. using hardcoded default\n");
 
 		/* general */
 		ini->disable_segtrap = DEFAULT_DISABLE_SEGTRAP;
@@ -257,48 +257,48 @@ mm_player_ini_load(mm_player_ini_t* ini)
 	iniparser_freedict (dict);
 
 	/* dump structure */
-	debug_log("player settings -----------------------------------\n");
+	LOGD("player settings -----------------------------------\n");
 
 	/* general */
-	debug_log("disable segtrap : %d\n", ini->disable_segtrap);
-	debug_log("skip rescan : %d\n", ini->skip_rescan);
-	debug_log("videosink element x: %s\n", ini->videosink_element_x);
-	debug_log("videosink element evas: %s\n", ini->videosink_element_evas);
-	debug_log("videosink element fake: %s\n", ini->videosink_element_fake);
-	debug_log("video converter element : %s\n", ini->videoconverter_element);
-	debug_log("audio resampler element : %s\n", ini->audioresampler_element);
-	debug_log("audiosink element : %s\n", ini->audiosink_element);
-	debug_log("generate dot : %d\n", ini->generate_dot);
-	debug_log("use system clock(video only) : %d\n", ini->use_system_clock);
-	debug_log("live state change timeout(sec) : %d\n", ini->live_state_change_timeout);
-	debug_log("localplayback state change timeout(sec) : %d\n", ini->localplayback_state_change_timeout);
-	debug_log("eos_delay(msec) : %d\n", ini->eos_delay);
-	debug_log("delay before repeat(msec) : %d\n", ini->delay_before_repeat);
-	debug_log("async_start : %d\n", ini->async_start);
+	LOGD("disable segtrap : %d\n", ini->disable_segtrap);
+	LOGD("skip rescan : %d\n", ini->skip_rescan);
+	LOGD("videosink element x: %s\n", ini->videosink_element_x);
+	LOGD("videosink element evas: %s\n", ini->videosink_element_evas);
+	LOGD("videosink element fake: %s\n", ini->videosink_element_fake);
+	LOGD("video converter element : %s\n", ini->videoconverter_element);
+	LOGD("audio resampler element : %s\n", ini->audioresampler_element);
+	LOGD("audiosink element : %s\n", ini->audiosink_element);
+	LOGD("generate dot : %d\n", ini->generate_dot);
+	LOGD("use system clock(video only) : %d\n", ini->use_system_clock);
+	LOGD("live state change timeout(sec) : %d\n", ini->live_state_change_timeout);
+	LOGD("localplayback state change timeout(sec) : %d\n", ini->localplayback_state_change_timeout);
+	LOGD("eos_delay(msec) : %d\n", ini->eos_delay);
+	LOGD("delay before repeat(msec) : %d\n", ini->delay_before_repeat);
+	LOGD("async_start : %d\n", ini->async_start);
 
-	debug_log("gst param1 : %s\n", ini->gst_param[0]);
-	debug_log("gst param2 : %s\n", ini->gst_param[1]);
-	debug_log("gst param3 : %s\n", ini->gst_param[2]);
-	debug_log("gst param4 : %s\n", ini->gst_param[3]);
-	debug_log("gst param5 : %s\n", ini->gst_param[4]);
+	LOGD("gst param1 : %s\n", ini->gst_param[0]);
+	LOGD("gst param2 : %s\n", ini->gst_param[1]);
+	LOGD("gst param3 : %s\n", ini->gst_param[2]);
+	LOGD("gst param4 : %s\n", ini->gst_param[3]);
+	LOGD("gst param5 : %s\n", ini->gst_param[4]);
 
 	for ( idx = 0; ini->exclude_element_keyword[idx][0] != '\0'; idx++ )
 	{
-		debug_log("exclude_element_keyword [%d] : %s\n", idx, ini->exclude_element_keyword[idx]);
+		LOGD("exclude_element_keyword [%d] : %s\n", idx, ini->exclude_element_keyword[idx]);
 	}
 
 	for ( idx = 0; ini->dump_element_keyword[idx][0] != '\0'; idx++ )
 	{
-		debug_log("dump_element_keyword [%d] : %s\n", idx, ini->dump_element_keyword[idx]);
+		LOGD("dump_element_keyword [%d] : %s\n", idx, ini->dump_element_keyword[idx]);
 	}
 
 	/* http streaming */
-	debug_log("httpsrc element : %s\n", ini->httpsrc_element);
-	debug_log("http file buffer path : %s \n", ini->http_file_buffer_path);
-	debug_log("http buffering limit : %f \n", ini->http_buffering_limit);
-	debug_log("http max_size bytes : %d \n", ini->http_max_size_bytes);
-	debug_log("http buffering time : %f \n", ini->http_buffering_time);
-	debug_log("http timeout : %d \n", ini->http_timeout);
+	LOGD("httpsrc element : %s\n", ini->httpsrc_element);
+	LOGD("http file buffer path : %s \n", ini->http_file_buffer_path);
+	LOGD("http buffering limit : %f \n", ini->http_buffering_limit);
+	LOGD("http max_size bytes : %d \n", ini->http_max_size_bytes);
+	LOGD("http buffering time : %f \n", ini->http_buffering_time);
+	LOGD("http timeout : %d \n", ini->http_timeout);
 
 	return MM_ERROR_NONE;
 }
@@ -311,7 +311,7 @@ mm_player_audio_effect_ini_load(mm_player_ini_t* ini)
 	dict_audioeffect = iniparser_load(MM_PLAYER_INI_DEFAULT_AUDIOEFFECT_PATH);
 	if ( !dict_audioeffect )
 	{
-		debug_error("No audio effect ini file found. \n");
+		LOGE("No audio effect ini file found. \n");
 		return MM_ERROR_FILE_NOT_FOUND;
 	}
 
@@ -319,7 +319,7 @@ mm_player_audio_effect_ini_load(mm_player_ini_t* ini)
 	MMPLAYER_INI_GET_STRING( dict_audioeffect, ini->audioeffect_element, "audio effect:audio effect element", DEFAULT_AUDIO_EFFECT_ELEMENT );
 	if (!ini->audioeffect_element[0])
 	{
-		debug_warning("could not parse name of audio effect. \n");
+		LOGW("could not parse name of audio effect. \n");
 		iniparser_freedict (dict_audioeffect);
 		/* NOTE : in this case, we are not going to create audio filter element */
 		return MM_ERROR_NONE;
@@ -352,7 +352,7 @@ mm_player_audio_effect_ini_load(mm_player_ini_t* ini)
 			if (ini->audio_effect_custom_eq_band_num < DEFAULT_AUDIO_EFFECT_CUSTOM_EQ_BAND_NUM ||
 					ini->audio_effect_custom_eq_band_num > MM_AUDIO_EFFECT_EQ_BAND_NUM_MAX)
 			{
-				debug_error("audio_effect_custom_eq_band_num(%d) is not valid range(%d - %d), set the value %d",
+				LOGE("audio_effect_custom_eq_band_num(%d) is not valid range(%d - %d), set the value %d",
 					ini->audio_effect_custom_eq_band_num, DEFAULT_AUDIO_EFFECT_CUSTOM_EQ_BAND_NUM, MM_AUDIO_EFFECT_EQ_BAND_NUM_MAX, DEFAULT_AUDIO_EFFECT_CUSTOM_EQ_BAND_NUM);
 				ini->audio_effect_custom_eq_band_num = DEFAULT_AUDIO_EFFECT_CUSTOM_EQ_BAND_NUM;
 
@@ -390,36 +390,36 @@ mm_player_audio_effect_ini_load(mm_player_ini_t* ini)
 	MMPLAYER_INI_GET_STRING(dict_audioeffect, ini->audioeffect_element_custom, "audio effect:audio effect element custom", DEFAULT_AUDIO_EFFECT_ELEMENT );
 	if (!ini->audioeffect_element_custom[0])
 	{
-		debug_warning("no secondary audio effect \n");
+		LOGW("no secondary audio effect \n");
 	}
 	else
 	{
-		debug_log("audioeffect element custom : %s\n", ini->audioeffect_element_custom);
+		LOGD("audioeffect element custom : %s\n", ini->audioeffect_element_custom);
 	}
 
 	/* dump structure */
-	debug_log("audioeffect element : %s\n", ini->audioeffect_element);
-	debug_log("audio effect preset mode : %d\n", ini->use_audio_effect_preset);
-	debug_log("audio effect custom mode : %d\n", ini->use_audio_effect_custom);
+	LOGD("audioeffect element : %s\n", ini->audioeffect_element);
+	LOGD("audio effect preset mode : %d\n", ini->use_audio_effect_preset);
+	LOGD("audio effect custom mode : %d\n", ini->use_audio_effect_custom);
 #if 0 // debug
 	int i;
 	for (i=0; i<MM_AUDIO_EFFECT_PRESET_NUM; i++)
 	{
-		debug_log("audio_effect_preset_list: %d (is it for earphone only?(%d))\n", ini->audio_effect_preset_list[i], ini->audio_effect_preset_earphone_only_list[i]);
+		LOGD("audio_effect_preset_list: %d (is it for earphone only?(%d))\n", ini->audio_effect_preset_list[i], ini->audio_effect_preset_earphone_only_list[i]);
 	}
 	for (i=0; i<MM_AUDIO_EFFECT_CUSTOM_NUM; i++)
 	{
-		debug_log("audio_effect_custom_list : %d (is it for earphone only?(%d))\n", ini->audio_effect_custom_list[i], ini->audio_effect_custom_earphone_only_list[i]);
+		LOGD("audio_effect_custom_list : %d (is it for earphone only?(%d))\n", ini->audio_effect_custom_list[i], ini->audio_effect_custom_earphone_only_list[i]);
 	}
-	debug_log("audio_effect_custom : eq_band_num(%d), ext_num(%d)\n", ini->audio_effect_custom_eq_band_num, ini->audio_effect_custom_ext_num );
-	debug_log("audio_effect_custom_EQ : width(Hz) / central frequency(Hz)");
+	LOGD("audio_effect_custom : eq_band_num(%d), ext_num(%d)\n", ini->audio_effect_custom_eq_band_num, ini->audio_effect_custom_ext_num );
+	LOGD("audio_effect_custom_EQ : width(Hz) / central frequency(Hz)");
 	for (i=0; i<ini->audio_effect_custom_eq_band_num; i++)
 	{
-		debug_log("     EQ band index(%d) :  %8d / %8d", i, ini->audio_effect_custom_eq_band_width[i], ini->audio_effect_custom_eq_band_freq[i]);
+		LOGD("     EQ band index(%d) :  %8d / %8d", i, ini->audio_effect_custom_eq_band_width[i], ini->audio_effect_custom_eq_band_freq[i]);
 	}
 	for (i=0; i<MM_AUDIO_EFFECT_CUSTOM_NUM; i++)
 	{
-		debug_log("audio_effect_custom_level_min_max(idx:%d) : Min(%d), Max(%d)\n", i, ini->audio_effect_custom_min_level_list[i], ini->audio_effect_custom_max_level_list[i]);
+		LOGD("audio_effect_custom_level_min_max(idx:%d) : Min(%d), Max(%d)\n", i, ini->audio_effect_custom_min_level_list[i], ini->audio_effect_custom_max_level_list[i]);
 	}
 #endif
 	iniparser_freedict (dict_audioeffect);
@@ -435,17 +435,17 @@ void __mm_player_ini_check_ini_status(void)
 
 	if ( g_stat(MM_PLAYER_INI_DEFAULT_PATH, &ini_buff) < 0 )
 	{
-		debug_warning("failed to get player ini status\n");
+		LOGW("failed to get player ini status\n");
 	}
 	else
 	{
 		if ( ini_buff.st_size < 5 )
 		{
-			debug_warning("player.ini file size=%d, Corrupted! So, Removed\n", (int)ini_buff.st_size);
+			LOGW("player.ini file size=%d, Corrupted! So, Removed\n", (int)ini_buff.st_size);
 
 			if ( g_remove( MM_PLAYER_INI_DEFAULT_PATH ) == -1)
 			{
-				debug_error("failed to delete corrupted ini");
+				LOGE("failed to delete corrupted ini");
 			}
 		}
 	}

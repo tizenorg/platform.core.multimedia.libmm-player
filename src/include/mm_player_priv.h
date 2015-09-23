@@ -31,7 +31,6 @@
 #include <glib.h>
 #include <gst/gst.h>
 #include <mm_attrs.h>
-#include <mm_debug.h>
 #include <math.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -50,17 +49,22 @@
 /*===========================================================================================
 |																							|
 |  GLOBAL DEFINITIONS AND DECLARATIONS FOR MODULE											|
-|  																							|
+|																							|
 ========================================================================================== */
 
 /*---------------------------------------------------------------------------
 |    GLOBAL #defines:														|
 ---------------------------------------------------------------------------*/
 
+#ifdef LOG_TAG
+#undef LOG_TAG
+#endif
+#define LOG_TAG "MM_PLAYER"
+
 #define MM_PLAYER_IMGB_MPLANE_MAX	4
 #define MM_PLAYER_STREAM_COUNT_MAX	3
 
-#define MM_PLAYER_CAST(x_player) 		((mm_player_t *)(x_player))
+#define MM_PLAYER_CAST(x_player)		((mm_player_t *)(x_player))
 /**
  * @x_player: MMHandleType of player
  *

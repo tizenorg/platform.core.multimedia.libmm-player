@@ -18,6 +18,7 @@
  * limitations under the License.
  *
  */
+#include <dlog.h>
 #include <mm_error.h>
 
 #include "mm_player_utils.h"
@@ -40,7 +41,7 @@ mm_player_get_foreach_present_supported_effect_type(MMHandleType hplayer, MMAudi
 
 	MMPLAYER_FENTER();
 
-	return_val_if_fail ( hplayer, MM_ERROR_PLAYER_NOT_INITIALIZED );
+	MMPLAYER_RETURN_VAL_IF_FAIL ( hplayer, MM_ERROR_PLAYER_NOT_INITIALIZED );
 
 	player = MM_PLAYER_CAST(hplayer);
 
@@ -49,7 +50,7 @@ mm_player_get_foreach_present_supported_effect_type(MMHandleType hplayer, MMAudi
 	result = mm_sound_get_current_device_list(flags, &device_list);
 
 	if ( result ) {
-		debug_error("mm_sound_get_current_device_list() failed [%x]!!", result);
+		LOGE("mm_sound_get_current_device_list() failed [%x]!!", result);
 		MMPLAYER_FLEAVE();
 		return result;
 	}
@@ -58,7 +59,7 @@ mm_player_get_foreach_present_supported_effect_type(MMHandleType hplayer, MMAudi
 	result = mm_sound_get_next_device (device_list, &device_h);
 
 	if ( result ) {
-		debug_error("mm_sound_get_next_device() failed [%x]!!", result);
+		LOGE("mm_sound_get_next_device() failed [%x]!!", result);
 		MMPLAYER_FLEAVE();
 		return result;
 	}
@@ -67,7 +68,7 @@ mm_player_get_foreach_present_supported_effect_type(MMHandleType hplayer, MMAudi
 	result = mm_sound_get_device_type(device_h, &device_type);
 
 	if ( result ) {
-		debug_error("mm_sound_get_device_type() failed [%x]!!", result);
+		LOGE("mm_sound_get_device_type() failed [%x]!!", result);
 		MMPLAYER_FLEAVE();
 		return result;
 	}
@@ -112,7 +113,7 @@ mm_player_get_foreach_present_supported_effect_type(MMHandleType hplayer, MMAudi
 	}
 	else
 	{
-		debug_error("invalid effect type(%d)", effect_type);
+		LOGE("invalid effect type(%d)", effect_type);
 		result = MM_ERROR_INVALID_ARGUMENT;
 	}
 
@@ -121,7 +122,7 @@ mm_player_get_foreach_present_supported_effect_type(MMHandleType hplayer, MMAudi
 	return result;
 
 CALLBACK_ERROR:
-	debug_error("foreach callback returned error");
+	LOGE("foreach callback returned error");
 	MMPLAYER_FLEAVE();
 	return MM_ERROR_PLAYER_INTERNAL;
 }
@@ -137,31 +138,31 @@ __mmplayer_set_harmony_effect(mm_player_t *player, GstElement *audio_effect_elem
 
 	MMPLAYER_FENTER();
 
-	return_val_if_fail ( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
-	return_val_if_fail ( audio_effect_element, MM_ERROR_INVALID_ARGUMENT );
+	MMPLAYER_RETURN_VAL_IF_FAIL ( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
+	MMPLAYER_RETURN_VAL_IF_FAIL ( audio_effect_element, MM_ERROR_INVALID_ARGUMENT );
 
 	/* Custom EQ */
 	if( player->ini.audio_effect_custom_eq_band_num )
 	{
-		debug_log("pass custom EQ level list to audio effect plugin");
+		LOGD("pass custom EQ level list to audio effect plugin");
 		/* set custom-equalizer level list */
 		g_object_set(audio_effect_element, "custom-eq", player->audio_effect_info.custom_eq_level, NULL);
 	}
 	else
 	{
-		debug_warning("no custom EQ");
+		LOGW("no custom EQ");
 	}
 
 	/* Custom Extension effects */
 	if( player->ini.audio_effect_custom_ext_num )
 	{
-		debug_log("pass custom extension level list to audio effect plugin");
+		LOGD("pass custom extension level list to audio effect plugin");
 		ext_effect_level_list = player->audio_effect_info.custom_ext_level_for_plugin;
 		if (!ext_effect_level_list) {
 			ext_effect_level_list = (gint*) malloc (sizeof(gint)*player->ini.audio_effect_custom_ext_num);
 			if (!ext_effect_level_list)
 			{
-				debug_error("memory allocation for extension effect list failed");
+				LOGE("memory allocation for extension effect list failed");
 				return MM_ERROR_OUT_OF_MEMORY;
 			}
 			else
@@ -192,12 +193,12 @@ __mmplayer_set_harmony_effect(mm_player_t *player, GstElement *audio_effect_elem
 	}
 	else
 	{
-		debug_warning("no custom extension effect");
+		LOGW("no custom extension effect");
 	}
 
 	/* order action to audio effect plugin */
 	g_object_set(audio_effect_element, "filter-action", MM_AUDIO_EFFECT_TYPE_CUSTOM, NULL);
-	debug_log("filter-action = %d", MM_AUDIO_EFFECT_TYPE_CUSTOM);
+	LOGD("filter-action = %d", MM_AUDIO_EFFECT_TYPE_CUSTOM);
 
 	MMPLAYER_FLEAVE();
 
@@ -213,14 +214,14 @@ __mmplayer_is_earphone_only_effect_type(mm_player_t *player, MMAudioEffectType e
 
 	MMPLAYER_FENTER();
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	/* preset */
 	if (effect_type == MM_AUDIO_EFFECT_TYPE_PRESET)
 	{
 		if (player->ini.audio_effect_preset_earphone_only_list[effect])
 		{
-			debug_msg("this preset effect(%d) is only available with earphone", effect);
+			LOGI("this preset effect(%d) is only available with earphone", effect);
 			result = TRUE;
 		}
 	}
@@ -234,7 +235,7 @@ __mmplayer_is_earphone_only_effect_type(mm_player_t *player, MMAudioEffectType e
 				/* check if the earphone only custom effect was set */
 				if (player->audio_effect_info.custom_ext_level[i-1])
 				{
-					debug_msg("this custom effect(%d) is only available with earphone", i);
+					LOGI("this custom effect(%d) is only available with earphone", i);
 					result = TRUE;
 				}
 			}
@@ -242,7 +243,7 @@ __mmplayer_is_earphone_only_effect_type(mm_player_t *player, MMAudioEffectType e
 	}
 	else
 	{
-		debug_error("invalid effect type(%d)", effect_type);
+		LOGE("invalid effect type(%d)", effect_type);
 	}
 
 	MMPLAYER_FLEAVE();
@@ -263,7 +264,7 @@ __mmplayer_audio_set_output_type (mm_player_t *player, MMAudioEffectType effect_
 
 	MMPLAYER_FENTER();
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	audio_effect_element = player->pipeline->audiobin[MMPLAYER_A_FILTER].gst;
 
@@ -271,7 +272,7 @@ __mmplayer_audio_set_output_type (mm_player_t *player, MMAudioEffectType effect_
 	result = mm_sound_get_current_device_list(flags, &device_list);
 
 	if ( result ) {
-		debug_error("mm_sound_get_current_device_list() failed [%x]!!", result);
+		LOGE("mm_sound_get_current_device_list() failed [%x]!!", result);
 		MMPLAYER_FLEAVE();
 		return result;
 	}
@@ -280,7 +281,7 @@ __mmplayer_audio_set_output_type (mm_player_t *player, MMAudioEffectType effect_
 	result = mm_sound_get_next_device (device_list, &device_h);
 
 	if ( result ) {
-		debug_error("mm_sound_get_next_device() failed [%x]!!", result);
+		LOGE("mm_sound_get_next_device() failed [%x]!!", result);
 		MMPLAYER_FLEAVE();
 		return result;
 	}
@@ -289,7 +290,7 @@ __mmplayer_audio_set_output_type (mm_player_t *player, MMAudioEffectType effect_
 	result = mm_sound_get_device_type(device_h, &device_type);
 
 	if ( result ) {
-		debug_error("mm_sound_get_device_type() failed [%x]!!", result);
+		LOGE("mm_sound_get_device_type() failed [%x]!!", result);
 		MMPLAYER_FLEAVE();
 		return result;
 	}
@@ -300,7 +301,7 @@ __mmplayer_audio_set_output_type (mm_player_t *player, MMAudioEffectType effect_
 		if ( MM_AUDIO_EFFECT_TYPE_SQUARE != effect_type ) {
 			if (__mmplayer_is_earphone_only_effect_type(player, effect_type, effect))
 			{
-				debug_error("earphone is not equipped, this filter will not be applied");
+				LOGE("earphone is not equipped, this filter will not be applied");
 				MMPLAYER_FLEAVE();
 				return MM_ERROR_PLAYER_SOUND_EFFECT_INVALID_STATUS;
 			}
@@ -329,7 +330,7 @@ __mmplayer_audio_set_output_type (mm_player_t *player, MMAudioEffectType effect_
 	{
 		output_type = MM_AUDIO_EFFECT_OUTPUT_EAR;
 	}
-	debug_warning("output_type = %d (0:spk,1:ear,2:others)", output_type);
+	LOGW("output_type = %d (0:spk,1:ear,2:others)", output_type);
 
 	/* set filter output mode */
 	g_object_set(audio_effect_element, "filter-output-mode", output_type, NULL);
@@ -354,7 +355,7 @@ _mmplayer_is_supported_effect_type(mm_player_t* player, MMAudioEffectType effect
 	ret = mm_sound_get_current_device_list(flags, &device_list);
 	if (ret) {
 		MMPLAYER_FLEAVE();
-		debug_error("mm_sound_get_current_device_list() failed [%x]!!", ret);
+		LOGE("mm_sound_get_current_device_list() failed [%x]!!", ret);
 		return FALSE;
 	}
 
@@ -362,7 +363,7 @@ _mmplayer_is_supported_effect_type(mm_player_t* player, MMAudioEffectType effect
 	ret = mm_sound_get_next_device (device_list, &device_h);
 
 	if (ret) {
-		debug_error("mm_sound_get_next_device() failed [%x]!!", ret);
+		LOGE("mm_sound_get_next_device() failed [%x]!!", ret);
 		MMPLAYER_FLEAVE();
 		return FALSE;
 	}
@@ -371,7 +372,7 @@ _mmplayer_is_supported_effect_type(mm_player_t* player, MMAudioEffectType effect
 	ret = mm_sound_get_device_type(device_h, &device_type);
 
 	if (ret) {
-		debug_error("mm_sound_get_device_type() failed [%x]!!", ret);
+		LOGE("mm_sound_get_device_type() failed [%x]!!", ret);
 		MMPLAYER_FLEAVE();
 		return FALSE;
 	}
@@ -381,14 +382,14 @@ _mmplayer_is_supported_effect_type(mm_player_t* player, MMAudioEffectType effect
 	{
 		if ( effect < MM_AUDIO_EFFECT_PRESET_AUTO || effect >= MM_AUDIO_EFFECT_PRESET_NUM )
 		{
-			debug_error("out of range, preset effect(%d)", effect);
+			LOGE("out of range, preset effect(%d)", effect);
 			result = FALSE;
 		}
 		else
 		{
 			if (!player->ini.audio_effect_preset_list[effect])
 			{
-				debug_error("this effect(%d) is not supported", effect);
+				LOGE("this effect(%d) is not supported", effect);
 				result = FALSE;
 			}
 			else
@@ -406,14 +407,14 @@ _mmplayer_is_supported_effect_type(mm_player_t* player, MMAudioEffectType effect
 	{
 		if ( effect < MM_AUDIO_EFFECT_CUSTOM_EQ || effect >= MM_AUDIO_EFFECT_CUSTOM_NUM )
 		{
-			debug_error("out of range, custom effect(%d)", effect);
+			LOGE("out of range, custom effect(%d)", effect);
 			result = FALSE;
 		}
 		else
 		{
 			if (!player->ini.audio_effect_custom_list[effect])
 			{
-				debug_error("this custom effect(%d) is not supported", effect);
+				LOGE("this custom effect(%d) is not supported", effect);
 				result = FALSE;
 			}
 			else
@@ -430,13 +431,13 @@ _mmplayer_is_supported_effect_type(mm_player_t* player, MMAudioEffectType effect
 	{
 		if (!player->ini.use_audio_effect_custom)
 		{
-			debug_error("Square effect is not supported");
+			LOGE("Square effect is not supported");
 			result = FALSE;
 		}
 	}
 	else
 	{
-		debug_error("invalid effect type(%d)", effect_type);
+		LOGE("invalid effect type(%d)", effect_type);
 		result = FALSE;
 	}
 
@@ -454,12 +455,12 @@ _mmplayer_audio_effect_custom_apply(mm_player_t *player)
 
 	MMPLAYER_FENTER();
 
-	return_val_if_fail( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
+	MMPLAYER_RETURN_VAL_IF_FAIL( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
 
 	/* Music Player can set audio effect value before Audiobin is created. */
 	if ( !player->pipeline || !player->pipeline->audiobin || !player->pipeline->audiobin[MMPLAYER_A_FILTER].gst )
 	{
-		debug_warning("effect element is not created yet.");
+		LOGW("effect element is not created yet.");
 
 		player->bypass_audio_effect = FALSE;
 
@@ -474,7 +475,7 @@ _mmplayer_audio_effect_custom_apply(mm_player_t *player)
 		result = __mmplayer_audio_set_output_type(player, MM_AUDIO_EFFECT_TYPE_CUSTOM, 0);
 
 		if ( result != MM_ERROR_NONE) {
-			debug_error("failed to set output mode");
+			LOGE("failed to set output mode");
 			MMPLAYER_FLEAVE();
 			return result;
 		}
@@ -482,7 +483,7 @@ _mmplayer_audio_effect_custom_apply(mm_player_t *player)
 		result = __mmplayer_set_harmony_effect(player, audio_effect_element);
 		if ( result )
 		{
-			debug_error("_set_harmony_effect() failed(%x)", result);
+			LOGE("_set_harmony_effect() failed(%x)", result);
 			MMPLAYER_FLEAVE();
 			return result;
 		}
@@ -507,7 +508,7 @@ _mmplayer_audio_effect_custom_update_level(mm_player_t *player)
 
 	MMPLAYER_FENTER();
 
-	return_val_if_fail( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
+	MMPLAYER_RETURN_VAL_IF_FAIL( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
 
 	audio_effect_element = player->pipeline->audiobin[MMPLAYER_A_FILTER].gst;
 
@@ -518,7 +519,7 @@ _mmplayer_audio_effect_custom_update_level(mm_player_t *player)
 
 	for (i=0; i<player->ini.audio_effect_custom_eq_band_num;i++)
 	{
-		debug_log("updated custom-eq [%d] = %d", i, player->audio_effect_info.custom_eq_level[i]);
+		LOGD("updated custom-eq [%d] = %d", i, player->audio_effect_info.custom_eq_level[i]);
 	}
 
 	/* get custom ext effect */
@@ -531,7 +532,7 @@ _mmplayer_audio_effect_custom_update_level(mm_player_t *player)
 		{
 			player->audio_effect_info.custom_ext_level[count-1]
 				= custom_ext_effect_level_list[ext_level_index];
-			debug_log("updated custom-ext [%d] = %d", count, player->audio_effect_info.custom_ext_level[count-1]);
+			LOGD("updated custom-ext [%d] = %d", count, player->audio_effect_info.custom_ext_level[count-1]);
 			ext_level_index++;
 		}
 		count++;
@@ -551,12 +552,12 @@ mm_player_audio_effect_custom_clear_eq_all(MMHandleType hplayer)
 
 	MMPLAYER_FENTER();
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	/* clear EQ custom effect */
 	memset(player->audio_effect_info.custom_eq_level, MM_AUDIO_EFFECT_CUSTOM_LEVEL_INIT, sizeof(int)*MM_AUDIO_EFFECT_EQ_BAND_NUM_MAX);
 
-	debug_msg("All the EQ bands clearing success");
+	LOGI("All the EQ bands clearing success");
 
 	MMPLAYER_FLEAVE();
 
@@ -573,7 +574,7 @@ mm_player_audio_effect_custom_clear_ext_all(MMHandleType hplayer)
 
 	MMPLAYER_FENTER();
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	/* clear ALL custom effects, except EQ */
 	for ( i = 0 ; i < MM_AUDIO_EFFECT_CUSTOM_NUM - 1 ; i++ )
@@ -581,7 +582,7 @@ mm_player_audio_effect_custom_clear_ext_all(MMHandleType hplayer)
 		player->audio_effect_info.custom_ext_level[i] = MM_AUDIO_EFFECT_CUSTOM_LEVEL_INIT;
 	}
 
-	debug_msg("All the extension effects clearing success");
+	LOGI("All the extension effects clearing success");
 
 	MMPLAYER_FLEAVE();
 
@@ -597,7 +598,7 @@ mm_player_is_supported_preset_effect_type(MMHandleType hplayer, MMAudioEffectPre
 
 	MMPLAYER_FENTER();
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	if ( !_mmplayer_is_supported_effect_type( player, MM_AUDIO_EFFECT_TYPE_PRESET, effect ) )
 	{
@@ -618,7 +619,7 @@ mm_player_is_supported_custom_effect_type(MMHandleType hplayer, MMAudioEffectCus
 
 	MMPLAYER_FENTER();
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	if ( !_mmplayer_is_supported_effect_type( player, MM_AUDIO_EFFECT_TYPE_CUSTOM, effect ) )
 	{
@@ -638,11 +639,11 @@ mm_player_audio_effect_custom_apply(MMHandleType hplayer)
 
 	MMPLAYER_FENTER();
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	if (!player->ini.use_audio_effect_custom)
 	{
-		debug_error("audio effect(custom) is not supported");
+		LOGE("audio effect(custom) is not supported");
 		MMPLAYER_FLEAVE();
 		return MM_ERROR_NOT_SUPPORT_API;
 	}
@@ -664,17 +665,17 @@ mm_player_audio_effect_bypass (MMHandleType hplayer)
 
 	MMPLAYER_FENTER();
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	if ( !player->ini.use_audio_effect_preset && !player->ini.use_audio_effect_custom )
 	{
-		debug_error("audio effect(preset/custom) is not supported");
+		LOGE("audio effect(preset/custom) is not supported");
 		MMPLAYER_FLEAVE();
 		return MM_ERROR_NOT_SUPPORT_API;
 	}
 	if ( !player->pipeline || !player->pipeline->audiobin || !player->pipeline->audiobin[MMPLAYER_A_FILTER].gst )
 	{
-		debug_warning("effect element is not created yet.");
+		LOGW("effect element is not created yet.");
 	}
 	else
 	{
@@ -682,7 +683,7 @@ mm_player_audio_effect_bypass (MMHandleType hplayer)
 
 		/* order action to audio effect plugin */
 		g_object_set(audio_effect_element, "filter-action", MM_AUDIO_EFFECT_TYPE_NONE, NULL);
-		debug_log("filter-action = %d", MM_AUDIO_EFFECT_TYPE_NONE);
+		LOGD("filter-action = %d", MM_AUDIO_EFFECT_TYPE_NONE);
 	}
 
 	MMPLAYER_FLEAVE();
@@ -702,7 +703,7 @@ _mmplayer_audio_effect_custom_set_level_ext(mm_player_t *player, MMAudioEffectCu
 
 	MMPLAYER_FENTER();
 
-	return_val_if_fail( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
+	MMPLAYER_RETURN_VAL_IF_FAIL( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
 
 	/* check if EQ is supported */
 	if ( !_mmplayer_is_supported_effect_type( player,  MM_AUDIO_EFFECT_TYPE_CUSTOM, custom_effect_type ) )
@@ -719,13 +720,13 @@ _mmplayer_audio_effect_custom_set_level_ext(mm_player_t *player, MMAudioEffectCu
 			{
 				effect_level_min = player->ini.audio_effect_custom_min_level_list[ext_level_index];
 				effect_level_max = player->ini.audio_effect_custom_max_level_list[ext_level_index];
-				debug_msg("level min value(%d), level max value(%d)", effect_level_min, effect_level_max);
+				LOGI("level min value(%d), level max value(%d)", effect_level_min, effect_level_max);
 				break;
 			}
 			ext_level_index++;
 			if (ext_level_index == player->ini.audio_effect_custom_ext_num + 1)
 			{
-				debug_error("could not find min, max value. maybe effect information in ini file is not proper for audio effect plugin");
+				LOGE("could not find min, max value. maybe effect information in ini file is not proper for audio effect plugin");
 				break;
 			}
 		}
@@ -734,13 +735,13 @@ _mmplayer_audio_effect_custom_set_level_ext(mm_player_t *player, MMAudioEffectCu
 
 	if ( level < effect_level_min || level > effect_level_max )
 	{
-		debug_error("out of range, level(%d)", level);
+		LOGE("out of range, level(%d)", level);
 		result = MM_ERROR_INVALID_ARGUMENT;
 	}
 	else
 	{
 		player->audio_effect_info.custom_ext_level[custom_effect_type-1] = level;
-		debug_msg("set ext[%d] = %d", custom_effect_type-1, level);
+		LOGI("set ext[%d] = %d", custom_effect_type-1, level);
 	}
 
 	MMPLAYER_FLEAVE();
@@ -758,7 +759,7 @@ _mmplayer_audio_effect_custom_set_level_eq(mm_player_t *player, int index, int l
 
 	MMPLAYER_FENTER();
 
-	return_val_if_fail( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
+	MMPLAYER_RETURN_VAL_IF_FAIL( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
 
 	/* check if EQ is supported */
 	if ( !_mmplayer_is_supported_effect_type( player, MM_AUDIO_EFFECT_TYPE_CUSTOM, MM_AUDIO_EFFECT_CUSTOM_EQ ) )
@@ -769,24 +770,24 @@ _mmplayer_audio_effect_custom_set_level_eq(mm_player_t *player, int index, int l
 
 	if ( index < 0 || index > player->ini.audio_effect_custom_eq_band_num - 1 )
 	{
-		debug_error("out of range, index(%d)", index);
+		LOGE("out of range, index(%d)", index);
 		result = MM_ERROR_INVALID_ARGUMENT;
 	}
 	else
 	{
 		eq_level_min = player->ini.audio_effect_custom_min_level_list[MM_AUDIO_EFFECT_CUSTOM_EQ];
 		eq_level_max = player->ini.audio_effect_custom_max_level_list[MM_AUDIO_EFFECT_CUSTOM_EQ];
-		debug_msg("EQ level min value(%d), EQ level max value(%d)", eq_level_min, eq_level_max);
+		LOGI("EQ level min value(%d), EQ level max value(%d)", eq_level_min, eq_level_max);
 
 		if ( level < eq_level_min || level > eq_level_max )
 		{
-			debug_error("out of range, EQ level(%d)", level);
+			LOGE("out of range, EQ level(%d)", level);
 			result =  MM_ERROR_INVALID_ARGUMENT;
 		}
 		else
 		{
 			player->audio_effect_info.custom_eq_level[index] = level;
-			debug_msg("set EQ[%d] = %d", index, level);
+			LOGI("set EQ[%d] = %d", index, level);
 		}
 	}
 
@@ -805,7 +806,7 @@ mm_player_audio_effect_custom_set_level(MMHandleType hplayer, MMAudioEffectCusto
 
 	MMPLAYER_FENTER();
 
-	return_val_if_fail( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
+	MMPLAYER_RETURN_VAL_IF_FAIL( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
 
 	/* check if this effect type is supported */
 	if ( !_mmplayer_is_supported_effect_type( player, MM_AUDIO_EFFECT_TYPE_CUSTOM, effect_custom_type ) )
@@ -824,7 +825,7 @@ mm_player_audio_effect_custom_set_level(MMHandleType hplayer, MMAudioEffectCusto
 		}
 		else
 		{
-			debug_error("out of range, effect type(%d)", effect_custom_type);
+			LOGE("out of range, effect type(%d)", effect_custom_type);
 			result = MM_ERROR_INVALID_ARGUMENT;
 		}
 	}
@@ -843,7 +844,7 @@ mm_player_audio_effect_custom_get_eq_bands_number(MMHandleType hplayer, int *ban
 
 	MMPLAYER_FENTER();
 
-	return_val_if_fail( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
+	MMPLAYER_RETURN_VAL_IF_FAIL( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
 
 	/* check if EQ is supported */
 	if ( !_mmplayer_is_supported_effect_type( player, MM_AUDIO_EFFECT_TYPE_CUSTOM, MM_AUDIO_EFFECT_CUSTOM_EQ ) )
@@ -853,7 +854,7 @@ mm_player_audio_effect_custom_get_eq_bands_number(MMHandleType hplayer, int *ban
 	}
 
 	*bands = player->ini.audio_effect_custom_eq_band_num;
-	debug_log("number of custom EQ band = %d", *bands);
+	LOGD("number of custom EQ band = %d", *bands);
 
 	MMPLAYER_FLEAVE();
 
@@ -870,7 +871,7 @@ mm_player_audio_effect_custom_get_eq_bands_width(MMHandleType hplayer, int band_
 
 	MMPLAYER_FENTER();
 
-	return_val_if_fail( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
+	MMPLAYER_RETURN_VAL_IF_FAIL( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
 
 	/* check if EQ is supported */
 	if ( !_mmplayer_is_supported_effect_type( player, MM_AUDIO_EFFECT_TYPE_CUSTOM, MM_AUDIO_EFFECT_CUSTOM_EQ ) )
@@ -882,14 +883,14 @@ mm_player_audio_effect_custom_get_eq_bands_width(MMHandleType hplayer, int band_
 	eq_num = player->ini.audio_effect_custom_eq_band_num;
 	if (band_idx < 0 || band_idx > eq_num-1)
 	{
-		debug_error("out of range, invalid band_idx(%d)", band_idx);
+		LOGE("out of range, invalid band_idx(%d)", band_idx);
 		result = MM_ERROR_INVALID_ARGUMENT;
 	}
 	else
 	{
 		/* set the width of EQ band */
 		*width = player->ini.audio_effect_custom_eq_band_width[band_idx];
-		debug_log("width of band_idx(%d) = %dHz", band_idx, *width);
+		LOGD("width of band_idx(%d) = %dHz", band_idx, *width);
 	}
 
 	MMPLAYER_FLEAVE();
@@ -907,7 +908,7 @@ mm_player_audio_effect_custom_get_eq_bands_freq(MMHandleType hplayer, int band_i
 
 	MMPLAYER_FENTER();
 
-	return_val_if_fail( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
+	MMPLAYER_RETURN_VAL_IF_FAIL( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
 
 	/* check if EQ is supported */
 	if ( !_mmplayer_is_supported_effect_type( player, MM_AUDIO_EFFECT_TYPE_CUSTOM, MM_AUDIO_EFFECT_CUSTOM_EQ ) )
@@ -919,14 +920,14 @@ mm_player_audio_effect_custom_get_eq_bands_freq(MMHandleType hplayer, int band_i
 	eq_num = player->ini.audio_effect_custom_eq_band_num;
 	if (band_idx < 0 || band_idx > eq_num-1)
 	{
-		debug_error("out of range, invalid band_idx(%d)", band_idx);
+		LOGE("out of range, invalid band_idx(%d)", band_idx);
 		result = MM_ERROR_INVALID_ARGUMENT;
 	}
 	else
 	{
 		/* set the frequency of EQ band */
 		*freq = player->ini.audio_effect_custom_eq_band_freq[band_idx];
-		debug_log("frequency of band_idx(%d) = %dHz", band_idx, *freq);
+		LOGD("frequency of band_idx(%d) = %dHz", band_idx, *freq);
 	}
 
 	MMPLAYER_FLEAVE();
@@ -943,8 +944,8 @@ mm_player_audio_effect_custom_get_level(MMHandleType hplayer, MMAudioEffectCusto
 
 	MMPLAYER_FENTER();
 
-	return_val_if_fail( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
-	return_val_if_fail( level, MM_ERROR_PLAYER_NOT_INITIALIZED );
+	MMPLAYER_RETURN_VAL_IF_FAIL( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
+	MMPLAYER_RETURN_VAL_IF_FAIL( level, MM_ERROR_PLAYER_NOT_INITIALIZED );
 
 	/* check if this effect type is supported */
 	if ( !_mmplayer_is_supported_effect_type( player, MM_AUDIO_EFFECT_TYPE_CUSTOM, type ) )
@@ -957,23 +958,23 @@ mm_player_audio_effect_custom_get_level(MMHandleType hplayer, MMAudioEffectCusto
 	{
 		if ( eq_index < 0 || eq_index > player->ini.audio_effect_custom_eq_band_num - 1 )
 		{
-			debug_error("out of range, EQ index(%d)", eq_index);
+			LOGE("out of range, EQ index(%d)", eq_index);
 			result = MM_ERROR_INVALID_ARGUMENT;
 		}
 		else
 		{
 			*level = player->audio_effect_info.custom_eq_level[eq_index];
-			debug_log("EQ index = %d, level = %d", eq_index, *level);
+			LOGD("EQ index = %d, level = %d", eq_index, *level);
 		}
 	}
 	else if ( type > MM_AUDIO_EFFECT_CUSTOM_EQ && type < MM_AUDIO_EFFECT_CUSTOM_NUM )
 	{
 		*level = player->audio_effect_info.custom_ext_level[type-1];
-		debug_log("extension effect index = %d, level = %d", type, *level);
+		LOGD("extension effect index = %d, level = %d", type, *level);
 	}
 	else
 	{
-		debug_error("out of range, type(%d)", type);
+		LOGE("out of range, type(%d)", type);
 		result = MM_ERROR_INVALID_ARGUMENT;
 	}
 
@@ -993,9 +994,9 @@ mm_player_audio_effect_custom_get_level_range(MMHandleType hplayer, MMAudioEffec
 
 	MMPLAYER_FENTER();
 
-	return_val_if_fail( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
-	return_val_if_fail( min, MM_ERROR_PLAYER_NOT_INITIALIZED );
-	return_val_if_fail( max, MM_ERROR_PLAYER_NOT_INITIALIZED );
+	MMPLAYER_RETURN_VAL_IF_FAIL( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
+	MMPLAYER_RETURN_VAL_IF_FAIL( min, MM_ERROR_PLAYER_NOT_INITIALIZED );
+	MMPLAYER_RETURN_VAL_IF_FAIL( max, MM_ERROR_PLAYER_NOT_INITIALIZED );
 
 	/* check if this effect type is supported */
 	if ( !_mmplayer_is_supported_effect_type( player, MM_AUDIO_EFFECT_TYPE_CUSTOM, type ) )
@@ -1008,7 +1009,7 @@ mm_player_audio_effect_custom_get_level_range(MMHandleType hplayer, MMAudioEffec
 	{
 		*min = player->ini.audio_effect_custom_min_level_list[MM_AUDIO_EFFECT_CUSTOM_EQ];
 		*max = player->ini.audio_effect_custom_max_level_list[MM_AUDIO_EFFECT_CUSTOM_EQ];
-		debug_log("EQ min level = %d, max level = %d", *min, *max);
+		LOGD("EQ min level = %d, max level = %d", *min, *max);
 	}
 	else
 	{
@@ -1020,13 +1021,13 @@ mm_player_audio_effect_custom_get_level_range(MMHandleType hplayer, MMAudioEffec
 				{
 					*min = player->ini.audio_effect_custom_min_level_list[ext_level_index];
 					*max = player->ini.audio_effect_custom_max_level_list[ext_level_index];
-					debug_msg("Extension effect(%d) min level = %d, max level = %d", count, *min, *max);
+					LOGI("Extension effect(%d) min level = %d, max level = %d", count, *min, *max);
 					break;
 				}
 				ext_level_index++;
 				if ( ext_level_index == player->ini.audio_effect_custom_ext_num + 1 )
 				{
-					debug_error("could not find min, max value. maybe effect information in ini file is not proper for audio effect plugin");
+					LOGE("could not find min, max value. maybe effect information in ini file is not proper for audio effect plugin");
 					break;
 				}
 			}
@@ -1051,7 +1052,7 @@ mm_player_audio_effect_custom_set_level_eq_from_list(MMHandleType hplayer, int *
 
 	MMPLAYER_FENTER();
 
-	return_val_if_fail( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
+	MMPLAYER_RETURN_VAL_IF_FAIL( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
 
 	/* check if EQ is supported */
 	if ( !_mmplayer_is_supported_effect_type( player, MM_AUDIO_EFFECT_TYPE_CUSTOM, MM_AUDIO_EFFECT_CUSTOM_EQ ) )
@@ -1062,7 +1063,7 @@ mm_player_audio_effect_custom_set_level_eq_from_list(MMHandleType hplayer, int *
 
 	if ( size != player->ini.audio_effect_custom_eq_band_num )
 	{
-		debug_error("input size variable(%d) does not match with number of eq band(%d)", size, player->ini.audio_effect_custom_eq_band_num);
+		LOGE("input size variable(%d) does not match with number of eq band(%d)", size, player->ini.audio_effect_custom_eq_band_num);
 		result = MM_ERROR_INVALID_ARGUMENT;
 	}
 	else
@@ -1074,7 +1075,7 @@ mm_player_audio_effect_custom_set_level_eq_from_list(MMHandleType hplayer, int *
 		{
 			if ( level_list[i] < eq_level_min || level_list[i] > eq_level_max)
 			{
-				debug_error("out of range, level[%d]=%d", i, level_list[i]);
+				LOGE("out of range, level[%d]=%d", i, level_list[i]);
 				result = MM_ERROR_INVALID_ARGUMENT;
 				break;
 			}

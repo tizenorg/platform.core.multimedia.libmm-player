@@ -27,7 +27,7 @@
 #include <gst/gst.h>
 #include <string.h>
 #include <math.h>
-#include "mm_debug.h"
+#include <dlog.h>
 #include "mm_player.h"
 
 #define MAX_FILE_BUFFER_NAME_LEN 256
@@ -67,7 +67,7 @@ do \
 	}	\
 	else	\
 	{	\
-		debug_warning ("set default per info\n"); 	\
+		LOGW ("set default per info\n"); 	\
 		d = c;	\
 	} \
 } while ( 0 );

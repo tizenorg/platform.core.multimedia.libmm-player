@@ -19,7 +19,7 @@
  * limitations under the License.
  *
  */
-#include <mm_debug.h>
+#include <dlog.h>
 #include <mm_error.h>
 #include <mm_attrs_private.h>
 #include "mm_player_utils.h"
@@ -43,16 +43,16 @@ int _mmplayer_get_track_count(MMHandleType hplayer,  MMPlayerTrackType type, int
 	MMPLAYER_FENTER();
 
 	/* check player handle */
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
-	return_val_if_fail(count, MM_ERROR_COMMON_INVALID_ARGUMENT);
-	return_val_if_fail((MMPLAYER_CURRENT_STATE(player) != MM_PLAYER_STATE_PAUSED)
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(count, MM_ERROR_COMMON_INVALID_ARGUMENT);
+	MMPLAYER_RETURN_VAL_IF_FAIL((MMPLAYER_CURRENT_STATE(player) != MM_PLAYER_STATE_PAUSED)
 		 ||(MMPLAYER_CURRENT_STATE(player) != MM_PLAYER_STATE_PLAYING),
 		MM_ERROR_PLAYER_INVALID_STATE);
 
 	attrs = MMPLAYER_GET_ATTRS(player);
 	if ( !attrs )
 	{
-		debug_error("cannot get content attribute");
+		LOGE("cannot get content attribute");
 		return MM_ERROR_PLAYER_INTERNAL;
 	}
 
@@ -77,7 +77,7 @@ int _mmplayer_get_track_count(MMHandleType hplayer,  MMPlayerTrackType type, int
 			break;
 	}
 
-	debug_log ("%d track num : %d\n", type, *count);
+	LOGD ("%d track num : %d\n", type, *count);
 
 	MMPLAYER_FLEAVE();
 
@@ -88,7 +88,7 @@ int _mmplayer_select_track(MMHandleType hplayer, MMPlayerTrackType type, int ind
 {
 	int ret = MM_ERROR_NONE;
 	mm_player_t* player = (mm_player_t*) hplayer;
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 	MMPLAYER_FENTER();
 
 
@@ -108,7 +108,7 @@ int _mmplayer_select_track(MMHandleType hplayer, MMPlayerTrackType type, int ind
 		temp = g_list_nth_data (player->subtitle_language_list, index);
 
 		subparse = player->pipeline->mainbin[MMPLAYER_M_SUBPARSE].gst;
-		debug_log("setting to language %s", temp->language_code);
+		LOGD("setting to language %s", temp->language_code);
 		g_object_set (G_OBJECT (subparse), "current-language", temp->language_key, NULL);
 
 		_mmplayer_sync_subtitle_pipeline(player);
@@ -129,7 +129,7 @@ int _mmplayer_track_add_subtitle_language(MMHandleType hplayer, int index)
 {
 	int ret = MM_ERROR_NONE;
 	mm_player_t* player = (mm_player_t*) hplayer;
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 	MMPLAYER_FENTER();
 
 	if(!player->pipeline || !player->pipeline->mainbin[MMPLAYER_M_T_SUBMUX_EXTERNAL].gst)
@@ -147,7 +147,7 @@ int _mmplayer_track_add_subtitle_language(MMHandleType hplayer, int index)
 		temp->active = TRUE;
 
 		subparse = player->pipeline->mainbin[MMPLAYER_M_T_SUBMUX_EXTERNAL].gst;
-		debug_log("adding to language %s", temp->language_code);
+		LOGD("adding to language %s", temp->language_code);
 		g_object_set (G_OBJECT (subparse), "current-language", temp->language_key, NULL);
 		g_object_set (G_OBJECT (subparse), "lang-list", player->subtitle_language_list, NULL);
 
@@ -155,7 +155,7 @@ int _mmplayer_track_add_subtitle_language(MMHandleType hplayer, int index)
 	}
 	else
 	{
-		debug_warning("It is for just subtitle track");
+		LOGW("It is for just subtitle track");
 		ret = MM_ERROR_PLAYER_NO_OP;
 		goto EXIT;
 	}
@@ -169,7 +169,7 @@ int _mmplayer_track_remove_subtitle_language(MMHandleType hplayer, int index)
 {
 	int ret = MM_ERROR_NONE;
 	mm_player_t* player = (mm_player_t*) hplayer;
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 	MMPLAYER_FENTER();
 
 	if(!player->pipeline || !player->pipeline->mainbin[MMPLAYER_M_T_SUBMUX_EXTERNAL].gst)
@@ -187,7 +187,7 @@ int _mmplayer_track_remove_subtitle_language(MMHandleType hplayer, int index)
 		temp->active = FALSE;
 
 		subparse = player->pipeline->mainbin[MMPLAYER_M_T_SUBMUX_EXTERNAL].gst;
-		debug_log("removing to language %s", temp->language_code);
+		LOGD("removing to language %s", temp->language_code);
 		g_object_set (G_OBJECT (subparse), "current-language", temp->language_key, NULL);
 		g_object_set (G_OBJECT (subparse), "lang-list", player->subtitle_language_list, NULL);
 
@@ -195,7 +195,7 @@ int _mmplayer_track_remove_subtitle_language(MMHandleType hplayer, int index)
 	}
 	else
 	{
-		debug_warning("It is for just subtitle track");
+		LOGW("It is for just subtitle track");
 		ret = MM_ERROR_PLAYER_NO_OP;
 		goto EXIT;
 	}
@@ -209,13 +209,13 @@ int _mmplayer_get_current_track(MMHandleType hplayer, MMPlayerTrackType type, in
 {
 	int ret = MM_ERROR_NONE;
 	mm_player_t* player = (mm_player_t*) hplayer;
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 	MMPLAYER_FENTER();
 
 	if (type >= MM_PLAYER_TRACK_TYPE_MAX)
 	{
 		ret = MM_ERROR_INVALID_ARGUMENT;
-		debug_log("Not a proper type [type:%d] \n", type);
+		LOGD("Not a proper type [type:%d] \n", type);
 		goto EXIT;
 	}
 
@@ -230,7 +230,7 @@ int _mmplayer_get_current_track(MMHandleType hplayer, MMPlayerTrackType type, in
 		attrs = MMPLAYER_GET_ATTRS(player);
 		if (!attrs)
 		{
-			debug_error("cannot get content attribute");
+			LOGE("cannot get content attribute");
 			ret = MM_ERROR_PLAYER_INTERNAL;
 			goto EXIT;
 		}
@@ -239,17 +239,17 @@ int _mmplayer_get_current_track(MMHandleType hplayer, MMPlayerTrackType type, in
 
 		subparse = player->pipeline->mainbin[MMPLAYER_M_SUBPARSE].gst;
 		g_object_get (G_OBJECT (subparse), "current-language", &current_language, NULL);
-		debug_log("current language is %s ",current_language);
+		LOGD("current language is %s ",current_language);
 		while (total_track_count)
 		{
 			temp = g_list_nth_data (player->subtitle_language_list, total_track_count - 1);
 			if (temp)
 			{
-				debug_log("find the list");
+				LOGD("find the list");
 				if (!strcmp(temp->language_key, current_language))
 				{
 					*index = total_track_count - 1;
-					debug_log("current lang index  is %d", *index);
+					LOGD("current lang index  is %d", *index);
 					break;
 				}
 			}
@@ -261,7 +261,7 @@ int _mmplayer_get_current_track(MMHandleType hplayer, MMPlayerTrackType type, in
 		if (player->selector[type].total_track_num <= 0)
 		{
 			ret = MM_ERROR_PLAYER_NO_OP;
-			debug_log("there is no track information [type:%d] \n", type);
+			LOGD("there is no track information [type:%d] \n", type);
 			goto EXIT;
 		}
 
@@ -277,7 +277,7 @@ int _mmplayer_get_track_language_code(MMHandleType hplayer, MMPlayerTrackType ty
 {
 	int ret = MM_ERROR_NONE;
 
-	return_val_if_fail(hplayer, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(hplayer, MM_ERROR_PLAYER_NOT_INITIALIZED);
 	mm_player_t* player = (mm_player_t*) hplayer;
 	MMPLAYER_FENTER();
 
@@ -297,7 +297,7 @@ int _mmplayer_get_track_language_code(MMHandleType hplayer, MMPlayerTrackType ty
 		language_list = g_list_nth_data (player->subtitle_language_list, index);
 		if (language_list == NULL)
 		{
-			debug_log ("%d is not a proper index \n", index);
+			LOGD ("%d is not a proper index \n", index);
 			goto EXIT;
 		}
 		strncpy(*code, language_list->language_code, language_code_size);
@@ -307,14 +307,14 @@ int _mmplayer_get_track_language_code(MMHandleType hplayer, MMPlayerTrackType ty
 		if (player->selector[type].total_track_num <= 0)
 		{
 			ret = MM_ERROR_PLAYER_NO_OP;
-			debug_log("language list is not available. [type:%d] \n", type);
+			LOGD("language list is not available. [type:%d] \n", type);
 			goto EXIT;
 		}
 
 		if(index < 0 || index >= player->selector[type].total_track_num)
 		{
 			ret = MM_ERROR_INVALID_ARGUMENT;
-			debug_log("Not a proper index : %d \n", index);
+			LOGD("Not a proper index : %d \n", index);
 			goto EXIT;
 		}
 
@@ -356,7 +356,7 @@ void _mmplayer_track_destroy(mm_player_t* player)
 		mm_attrs_set_int_by_name(attrs, "content_text_track_num", 0);
 
 		if (mmf_attrs_commit (attrs))
-			debug_error("failed to commit.\n");
+			LOGE("failed to commit.\n");
 	}
 
 	for (;type<MM_PLAYER_TRACK_TYPE_MAX ; type++)
@@ -377,7 +377,7 @@ void _mmplayer_track_update_info(mm_player_t* player, MMPlayerTrackType type, Gs
 	player->selector[type].total_track_num++;
 	g_ptr_array_add (player->selector[type].channels, sinkpad);
 
-	debug_log ("type:%d, total track:%d\n", type, player->selector[type].total_track_num);
+	LOGD ("type:%d, total track:%d\n", type, player->selector[type].total_track_num);
 }
 
 static int __mmplayer_track_get_language(mm_player_t* player, MMPlayerTrackType type, gint stream_index, gchar **code)
@@ -399,7 +399,7 @@ static int __mmplayer_track_get_language(mm_player_t* player, MMPlayerTrackType 
 	}
 	memset(*code,0,language_code_size*sizeof(char));
 
-	debug_log ("total track num : %d , req idx : %d\n", player->selector[type].total_track_num, stream_index);
+	LOGD ("total track num : %d , req idx : %d\n", player->selector[type].total_track_num, stream_index);
 
 	if (stream_index < player->selector[type].total_track_num)
 	{
@@ -412,18 +412,18 @@ static int __mmplayer_track_get_language(mm_player_t* player, MMPlayerTrackType 
 	}
 
 	g_object_get (sinkpad, "tags", &tag_list, NULL);
-	//secure_debug_log ("[%s]\n", gst_tag_list_to_string(tag_list));
+	//SECURE_LOGD ("[%s]\n", gst_tag_list_to_string(tag_list));
 
 	gst_tag_list_get_string (tag_list, GST_TAG_LANGUAGE_CODE, &tag);
 
 	if(!tag)
 	{
-		debug_log("there is no lang info - und\n");
+		LOGD("there is no lang info - und\n");
 		strncpy(*code, "und", language_code_size);
 	}
 	else
 	{
-		debug_log("language information[%d] code: %s, len: %d \n", type, tag, strlen(tag));
+		LOGD("language information[%d] code: %s, len: %d \n", type, tag, strlen(tag));
 		strncpy(*code, tag, /*strlen(tag)*/language_code_size);
 		g_free (tag);
 	}
@@ -440,7 +440,7 @@ int _mmplayer_track_foreach_selected_subtitle_language(MMHandleType hplayer,_mmp
 {
 	int ret = MM_ERROR_NONE;
 	mm_player_t* player = (mm_player_t*) hplayer;
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 	MMPLAYER_FENTER();
 
 	int index = -1;
@@ -454,7 +454,7 @@ int _mmplayer_track_foreach_selected_subtitle_language(MMHandleType hplayer,_mmp
 		attrs = MMPLAYER_GET_ATTRS(player);
 		if (!attrs)
 		{
-			debug_error("cannot get content attribute");
+			LOGE("cannot get content attribute");
 			ret = MM_ERROR_PLAYER_INTERNAL;
 			goto EXIT;
 		}
@@ -462,7 +462,7 @@ int _mmplayer_track_foreach_selected_subtitle_language(MMHandleType hplayer,_mmp
 
 		if(!total_track_count)
 		{
-			debug_warning("There are no subtitle track selected.");
+			LOGW("There are no subtitle track selected.");
 			ret = MM_ERROR_PLAYER_NO_OP;
 			goto EXIT;
 		}
@@ -472,11 +472,11 @@ int _mmplayer_track_foreach_selected_subtitle_language(MMHandleType hplayer,_mmp
 			temp = g_list_nth_data (player->subtitle_language_list, total_track_count - 1);
 			if (temp)
 			{
-				debug_log("find the list");
+				LOGD("find the list");
 				if (temp->active)
 				{
 					index = total_track_count - 1;
-					debug_log("active subtitle track index is %d", index);
+					LOGD("active subtitle track index is %d", index);
 					if (!foreach_cb(index, user_data))
 					{
 						ret = MM_ERROR_PLAYER_INTERNAL;
@@ -487,7 +487,7 @@ int _mmplayer_track_foreach_selected_subtitle_language(MMHandleType hplayer,_mmp
 			total_track_count--;
 		}
 
-		debug_log("we will return -1 for notifying the end to user");
+		LOGD("we will return -1 for notifying the end to user");
 
 		/* After returning all selected indexs, we will return -1 for notifying the end to user */
 		if (!foreach_cb(-1, user_data))
@@ -498,7 +498,7 @@ int _mmplayer_track_foreach_selected_subtitle_language(MMHandleType hplayer,_mmp
 	}
 
 CALLBACK_ERROR:
-	debug_error("foreach callback returned error");
+	LOGE("foreach callback returned error");
 
 EXIT:
 	MMPLAYER_FLEAVE();

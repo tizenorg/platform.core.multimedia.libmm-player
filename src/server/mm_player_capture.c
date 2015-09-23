@@ -23,8 +23,9 @@
 /*===========================================================================================
 |																							|
 |  INCLUDE FILES																			|
-|  																							|
+|																							|
 ========================================================================================== */
+#include <dlog.h>
 #include "mm_player_utils.h"
 #include "mm_player_capture.h"
 #include "mm_player_priv.h"
@@ -55,7 +56,7 @@ static int __mm_player_convert_colorspace(mm_player_t* player, unsigned char* sr
 int
 _mmplayer_initialize_video_capture(mm_player_t* player)
 {
-	return_val_if_fail ( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
+	MMPLAYER_RETURN_VAL_IF_FAIL ( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
 	/* create capture mutex */
 	g_mutex_init(&player->capture_thread_mutex);
 
@@ -88,18 +89,18 @@ ERROR:
 int
 _mmplayer_release_video_capture(mm_player_t* player)
 {
-	return_val_if_fail ( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
+	MMPLAYER_RETURN_VAL_IF_FAIL ( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
 	/* release capture thread */
 	g_mutex_lock(&player->capture_thread_mutex);
 	player->capture_thread_exit = TRUE;
 	g_cond_signal( &player->capture_thread_cond );
 	g_mutex_unlock(&player->capture_thread_mutex);
 
-	debug_log("waitting for capture thread exit");
+	LOGD("waitting for capture thread exit");
 	g_thread_join ( player->capture_thread );
 	g_mutex_clear(&player->capture_thread_mutex );
 	g_cond_clear(&player->capture_thread_cond );
-	debug_log("capture thread released");
+	LOGD("capture thread released");
 
 	return MM_ERROR_NONE;
 }
@@ -113,28 +114,28 @@ _mmplayer_do_video_capture(MMHandleType hplayer)
 
 	MMPLAYER_FENTER();
 
-	return_val_if_fail(player && player->pipeline, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player && player->pipeline, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	/* capturing or not */
 	if (player->video_capture_cb_probe_id || player->capture.data
 			|| player->captured.data[0] || player->captured.data[1]
 			)
 	{
-		debug_warning("capturing... we can't do any more");
+		LOGW("capturing... we can't do any more");
 		return MM_ERROR_PLAYER_INVALID_STATE;
 	}
 
 	/* check if video pipeline is linked or not */
 	if (!player->pipeline->videobin)
 	{
-		debug_warning("not ready to capture");
+		LOGW("not ready to capture");
 		return MM_ERROR_PLAYER_INVALID_STATE;
 	}
 
 	/* check if drm file */
 	if (player->is_drm_file)
 	{
-		debug_warning("not supported in drm file");
+		LOGW("not supported in drm file");
 		return MM_ERROR_PLAYER_DRM_OUTPUT_PROTECTION;
 	}
 
@@ -161,7 +162,7 @@ _mmplayer_do_video_capture(MMHandleType hplayer)
 				}
 				else
 				{
-					debug_warning("failed to get video frame");
+					LOGW("failed to get video frame");
 				}
 				gst_sample_unref(sample);
 			}
@@ -169,7 +170,7 @@ _mmplayer_do_video_capture(MMHandleType hplayer)
 		}
 		else
 		{
-			debug_warning("invalid state(%d) to capture", player->state);
+			LOGW("invalid state(%d) to capture", player->state);
 			return MM_ERROR_PLAYER_INVALID_STATE;
 		}
 	}
@@ -203,7 +204,7 @@ __mmplayer_handle_orientation (mm_player_t* player, int orientation, int format)
     {
 		dst_width = player->captured.height[0];
 		dst_height = player->captured.width[0];
-		debug_log ("interchange width & height");
+		LOGD ("interchange width & height");
     }
     else if (orientation == 180)
     {
@@ -212,30 +213,30 @@ __mmplayer_handle_orientation (mm_player_t* player, int orientation, int format)
     }
     else if (orientation == 0)
     {
-		debug_error ("no need handle orientation : %d", orientation);
+		LOGE ("no need handle orientation : %d", orientation);
 		player->capture.width = player->captured.width[0];
 		player->capture.height = player->captured.height[0];
 		return MM_ERROR_NONE;
     }
     else
     {
-		debug_error ("wrong orientation value...");
+		LOGE ("wrong orientation value...");
     }
 
     /* height & width will be interchanged for 90 and 270 orientation */
     ret = mm_util_get_image_size(format, dst_width, dst_height, &dst_size);
     if (ret != MM_ERROR_NONE)
     {
-		debug_error("failed to get destination frame size");
+		LOGE("failed to get destination frame size");
 		return ret;
     }
 
-    debug_log ("before rotation : dst_width = %d and dst_height = %d", dst_width, dst_height);
+    LOGD ("before rotation : dst_width = %d and dst_height = %d", dst_width, dst_height);
 
     dst_frame = (unsigned char*) malloc (dst_size);
     if (!dst_frame)
     {
-      debug_error("failed to allocate memory");
+      LOGE("failed to allocate memory");
       return MM_ERROR_PLAYER_NO_FREE_SPACE;
     }
 
@@ -257,22 +258,22 @@ __mmplayer_handle_orientation (mm_player_t* player, int orientation, int format)
 			rot_enum = MM_UTIL_ROTATE_270;
 		break;
 		default:
-			debug_error("wrong rotate value");
+			LOGE("wrong rotate value");
 		break;
 	}
 
-    debug_log ("source buffer for rotation = %p and rotation = %d", src_buffer, rot_enum);
+    LOGD ("source buffer for rotation = %p and rotation = %d", src_buffer, rot_enum);
 
     ret = mm_util_rotate_image (src_buffer,
 			player->captured.width[0], player->captured.height[0], format,
 			dst_frame, &dst_width, &dst_height, rot_enum);
     if (ret != MM_ERROR_NONE)
     {
-      debug_error("failed to do rotate image");
+      LOGE("failed to do rotate image");
       return ret;
     }
 
-    debug_log ("after rotation same stride: dst_width = %d and dst_height = %d", dst_width, dst_height);
+    LOGD ("after rotation same stride: dst_width = %d and dst_height = %d", dst_width, dst_height);
 
     g_free (src_buffer);
 
@@ -299,21 +300,21 @@ __mmplayer_capture_thread(gpointer data)
 	int orientation = 0;
 	int ret = 0;
 
-	return_val_if_fail(player, NULL);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, NULL);
 
 	while (!player->capture_thread_exit)
 	{
-		debug_log("capture thread started. waiting for signal");
+		LOGD("capture thread started. waiting for signal");
 
 		g_mutex_lock(&player->capture_thread_mutex);
 		g_cond_wait(&player->capture_thread_cond, &player->capture_thread_mutex );
 
 		if ( player->capture_thread_exit )
 		{
-			debug_log("exiting capture thread");
+			LOGD("exiting capture thread");
 			goto EXIT;
 		}
-		debug_log("capture thread is recieved signal");
+		LOGD("capture thread is recieved signal");
 
 		/* NOTE: Don't use MMPLAYER_CMD_LOCK() here.
 		 * Because deadlock can be happened if other player api is used in message callback.
@@ -370,7 +371,7 @@ __mmplayer_capture_thread(gpointer data)
 
 			if (ret != MM_ERROR_NONE)
 			{
-				debug_error("failed to convert nv12 linear");
+				LOGE("failed to convert nv12 linear");
 				goto ERROR;
 			}
 			/* clean */
@@ -391,7 +392,7 @@ __mmplayer_capture_thread(gpointer data)
 			char*dst_buf = NULL;
 
 			if (!src_buffer_size) {
-				debug_error("invalid data size");
+				LOGE("invalid data size");
 				goto ERROR;
 			}
 
@@ -432,7 +433,7 @@ __mmplayer_capture_thread(gpointer data)
 				width_align, player->captured.height[0], MM_UTIL_IMG_FMT_RGB888);
 			if (ret != MM_ERROR_NONE)
 			{
-				debug_error("failed to convert nv12 linear");
+				LOGE("failed to convert nv12 linear");
 				goto ERROR;
 			}
 		}
@@ -440,16 +441,16 @@ __mmplayer_capture_thread(gpointer data)
 		ret = _mmplayer_get_video_rotate_angle ((MMHandleType)player, &orientation);
 		if (ret != MM_ERROR_NONE)
 		{
-			debug_error("failed to get rotation angle");
+			LOGE("failed to get rotation angle");
 			goto ERROR;
 		}
 
-		debug_log ("orientation value = %d", orientation);
+		LOGD ("orientation value = %d", orientation);
 
 		ret = __mmplayer_handle_orientation (player, orientation, MM_UTIL_IMG_FMT_RGB888);
 		if (ret != MM_ERROR_NONE)
 		{
-			debug_error("failed to convert nv12 linear");
+			LOGE("failed to convert nv12 linear");
 			goto ERROR;
 		}
 
@@ -463,7 +464,7 @@ __mmplayer_capture_thread(gpointer data)
 		if (player->cmd >= MMPLAYER_COMMAND_START)
 		{
 			MMPLAYER_POST_MSG( player, MM_MESSAGE_VIDEO_CAPTURED, &msg );
-			debug_log("returned from capture message callback");
+			LOGD("returned from capture message callback");
 		}
 
 		g_mutex_unlock(&player->capture_thread_mutex);
@@ -513,18 +514,18 @@ __mmplayer_get_video_frame_from_buffer(mm_player_t* player, GstPad *pad, GstBuff
 
 	MMPLAYER_FENTER();
 
-	return_val_if_fail ( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
-	return_val_if_fail ( buffer, MM_ERROR_INVALID_ARGUMENT );
+	MMPLAYER_RETURN_VAL_IF_FAIL ( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
+	MMPLAYER_RETURN_VAL_IF_FAIL ( buffer, MM_ERROR_INVALID_ARGUMENT );
 
 	/* get fourcc */
 	caps = gst_pad_get_current_caps(pad);
 
-	return_val_if_fail ( caps, MM_ERROR_INVALID_ARGUMENT );
+	MMPLAYER_RETURN_VAL_IF_FAIL ( caps, MM_ERROR_INVALID_ARGUMENT );
 	MMPLAYER_LOG_GST_CAPS_TYPE(caps);
 
 	structure = gst_caps_get_structure (caps, 0);
 
-	return_val_if_fail (structure != NULL, MM_ERROR_PLAYER_INTERNAL);
+	MMPLAYER_RETURN_VAL_IF_FAIL (structure != NULL, MM_ERROR_PLAYER_INTERNAL);
 
 	/* init capture image buffer */
 	memset(&player->capture, 0x00, sizeof(MMPlayerVideoCapture));
@@ -542,7 +543,7 @@ __mmplayer_get_video_frame_from_buffer(mm_player_t* player, GstPad *pad, GstBuff
 			guint n;
 			tbm_bo_handle y_hnd;
 			tbm_bo_handle uv_hnd;
-			debug_msg ("captured format is %s\n", gst_format);
+			LOGI ("captured format is %s\n", gst_format);
 
 			MMVideoBuffer *proved = NULL;
 			if(!g_strcmp0(gst_format, "ST12"))
@@ -557,7 +558,7 @@ __mmplayer_get_video_frame_from_buffer(mm_player_t* player, GstPad *pad, GstBuff
 			proved = (MMVideoBuffer *)mapinfo.data;
 
 			if ( !proved || !proved->data[0] || !proved->data[1] ) {
-				debug_error("fail to gst_memory_map");
+				LOGE("fail to gst_memory_map");
 				return MM_ERROR_PLAYER_INTERNAL;
 			}
 
@@ -565,7 +566,7 @@ __mmplayer_get_video_frame_from_buffer(mm_player_t* player, GstPad *pad, GstBuff
 
 			yplane_size = proved->size[0];
 			uvplane_size = proved->size[1];
-			debug_msg ("yplane_size=%d, uvplane_size=%d", yplane_size, uvplane_size);
+			LOGI ("yplane_size=%d, uvplane_size=%d", yplane_size, uvplane_size);
 
 			player->captured.data[0] = g_try_malloc(yplane_size);
 			if ( !player->captured.data[0] ) {
@@ -589,18 +590,18 @@ __mmplayer_get_video_frame_from_buffer(mm_player_t* player, GstPad *pad, GstBuff
 				return MM_ERROR_SOUND_NO_FREE_SPACE;
 			}
 
-			debug_log("Buffer type %d", proved->type);
+			LOGD("Buffer type %d", proved->type);
 			if(proved->type == MM_VIDEO_BUFFER_TYPE_TBM_BO) {
 				tbm_bo_ref(proved->handle.bo[0]);
 				tbm_bo_ref(proved->handle.bo[1]);
 				y_hnd = tbm_bo_get_handle(proved->handle.bo[0], TBM_DEVICE_CPU);
-				debug_log("source y : %p, size %d", y_hnd.ptr, yplane_size);
+				LOGD("source y : %p, size %d", y_hnd.ptr, yplane_size);
 				if(y_hnd.ptr) {
 					memcpy(player->captured.data[0], y_hnd.ptr, yplane_size);
 				}
 
 				uv_hnd = tbm_bo_get_handle(proved->handle.bo[1], TBM_DEVICE_CPU);
-				debug_log("source uv : %p, size %d",uv_hnd.ptr, uvplane_size);
+				LOGD("source uv : %p, size %d",uv_hnd.ptr, uvplane_size);
 				if(uv_hnd.ptr) {
 					memcpy(player->captured.data[1], uv_hnd.ptr, uvplane_size);
 				}
@@ -652,7 +653,7 @@ DONE:
 	return MM_ERROR_NONE;
 
 UNKNOWN:
-	debug_error("unknown format to capture\n");
+	LOGE("unknown format to capture\n");
 	return MM_ERROR_PLAYER_INTERNAL;
 }
 
@@ -663,7 +664,7 @@ __mmplayer_video_capture_probe (GstPad *pad, GstPadProbeInfo *info, gpointer u_d
 	GstBuffer *buffer = NULL;
 	int ret = MM_ERROR_NONE;
 
-	return_val_if_fail (info->data, GST_PAD_PROBE_REMOVE);
+	MMPLAYER_RETURN_VAL_IF_FAIL (info->data, GST_PAD_PROBE_REMOVE);
 	MMPLAYER_FENTER();
 
 	buffer = gst_pad_probe_info_get_buffer(info);
@@ -671,7 +672,7 @@ __mmplayer_video_capture_probe (GstPad *pad, GstPadProbeInfo *info, gpointer u_d
 
 	if ( ret != MM_ERROR_NONE)
 	{
-		debug_error("failed to get video frame");
+		LOGE("failed to get video frame");
 		return GST_PAD_PROBE_REMOVE;
 	}
 
@@ -694,22 +695,22 @@ __mm_player_convert_colorspace(mm_player_t* player, unsigned char* src_data, mm_
 	unsigned int dst_size;
 	int ret = MM_ERROR_NONE;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_INTERNAL);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_INTERNAL);
 	ret = mm_util_get_image_size(dst_fmt, src_w, src_h, &dst_size);
 
 	if (ret != MM_ERROR_NONE)
 	{
-		debug_error("failed to get image size for capture, %d\n", ret);
+		LOGE("failed to get image size for capture, %d\n", ret);
 		return MM_ERROR_PLAYER_INTERNAL;
 	}
 
-	secure_debug_log("width: %d, height: %d to capture, dest size: %d\n", src_w, src_h, dst_size);
+	SECURE_LOGD("width: %d, height: %d to capture, dest size: %d\n", src_w, src_h, dst_size);
 
 	dst_data = (unsigned char*)g_malloc0(dst_size);
 
 	if (!dst_data)
 	{
-		debug_error("no free space to capture\n");
+		LOGE("no free space to capture\n");
 		return MM_ERROR_PLAYER_NO_FREE_SPACE;
 	}
 
@@ -717,7 +718,7 @@ __mm_player_convert_colorspace(mm_player_t* player, unsigned char* src_data, mm_
 
 	if (ret != MM_ERROR_NONE)
 	{
-		debug_error("failed to convert for capture, %d\n", ret);
+		LOGE("failed to convert for capture, %d\n", ret);
 		return MM_ERROR_PLAYER_INTERNAL;
 	}
 

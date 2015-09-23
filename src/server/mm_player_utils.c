@@ -29,8 +29,8 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unicode/ucsdet.h>
+#include <dlog.h>
 
-#include <mm_debug.h>
 #include "mm_player_utils.h"
 
 int util_exist_file_path(const char *file_path)
@@ -45,7 +45,7 @@ int util_exist_file_path(const char *file_path)
 
 	if (fd < 0)
 	{
-		debug_error("failed to open file by %s (%d)", strerror(errno), errno);
+		LOGE("failed to open file by %s (%d)", strerror(errno), errno);
 
 		if (EACCES == errno)
 			return MM_ERROR_PLAYER_PERMISSION_DENIED;
@@ -55,17 +55,17 @@ int util_exist_file_path(const char *file_path)
 
 	if (fstat(fd, &stat_results) < 0)
 	{
-		debug_error("failed to get file status");
+		LOGE("failed to get file status");
 	}
 	else if (stat_results.st_size == 0)
 	{
-		debug_error("file size is zero");
+		LOGE("file size is zero");
 		close(fd);
 		return MM_ERROR_PLAYER_FILE_NOT_FOUND;
 	}
 	else
 	{
-		debug_warning("file size : %lld bytes", (long long)stat_results.st_size);
+		LOGW("file size : %lld bytes", (long long)stat_results.st_size);
 	}
 
 	close(fd);
@@ -90,7 +90,7 @@ bool util_write_file_backup(const char *backup_path, char *data_ptr, int data_si
 		if (!access(backup_path, R_OK))
 			remove(backup_path);
 
-		debug_error("No space to write!\n");
+		LOGE("No space to write!\n");
 
 		return FALSE;
 	}
@@ -123,18 +123,18 @@ int util_is_midi_type_by_mem(void *mem, int size)
 
 	/* mmf file detection */
 	if (p[0] == 'M' && p[1] == 'M' && p[2] == 'M' && p[3] == 'D') {
-		debug_log("MM_AUDIO_CODEC_MMF\n");
+		LOGD("MM_AUDIO_CODEC_MMF\n");
 		return MM_AUDIO_CODEC_MMF;
 	}
 
 	/* midi file detection */
 	if (p[0] == 'M' && p[1] == 'T' && p[2] == 'h' && p[3] == 'd') {
-		debug_log ("MM_AUDIO_CODEC_MIDI, %d\n", MM_AUDIO_CODEC_MIDI);
+		LOGD ("MM_AUDIO_CODEC_MIDI, %d\n", MM_AUDIO_CODEC_MIDI);
 		return MM_AUDIO_CODEC_MIDI;
 	}
 	/* mxmf file detection */
 	if (p[0] == 'X' && p[1] == 'M' && p[2] == 'F' && p[3] == '_') {
-		debug_log ("MM_AUDIO_CODEC_MXMF\n");
+		LOGD ("MM_AUDIO_CODEC_MXMF\n");
 		return MM_AUDIO_CODEC_MXMF;
 	}
 
@@ -142,13 +142,13 @@ int util_is_midi_type_by_mem(void *mem, int size)
 	if (p[0] == 'R' && p[1] == 'I' && p[2] == 'F' && p[3] == 'F' &&
 		p[8] == 'W' && p[9] == 'A' && p[10] == 'V' && p[11] == 'E' &&
 		p[12] == 'f' && p[13] == 'm' && p[14] == 't') {
-		debug_log ("MM_AUDIO_CODEC_WAVE\n");
+		LOGD ("MM_AUDIO_CODEC_WAVE\n");
 		return MM_AUDIO_CODEC_WAVE;
 	}
 	/* i-melody file detection */
 	if (memcmp(p, "BEGIN:IMELODY", 13) == 0)
 	{
-		debug_log ("MM_AUDIO_CODEC_IMELODY\n");
+		LOGD ("MM_AUDIO_CODEC_IMELODY\n");
 		return MM_AUDIO_CODEC_IMELODY;
 	}
 
@@ -203,7 +203,7 @@ util_get_cookie_list ( const char *cookies )
 	if ( !cookies || !strlen(cookies) )
 		return NULL;
 
-	secure_debug_log("cookies : %d[bytes] - %s \n", strlen(cookies), cookies);
+	SECURE_LOGD("cookies : %d[bytes] - %s \n", strlen(cookies), cookies);
 
 	temp = g_strdup(cookies);
 
@@ -218,7 +218,7 @@ util_get_cookie_list ( const char *cookies )
 		if ( cookie_list[i] && strlen(cookie_list[i]) )
 		{
 			g_strstrip(cookie_list[i]);
-			secure_debug_log("cookie_list[%d] : %d[bytes] - %s \n", i, strlen(cookie_list[i]), cookie_list[i]);
+			SECURE_LOGD("cookie_list[%d] : %d[bytes] - %s \n", i, strlen(cookie_list[i]), cookie_list[i]);
 		}
 		else
 		{
@@ -238,12 +238,12 @@ bool util_check_valid_url ( const char *proxy )
 	struct in_addr proxy_addr;
 	bool ret = TRUE;
 
-	return_val_if_fail ( proxy, FALSE );
-	return_val_if_fail ( strlen(proxy), FALSE );
+	MMPLAYER_RETURN_VAL_IF_FAIL ( proxy, FALSE );
+	MMPLAYER_RETURN_VAL_IF_FAIL ( strlen(proxy), FALSE );
 
 	if ( inet_aton(proxy, &proxy_addr) != 0 )
 	{
-		debug_warning("invalid proxy is set. \n");
+		LOGW("invalid proxy is set. \n");
 		ret = FALSE;
 	}
 
@@ -259,7 +259,7 @@ util_is_sdp_file ( const char *path )
 
 	MMPLAYER_FENTER();
 
-	return_val_if_fail ( path, FALSE );
+	MMPLAYER_RETURN_VAL_IF_FAIL ( path, FALSE );
 
 	uri = g_ascii_strdown ( path, -1 );
 
@@ -274,7 +274,7 @@ util_is_sdp_file ( const char *path )
 	/* strlen(".sdp") == 4 */
 	if ( strlen( uri ) <= 4 )
 	{
-		debug_warning ( "path is too short.\n" );
+		LOGW ( "path is too short.\n" );
 		return ret;
 	}
 
@@ -322,15 +322,15 @@ int
 util_factory_rank_compare(GstPluginFeature *f1, GstPluginFeature *f2)
 {
 	const gchar *klass;
-    	int f1_rank_inc=0, f2_rank_inc=0;
+	int f1_rank_inc=0, f2_rank_inc=0;
 
-    	klass = gst_element_factory_get_klass(GST_ELEMENT_FACTORY(f1));
+	klass = gst_element_factory_get_klass(GST_ELEMENT_FACTORY(f1));
 	f1_rank_inc = util_get_rank_increase ( klass );
 
-    	klass = gst_element_factory_get_klass(GST_ELEMENT_FACTORY(f2));
-   	f2_rank_inc = util_get_rank_increase ( klass );
+	klass = gst_element_factory_get_klass(GST_ELEMENT_FACTORY(f2));
+	f2_rank_inc = util_get_rank_increase ( klass );
 
-    	return (gst_plugin_feature_get_rank(f2)+f2_rank_inc) - (gst_plugin_feature_get_rank(f1)+f1_rank_inc );
+	return (gst_plugin_feature_get_rank(f2)+f2_rank_inc) - (gst_plugin_feature_get_rank(f1)+f1_rank_inc );
 }
 
 const char*
@@ -348,13 +348,13 @@ util_get_charset(const char *file_path)
 	fin = fopen(file_path, "r");
 	if (!fin)
 	{
-		secure_debug_error("fail to open file %s\n", file_path);
+		SECURE_LOGE("fail to open file %s\n", file_path);
 		return NULL;
 	}
 
 	ucsd = ucsdet_open( &status );
 	if( U_FAILURE(status) ) {
-		debug_error("fail to ucsdet_open\n");
+		LOGE("fail to ucsdet_open\n");
 		goto done;
 	}
 
@@ -363,7 +363,7 @@ util_get_charset(const char *file_path)
 	buf = g_malloc(1024*1024);
 	if (!buf)
 	{
-		debug_error("fail to alloc\n");
+		LOGE("fail to alloc\n");
 		goto done;
 	}
 
@@ -374,19 +374,19 @@ util_get_charset(const char *file_path)
 
 	ucsdet_setText( ucsd, buf, strlen(buf), &status );
 	if( U_FAILURE(status) ) {
-		debug_error("fail to ucsdet_setText\n");
+		LOGE("fail to ucsdet_setText\n");
 		goto done;
 	}
 
 	ucm = ucsdet_detect( ucsd, &status );
 	if( U_FAILURE(status) ) {
-		debug_error("fail to ucsdet_detect\n");
+		LOGE("fail to ucsdet_detect\n");
 		goto done;
 	}
 
 	charset = ucsdet_getName( ucm, &status );
 	if( U_FAILURE(status) ) {
-		debug_error("fail to ucsdet_getName\n");
+		LOGE("fail to ucsdet_getName\n");
 		goto done;
 	}
 
@@ -410,7 +410,7 @@ int util_get_pixtype(unsigned int fourcc)
     /*
 	char *pfourcc = (char*)&fourcc;
 
-	debug_log("fourcc(%c%c%c%c)",
+	LOGD("fourcc(%c%c%c%c)",
 	                 pfourcc[0], pfourcc[1], pfourcc[2], pfourcc[3]);
     */
 
@@ -468,7 +468,7 @@ int util_get_pixtype(unsigned int fourcc)
 		pixtype = MM_PIXEL_FORMAT_ITLV_JPEG_UYVY;
 		break;
 	default:
-		debug_error("Not supported fourcc type(%c%c%c%c)",
+		LOGE("Not supported fourcc type(%c%c%c%c)",
 		               fourcc, fourcc>>8, fourcc>>16, fourcc>>24);
 		pixtype = MM_PIXEL_FORMAT_INVALID;
 		break;

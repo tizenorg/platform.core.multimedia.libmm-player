@@ -36,11 +36,11 @@
 #include <string.h>
 #include <sys/time.h>
 #include <stdlib.h>
+#include <dlog.h>
 
 #include <mm_error.h>
 #include <mm_attrs.h>
 #include <mm_attrs_private.h>
-#include <mm_debug.h>
 
 #include "mm_player_priv.h"
 #include "mm_player_ini.h"
@@ -51,7 +51,7 @@
 /*===========================================================================================
 |																							|
 |  LOCAL DEFINITIONS AND DECLARATIONS FOR MODULE											|
-|  																							|
+|																							|
 ========================================================================================== */
 
 /*---------------------------------------------------------------------------
@@ -71,7 +71,7 @@
 ---------------------------------------------------------------------------*/
 /* setting player state */
 #define MMPLAYER_MUSED_SET_STATE( x_player, x_state ) \
-debug_log("update state machine to %d\n", x_state); \
+LOGD("update state machine to %d\n", x_state); \
 __mmplayer_mused_set_state(x_player, x_state);
 
 /*---------------------------------------------------------------------------
@@ -113,13 +113,13 @@ int mm_player_mused_create(MMHandleType *player)
 	int result = MM_ERROR_NONE;
 	mm_player_t* new_player = NULL;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	/* alloc player structure */
 	new_player = g_malloc0(sizeof(mm_player_t));
 	if ( ! new_player )
 	{
-		debug_error("Cannot allocate memory for player\n");
+		LOGE("Cannot allocate memory for player\n");
 		goto ERROR;
 	}
 
@@ -130,7 +130,7 @@ int mm_player_mused_create(MMHandleType *player)
 	result = mm_player_ini_load(&new_player->ini);
 	if(result != MM_ERROR_NONE)
 	{
-		debug_error("can't load ini");
+		LOGE("can't load ini");
 		goto ERROR;
 	}
 
@@ -150,14 +150,14 @@ int mm_player_mused_create(MMHandleType *player)
 
 	if ( !new_player->attrs )
 	{
-		debug_error("Failed to construct attributes\n");
+		LOGE("Failed to construct attributes\n");
 		goto ERROR;
 	}
 
 	/* initialize gstreamer with configured parameter */
 	if ( ! _mmplayer_mused_init_gst(new_player) )
 	{
-		debug_error("Initializing gstreamer failed\n");
+		LOGE("Initializing gstreamer failed\n");
 		goto ERROR;
 	}
 	MMPLAYER_MUSED_SET_STATE ( new_player, MM_PLAYER_STATE_NULL );
@@ -190,7 +190,7 @@ _mmplayer_mused_init_gst(mm_player_t *player)
 
 	if ( initialized )
 	{
-		debug_log("gstreamer already initialized.\n");
+		LOGD("gstreamer already initialized.\n");
 		return TRUE;
 	}
 
@@ -245,7 +245,7 @@ _mmplayer_mused_init_gst(mm_player_t *player)
 	/* initializing gstreamer */
 	if ( ! gst_init_check (argc, &argv, &err))
 	{
-		debug_error("Could not initialize GStreamer: %s\n", err ? err->message : "unknown error occurred");
+		LOGE("Could not initialize GStreamer: %s\n", err ? err->message : "unknown error occurred");
 		if (err)
 		{
 			g_error_free (err);
@@ -271,18 +271,18 @@ int mm_player_mused_destroy(MMHandleType player)
 {
 	int result = MM_ERROR_NONE;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	MMPLAYER_CMD_LOCK( player );
 
 	/* destroy can called at anytime */
-	MMPLAYER_CHECK_STATE_RETURN_IF_FAIL ( player, MMPLAYER_COMMAND_DESTROY );
+	MMPLAYER_CHECK_STATE ( player, MMPLAYER_COMMAND_DESTROY );
 
 	__mmplayer_mused_gst_destroy_pipeline(player);
 
 	/* release attributes */
 	if( !_mmplayer_deconstruct_attribute( player ) ) {
-		debug_error("failed to deconstruct attribute");
+		LOGE("failed to deconstruct attribute");
 		result = MM_ERROR_PLAYER_INTERNAL;
 	}
 
@@ -298,7 +298,7 @@ int mm_player_mused_realize(MMHandleType player, char *caps)
 {
 	int result = MM_ERROR_NONE;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	MMPLAYER_CMD_LOCK( player );
 
@@ -329,12 +329,12 @@ static int _mmplayer_mused_realize(mm_player_t *player, char *string_caps)
 	gchar* video_csc = "videoconvert"; // default colorspace converter
 
 	/* check current state */
-	MMPLAYER_CHECK_STATE_RETURN_IF_FAIL( player, MMPLAYER_COMMAND_REALIZE );
+	MMPLAYER_CHECK_STATE( player, MMPLAYER_COMMAND_REALIZE );
 
 	/* create pipeline handles */
 	if ( player->pipeline )
 	{
-		debug_warning("pipeline should be released before create new one\n");
+		LOGW("pipeline should be released before create new one\n");
 		return result;
 	}
 	/* alloc handles */
@@ -352,10 +352,10 @@ static int _mmplayer_mused_realize(mm_player_t *player, char *string_caps)
 	/* create pipeline */
 	mainbin[MMPLAYER_M_PIPE].id = MMPLAYER_M_PIPE;
 	mainbin[MMPLAYER_M_PIPE].gst = gst_pipeline_new("playerClient");
-	debug_log("gst new %p", mainbin[MMPLAYER_M_PIPE].gst);
+	LOGD("gst new %p", mainbin[MMPLAYER_M_PIPE].gst);
 	if ( ! mainbin[MMPLAYER_M_PIPE].gst )
 	{
-		debug_error("failed to create pipeline\n");
+		LOGE("failed to create pipeline\n");
 		result = MM_ERROR_PLAYER_INTERNAL;
 		goto REALIZE_ERROR;
 	}
@@ -363,7 +363,7 @@ static int _mmplayer_mused_realize(mm_player_t *player, char *string_caps)
 	if (strlen(player->ini.videosrc_element_remote) > 0)
 		videosrc_element = player->ini.videosrc_element_remote;
 	else {
-		debug_error("fail to find source element");
+		LOGE("fail to find source element");
 		result = MM_ERROR_PLAYER_INTERNAL;
 		goto REALIZE_ERROR;
 	}
@@ -371,13 +371,13 @@ static int _mmplayer_mused_realize(mm_player_t *player, char *string_caps)
 	/* create source */
 	src = gst_element_factory_make(videosrc_element, videosrc_element);
 	if ( !src ) {
-		debug_error("faile to create %s", videosrc_element);
+		LOGE("faile to create %s", videosrc_element);
 		result = MM_ERROR_PLAYER_INTERNAL;
 		goto REALIZE_ERROR;
 	}
 
 	if(string_caps && (strstr(string_caps, "ST12") || strstr(string_caps, "SN12"))) {
-		debug_log("using TBM");
+		LOGD("using TBM");
 		use_tbm = TRUE;
 	}
 
@@ -421,13 +421,13 @@ static int _mmplayer_mused_realize(mm_player_t *player, char *string_caps)
 			break;
 
 		default:
-			debug_error("Not support surface type %d", surface_type);
+			LOGE("Not support surface type %d", surface_type);
 			result = MM_ERROR_INVALID_ARGUMENT;
 			goto REALIZE_ERROR;
 	}
 	sink = gst_element_factory_make(videosink_element, videosink_element);
 	if ( !sink ) {
-		debug_error("faile to create %s", videosink_element);
+		LOGE("faile to create %s", videosink_element);
 		result = MM_ERROR_PLAYER_INTERNAL;
 		goto REALIZE_ERROR;
 	}
@@ -447,7 +447,7 @@ static int _mmplayer_mused_realize(mm_player_t *player, char *string_caps)
 	if(surface_type == MM_DISPLAY_SURFACE_EVAS) {
 		conv = gst_element_factory_make(video_csc, video_csc);
 		if ( !conv ) {
-			debug_error("faile to create %s", video_csc);
+			LOGE("faile to create %s", video_csc);
 			result = MM_ERROR_PLAYER_INTERNAL;
 			goto REALIZE_ERROR;
 		}
@@ -467,7 +467,7 @@ static int _mmplayer_mused_realize(mm_player_t *player, char *string_caps)
 					mainbin[MMPLAYER_M_V_SINK].gst);
 		}
 		else
-			debug_error("gst_element_link_filterd error");
+			LOGE("gst_element_link_filterd error");
 
 
 	} else {
@@ -483,7 +483,7 @@ static int _mmplayer_mused_realize(mm_player_t *player, char *string_caps)
 
 	gst_caps_unref(caps);
 	if(!link) {
-		debug_error("element link error");
+		LOGE("element link error");
 		result = MM_ERROR_PLAYER_INTERNAL;
 		goto REALIZE_ERROR;
 	}
@@ -491,7 +491,7 @@ static int _mmplayer_mused_realize(mm_player_t *player, char *string_caps)
 	/* connect bus callback */
 	bus = gst_pipeline_get_bus(GST_PIPELINE(mainbin[MMPLAYER_M_PIPE].gst));
 	if ( !bus ) {
-		debug_error ("cannot get bus from pipeline.\n");
+		LOGE ("cannot get bus from pipeline.\n");
 		result = MM_ERROR_PLAYER_INTERNAL;
 		goto REALIZE_ERROR;
 	}
@@ -503,9 +503,9 @@ static int _mmplayer_mused_realize(mm_player_t *player, char *string_caps)
 	if (NULL == player->context.thread_default)
 	{
 		player->context.thread_default = g_main_context_default();
-		debug_log("thread-default context is the global default context");
+		LOGD("thread-default context is the global default context");
 	}
-	debug_log("bus watcher thread context = %p, watcher : %d", player->context.thread_default, player->bus_watcher);
+	LOGD("bus watcher thread context = %p, watcher : %d", player->context.thread_default, player->bus_watcher);
 
 	/* set sync handler to get tag synchronously */
 	gst_bus_set_sync_handler(bus, __mmplayer_mused_bus_sync_callback, player, NULL);
@@ -515,20 +515,20 @@ static int _mmplayer_mused_realize(mm_player_t *player, char *string_caps)
 	/* warm up */
 	if ( GST_STATE_CHANGE_FAILURE ==
 			gst_element_set_state(mainbin[MMPLAYER_M_PIPE].gst, GST_STATE_READY ) ) {
-		debug_error("failed to set state(READY) to pipeline");
+		LOGE("failed to set state(READY) to pipeline");
 		result = MM_ERROR_PLAYER_INVALID_STATE;
 		goto REALIZE_ERROR;
 	}
 	/* run */
 	if (GST_STATE_CHANGE_FAILURE ==
 			gst_element_set_state (mainbin[MMPLAYER_M_PIPE].gst, GST_STATE_PAUSED)) {
-		debug_error("failed to set state(PAUSE) to pipeline");
+		LOGE("failed to set state(PAUSE) to pipeline");
 		result = MM_ERROR_PLAYER_INVALID_STATE;
 		goto REALIZE_ERROR;
 	}
 	if (GST_STATE_CHANGE_FAILURE ==
 			gst_element_set_state (mainbin[MMPLAYER_M_PIPE].gst, GST_STATE_PLAYING)) {
-		debug_error("failed to set state(PLAYING) to pipeline");
+		LOGE("failed to set state(PLAYING) to pipeline");
 		result = MM_ERROR_PLAYER_INVALID_STATE;
 		goto REALIZE_ERROR;
 	}
@@ -549,9 +549,9 @@ __mmplayer_get_property_value_for_rotation(mm_player_t* player, int rotation_ang
 	int rotation_type = ROTATION_USING_FLIP;
 	int surface_type = 0;
 
-	return_val_if_fail(player, FALSE);
-	return_val_if_fail(value, FALSE);
-	return_val_if_fail(rotation_angle >= 0, FALSE);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, FALSE);
+	MMPLAYER_RETURN_VAL_IF_FAIL(value, FALSE);
+	MMPLAYER_RETURN_VAL_IF_FAIL(rotation_angle >= 0, FALSE);
 
 	if (rotation_angle >= 360)
 	{
@@ -561,19 +561,19 @@ __mmplayer_get_property_value_for_rotation(mm_player_t* player, int rotation_ang
 	/* chech if supported or not */
 	if ( dest_angle % 90 )
 	{
-		debug_log("not supported rotation angle = %d", rotation_angle);
+		LOGD("not supported rotation angle = %d", rotation_angle);
 		return FALSE;
 	}
 
 	mm_attrs_get_int_by_name(player->attrs, "display_surface_type", &surface_type);
-	debug_log("check display surface type attribute: %d", surface_type);
+	LOGD("check display surface type attribute: %d", surface_type);
 
 	if ((surface_type == MM_DISPLAY_SURFACE_X) ||
 			(surface_type == MM_DISPLAY_SURFACE_EVAS &&
 			 !strcmp(player->ini.videosink_element_evas, "evaspixmapsink")))
 		rotation_type = ROTATION_USING_SINK;
 
-	debug_log("using %d type for rotation", rotation_type);
+	LOGD("using %d type for rotation", rotation_type);
 
 	/* get property value for setting */
 	switch(rotation_type) {
@@ -597,7 +597,7 @@ __mmplayer_get_property_value_for_rotation(mm_player_t* player, int rotation_ang
 		break;
 	}
 
-	debug_log("setting rotation property value : %d, used rotation type : %d", pro_value, rotation_type);
+	LOGD("setting rotation property value : %d, used rotation type : %d", pro_value, rotation_type);
 
 	*value = pro_value;
 
@@ -613,12 +613,12 @@ int _mmplayer_update_video_param(mm_player_t *player)
 	MMPlayerGstElement* mainbin = player->pipeline->mainbin;
 
 	if( !mainbin ) {
-		debug_error("mainbin was not created");
+		LOGE("mainbin was not created");
 		return MM_ERROR_PLAYER_INTERNAL;
 	}
 	attrs = MMPLAYER_GET_ATTRS(player);
 	if ( !attrs ) {
-		debug_error("cannot get content attribute");
+		LOGE("cannot get content attribute");
 		return MM_ERROR_PLAYER_INTERNAL;
 	}
 
@@ -626,7 +626,7 @@ int _mmplayer_update_video_param(mm_player_t *player)
 
 	/* update display surface */
 	mm_attrs_get_int_by_name(attrs, "display_surface_type", &surface_type);
-	debug_log("check display surface type attribute: %d", surface_type);
+	LOGD("check display surface type attribute: %d", surface_type);
 
 	/* configuring display */
 	switch ( surface_type )
@@ -663,7 +663,7 @@ int _mmplayer_update_video_param(mm_player_t *player)
 			if ( surface ) {
 #ifdef HAVE_WAYLAND
 				guintptr wl_surface = (guintptr)surface;
-				debug_log("set video param : surface %p", wl_surface);
+				LOGD("set video param : surface %p", wl_surface);
 				gst_video_overlay_set_window_handle(
 						GST_VIDEO_OVERLAY( mainbin[MMPLAYER_M_V_SINK].gst ),
 						wl_surface );
@@ -680,7 +680,7 @@ int _mmplayer_update_video_param(mm_player_t *player)
 #else
 				int xwin_id = 0;
 				xwin_id = *(int*)surface;
-				debug_log("set video param : xid %d", xwin_id);
+				LOGD("set video param : xid %d", xwin_id);
 				if (xwin_id)
 				{
 					gst_video_overlay_set_window_handle(
@@ -690,7 +690,7 @@ int _mmplayer_update_video_param(mm_player_t *player)
 #endif
 			}
 			else
-				debug_warning("still we don't have surface on player attribute. create it's own surface.");
+				LOGW("still we don't have surface on player attribute. create it's own surface.");
 		}
 		break;
 		case MM_DISPLAY_SURFACE_EVAS:
@@ -716,24 +716,24 @@ int _mmplayer_update_video_param(mm_player_t *player)
 					{
 						mm_attrs_set_int_by_name(attrs, "display_rotation", MM_DISPLAY_ROTATION_NONE);
 						if (mmf_attrs_commit (attrs)) /* return -1 if error */
-							debug_error("failed to commit\n");
-						debug_warning("unsupported feature");
+							LOGE("failed to commit\n");
+						LOGW("unsupported feature");
 						return MM_ERROR_NOT_SUPPORT_API;
 					}
 					__mmplayer_get_property_value_for_rotation(player, org_angle+user_angle, &rotation_value);
 					g_object_set(mainbin[MMPLAYER_M_V_SINK].gst,
 							"evas-object", object,
 							"visible", visible,
-							"display-geometry-method", display_method,
+							/* Not supported "display-geometry-method", display_method, */
 							"rotate", rotation_value,
 							NULL);
-					debug_log("set video param : method %d", display_method);
-					debug_log("set video param : evas-object %x, visible %d", object, visible);
-					debug_log("set video param : evas-object %x, rotate %d", object, rotation_value);
+					LOGD("set video param : method %d", display_method);
+					LOGD("set video param : evas-object %x, visible %d", object, visible);
+					LOGD("set video param : evas-object %x, rotate %d", object, rotation_value);
 				}
 				else
 				{
-					debug_error("no evas object");
+					LOGE("no evas object");
 					return MM_ERROR_PLAYER_INTERNAL;
 				}
 
@@ -771,9 +771,9 @@ int _mmplayer_update_video_param(mm_player_t *player)
 						{
 							g_object_set(player->pipeline->videobin[MMPLAYER_V_CONV].gst, "dst-height", height, NULL);
 						}
-						debug_log("set video param : video frame scaling down to width(%d) height(%d)", width, height);
+						LOGD("set video param : video frame scaling down to width(%d) height(%d)", width, height);
 					}
-					debug_log("set video param : display_evas_do_scaling %d", scaling);
+					LOGD("set video param : display_evas_do_scaling %d", scaling);
 				}
 			}
 
@@ -789,13 +789,13 @@ int _mmplayer_update_video_param(mm_player_t *player)
 							"display-geometry-method", display_method,
 							"rotate", rotation_value,
 							NULL);
-					debug_log("set video param : method %d", display_method);
-					debug_log("set video param : evas-object %x, visible %d", object, visible);
-					debug_log("set video param : evas-object %x, rotate %d", object, rotation_value);
+					LOGD("set video param : method %d", display_method);
+					LOGD("set video param : evas-object %x, visible %d", object, visible);
+					LOGD("set video param : evas-object %x, rotate %d", object, rotation_value);
 				}
 				else
 				{
-					debug_error("no evas object");
+					LOGE("no evas object");
 					return MM_ERROR_PLAYER_INTERNAL;
 				}
 
@@ -825,15 +825,15 @@ int _mmplayer_update_video_param(mm_player_t *player)
 					"display-geometry-method", display_method,
 					NULL );
 
-				debug_log("set video param : method %d", display_method);
-				debug_log("set video param : dst-roi-x: %d, dst-roi-y: %d, dst-roi-w: %d, dst-roi-h: %d",
+				LOGD("set video param : method %d", display_method);
+				LOGD("set video param : dst-roi-x: %d, dst-roi-y: %d, dst-roi-w: %d, dst-roi-h: %d",
 								roi_x, roi_y, roi_w, roi_h );
-				debug_log("set video param : display_evas_do_scaling %d (origin-size %d)", scaling, origin_size);
+				LOGD("set video param : display_evas_do_scaling %d (origin-size %d)", scaling, origin_size);
 			}
 		}
 		break;
 		default:
-			debug_log("Noting to update");
+			LOGD("Noting to update");
 		break;
 	}
 
@@ -844,7 +844,7 @@ int mm_player_mused_unrealize(MMHandleType player)
 {
 	int result = MM_ERROR_NONE;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	MMPLAYER_CMD_LOCK( player );
 
@@ -860,7 +860,7 @@ static int _mmplayer_mused_unrealize(mm_player_t *player)
 	int ret = MM_ERROR_NONE;
 
 	/* check current state */
-	MMPLAYER_CHECK_STATE_RETURN_IF_FAIL( player, MMPLAYER_COMMAND_UNREALIZE );
+	MMPLAYER_CHECK_STATE( player, MMPLAYER_COMMAND_UNREALIZE );
 
 	ret = __mmplayer_mused_gst_destroy_pipeline(player);
 
@@ -891,21 +891,21 @@ static int __mmplayer_mused_gst_destroy_pipeline(mm_player_t *player)
 			timeout = MMPLAYER_STATE_CHANGE_TIMEOUT(player);
 			ret = __mmplayer_gst_set_state ( player, mainbin[MMPLAYER_M_PIPE].gst, GST_STATE_NULL, FALSE, timeout );
 			if ( ret != MM_ERROR_NONE ) {
-				debug_error("fail to change state to NULL\n");
+				LOGE("fail to change state to NULL\n");
 				return MM_ERROR_PLAYER_INTERNAL;
 			}
-			debug_log("succeeded in chaning state to NULL\n");
+			LOGD("succeeded in chaning state to NULL\n");
 
-			debug_log("gst unref %p", mainbin[MMPLAYER_M_PIPE].gst);
+			LOGD("gst unref %p", mainbin[MMPLAYER_M_PIPE].gst);
 			gst_object_unref(GST_OBJECT(mainbin[MMPLAYER_M_PIPE].gst));
 
-			debug_log("free mainbin");
+			LOGD("free mainbin");
 			MMPLAYER_FREEIF( player->pipeline->mainbin );
 		}
-		debug_log("free pipelin");
+		LOGD("free pipelin");
 		MMPLAYER_FREEIF( player->pipeline );
 	}
-	debug_log("finished destroy pipeline");
+	LOGD("finished destroy pipeline");
 
 	return ret;
 }
@@ -913,7 +913,7 @@ static int __mmplayer_mused_gst_destroy_pipeline(mm_player_t *player)
 static int _mmplayer_mused_gst_pause(mm_player_t *player)
 {
 	/* check current state */
-	MMPLAYER_CHECK_STATE_RETURN_IF_FAIL( player, MMPLAYER_COMMAND_UNREALIZE );
+	MMPLAYER_CHECK_STATE( player, MMPLAYER_COMMAND_UNREALIZE );
 
 	int ret = MM_ERROR_NONE;
 	if ( player->pipeline ) {
@@ -925,10 +925,10 @@ static int _mmplayer_mused_gst_pause(mm_player_t *player)
 			timeout = MMPLAYER_STATE_CHANGE_TIMEOUT(player);
 			ret = __mmplayer_gst_set_state ( player, mainbin[MMPLAYER_M_PIPE].gst, GST_STATE_PAUSED, FALSE, timeout );
 			if ( ret != MM_ERROR_NONE ) {
-				debug_error("fail to change state to PAUSED");
+				LOGE("fail to change state to PAUSED");
 				return MM_ERROR_PLAYER_INTERNAL;
 			}
-			debug_log("succeeded in chaning state to PAUSED");
+			LOGD("succeeded in chaning state to PAUSED");
 			MMPLAYER_MUSED_SET_STATE ( player, MM_PLAYER_STATE_PAUSED );
 		}
 	}
@@ -940,7 +940,7 @@ int mm_player_mused_pre_unrealize(MMHandleType player)
 {
 	int result = MM_ERROR_NONE;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	MMPLAYER_CMD_LOCK( player );
 
@@ -956,8 +956,8 @@ int mm_player_set_attribute(MMHandleType player,  char **err_attr_name, const ch
 	int result = MM_ERROR_NONE;
 	va_list var_args;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
-	return_val_if_fail(first_attribute_name, MM_ERROR_COMMON_INVALID_ARGUMENT);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(first_attribute_name, MM_ERROR_COMMON_INVALID_ARGUMENT);
 
 	MMPLAYER_CMD_LOCK( player );
 
@@ -975,8 +975,8 @@ int mm_player_get_attribute(MMHandleType player,  char **err_attr_name, const ch
 	int result = MM_ERROR_NONE;
 	va_list var_args;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
-	return_val_if_fail(first_attribute_name, MM_ERROR_COMMON_INVALID_ARGUMENT);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(first_attribute_name, MM_ERROR_COMMON_INVALID_ARGUMENT);
 
 	MMPLAYER_CMD_LOCK( player );
 
@@ -1113,7 +1113,7 @@ static MMHandleType _mmplayer_mused_construct_attribute(mm_player_t *player)
 	base = (mmf_attrs_construct_info_t* )malloc(num_of_attrs * sizeof(mmf_attrs_construct_info_t));
 	if ( !base )
 	{
-		debug_error("failed to alloc attrs constructor");
+		LOGE("failed to alloc attrs constructor");
 		return 0;
 	}
 
@@ -1138,7 +1138,7 @@ static MMHandleType _mmplayer_mused_construct_attribute(mm_player_t *player)
 
 	if ( !attrs )
 	{
-		debug_error("failed to create player attrs");
+		LOGE("failed to create player attrs");
 		return 0;
 	}
 
@@ -1180,7 +1180,7 @@ __mmplayer_mused_bus_sync_callback (GstBus * bus, GstMessage * message, gpointer
 
 	if ( ! ( player->pipeline && player->pipeline->mainbin ) )
 	{
-		debug_error("player pipeline handle is null");
+		LOGE("player pipeline handle is null");
 		return GST_BUS_PASS;
 	}
 
@@ -1219,24 +1219,24 @@ __mmplayer_mused_gst_callback(GstBus *bus, GstMessage *msg, gpointer data) // @
 	mm_player_t* player = (mm_player_t*) data;
 	gboolean ret = TRUE;
 
-	return_val_if_fail ( player, FALSE );
-	return_val_if_fail ( msg && GST_IS_MESSAGE(msg), FALSE );
+	MMPLAYER_RETURN_VAL_IF_FAIL ( player, FALSE );
+	MMPLAYER_RETURN_VAL_IF_FAIL ( msg && GST_IS_MESSAGE(msg), FALSE );
 
 	switch ( GST_MESSAGE_TYPE( msg ) )
 	{
 		case GST_MESSAGE_UNKNOWN:
-			debug_log("unknown message received\n");
+			LOGD("unknown message received\n");
 		break;
 
 		case GST_MESSAGE_EOS:
 		{
-			debug_log("GST_MESSAGE_EOS received\n");
+			LOGD("GST_MESSAGE_EOS received\n");
 
 			/* NOTE : EOS event is comming multiple time. watch out it */
 			/* check state. we only process EOS when pipeline state goes to PLAYING */
 			if ( ! (player->cmd == MMPLAYER_COMMAND_START || player->cmd == MMPLAYER_COMMAND_RESUME) )
 			{
-				debug_log("EOS received on non-playing state. ignoring it\n");
+				LOGD("EOS received on non-playing state. ignoring it\n");
 				break;
 			}
 		}
@@ -1260,7 +1260,7 @@ __mmplayer_mused_gst_callback(GstBus *bus, GstMessage *msg, gpointer data) // @
 
 			if (debug)
 			{
-				debug_error ("error debug : %s", debug);
+				LOGE ("error debug : %s", debug);
 			}
 
 			MMPLAYER_FREEIF( debug );
@@ -1275,8 +1275,8 @@ __mmplayer_mused_gst_callback(GstBus *bus, GstMessage *msg, gpointer data) // @
 
 			gst_message_parse_warning(msg, &error, &debug);
 
-			debug_log("warning : %s\n", error->message);
-			debug_log("debug : %s\n", debug);
+			LOGD("warning : %s\n", error->message);
+			LOGD("debug : %s\n", debug);
 
 			MMPLAYER_FREEIF( debug );
 			g_error_free( error );
@@ -1285,7 +1285,7 @@ __mmplayer_mused_gst_callback(GstBus *bus, GstMessage *msg, gpointer data) // @
 
 		case GST_MESSAGE_TAG:
 		{
-			debug_log("GST_MESSAGE_TAG\n");
+			LOGD("GST_MESSAGE_TAG\n");
 		}
 		break;
 
@@ -1300,7 +1300,7 @@ __mmplayer_mused_gst_callback(GstBus *bus, GstMessage *msg, gpointer data) // @
 
 			if ( ! ( player->pipeline && player->pipeline->mainbin ) )
 			{
-				debug_error("player pipeline handle is null");
+				LOGE("player pipeline handle is null");
 				break;
 			}
 
@@ -1319,7 +1319,7 @@ __mmplayer_mused_gst_callback(GstBus *bus, GstMessage *msg, gpointer data) // @
 			newstate = (GstState)vnewstate->data[0].v_int;
 			pending = (GstState)vpending->data[0].v_int;
 
-			debug_log("state changed [%s] : %s ---> %s     final : %s\n",
+			LOGD("state changed [%s] : %s ---> %s     final : %s\n",
 				GST_OBJECT_NAME(GST_MESSAGE_SRC(msg)),
 				gst_element_state_get_name( (GstState)oldstate ),
 				gst_element_state_get_name( (GstState)newstate ),
@@ -1327,7 +1327,7 @@ __mmplayer_mused_gst_callback(GstBus *bus, GstMessage *msg, gpointer data) // @
 
 			if (oldstate == newstate)
 			{
-				debug_log("pipeline reports state transition to old state");
+				LOGD("pipeline reports state transition to old state");
 				break;
 			}
 
@@ -1349,7 +1349,7 @@ __mmplayer_mused_gst_callback(GstBus *bus, GstMessage *msg, gpointer data) // @
 					if ( ! player->sent_bos && oldstate == GST_STATE_READY) // managed prepare async case
 					{
 						mm_attrs_get_int_by_name(player->attrs, "profile_prepare_async", &prepare_async);
-						debug_log("checking prepare mode for async transition - %d", prepare_async);
+						LOGD("checking prepare mode for async transition - %d", prepare_async);
 					}
 				}
 				break;
@@ -1367,7 +1367,7 @@ __mmplayer_mused_gst_callback(GstBus *bus, GstMessage *msg, gpointer data) // @
 		{
 			GstClock *clock = NULL;
 			gst_message_parse_clock_lost (msg, &clock);
-			debug_log("GST_MESSAGE_CLOCK_LOST : %s\n", (clock ? GST_OBJECT_NAME (clock) : "NULL"));
+			LOGD("GST_MESSAGE_CLOCK_LOST : %s\n", (clock ? GST_OBJECT_NAME (clock) : "NULL"));
 		}
 		break;
 
@@ -1375,32 +1375,32 @@ __mmplayer_mused_gst_callback(GstBus *bus, GstMessage *msg, gpointer data) // @
 		{
 			GstClock *clock = NULL;
 			gst_message_parse_new_clock (msg, &clock);
-			debug_log("GST_MESSAGE_NEW_CLOCK : %s\n", (clock ? GST_OBJECT_NAME (clock) : "NULL"));
+			LOGD("GST_MESSAGE_NEW_CLOCK : %s\n", (clock ? GST_OBJECT_NAME (clock) : "NULL"));
 		}
 		break;
 
 		case GST_MESSAGE_ELEMENT:
 		{
-			debug_log("GST_MESSAGE_ELEMENT");
+			LOGD("GST_MESSAGE_ELEMENT");
 		}
 		break;
 
 		case GST_MESSAGE_DURATION_CHANGED:
 		{
-			debug_log("GST_MESSAGE_DURATION_CHANGED");
+			LOGD("GST_MESSAGE_DURATION_CHANGED");
 		}
 
 		break;
 
 		case GST_MESSAGE_ASYNC_START:
 		{
-			debug_log("GST_MESSAGE_ASYNC_START : %s", GST_ELEMENT_NAME(GST_MESSAGE_SRC(msg)));
+			LOGD("GST_MESSAGE_ASYNC_START : %s", GST_ELEMENT_NAME(GST_MESSAGE_SRC(msg)));
 		}
 		break;
 
 		case GST_MESSAGE_ASYNC_DONE:
 		{
-			debug_log("GST_MESSAGE_ASYNC_DONE : %s", GST_ELEMENT_NAME(GST_MESSAGE_SRC(msg)));
+			LOGD("GST_MESSAGE_ASYNC_DONE : %s", GST_ELEMENT_NAME(GST_MESSAGE_SRC(msg)));
 		}
 		break;
 
@@ -1420,8 +1420,8 @@ int mm_player_set_shm_stream_path(MMHandleType player, const char *path)
 {
 	int result = MM_ERROR_NONE;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
-	return_val_if_fail(path, MM_ERROR_INVALID_ARGUMENT);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(path, MM_ERROR_INVALID_ARGUMENT);
 
 	MMPLAYER_CMD_LOCK( player );
 
@@ -1437,11 +1437,11 @@ static int __mmplayer_mused_set_state(mm_player_t* player, int state)
 {
 	int ret = MM_ERROR_NONE;
 
-	return_val_if_fail ( player, FALSE );
+	MMPLAYER_RETURN_VAL_IF_FAIL ( player, FALSE );
 
 	if ( MMPLAYER_CURRENT_STATE(player) == state )
 	{
-		debug_warning("already same state(%s)\n", MMPLAYER_STATE_GET_NAME(state));
+		LOGW("already same state(%s)\n", MMPLAYER_STATE_GET_NAME(state));
 		MMPLAYER_PENDING_STATE(player) = MM_PLAYER_STATE_NONE;
 		return ret;
 	}
@@ -1464,11 +1464,11 @@ static int __mmplayer_mused_set_state(mm_player_t* player, int state)
 	/* post message to application */
 	if (MMPLAYER_TARGET_STATE(player) == state)
 	{
-		debug_log ("player reach the target state (%s)", MMPLAYER_STATE_GET_NAME(MMPLAYER_TARGET_STATE(player)));
+		LOGD ("player reach the target state (%s)", MMPLAYER_STATE_GET_NAME(MMPLAYER_TARGET_STATE(player)));
 	}
 	else
 	{
-		debug_log ("intermediate state, do nothing.\n");
+		LOGD ("intermediate state, do nothing.\n");
 		MMPLAYER_PRINT_STATE(player);
 		return ret;
 	}

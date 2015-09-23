@@ -30,6 +30,7 @@
 #endif
 #include <gst/video/videooverlay.h>
 
+#include <dlog.h>
 #include <mm_error.h>
 #include <mm_attrs_private.h>
 
@@ -91,9 +92,9 @@ __mmplayer_check_state(mm_player_t* player, enum PlayerCommandState command)
 	MMPlayerStateType current_state = MM_PLAYER_STATE_NUM;
 	MMPlayerStateType pending_state = MM_PLAYER_STATE_NUM;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
-	//debug_log("incomming command : %d \n", command );
+	//LOGD("incomming command : %d \n", command );
 
 	current_state = MMPLAYER_CURRENT_STATE(player);
 	pending_state = MMPLAYER_PENDING_STATE(player);
@@ -169,7 +170,7 @@ __mmplayer_check_state(mm_player_t* player, enum PlayerCommandState command)
 			}
 			else if ( pending_state == MM_PLAYER_STATE_PAUSED )
 			{
-				debug_log("player is going to paused state, just change the pending state as playing");
+				LOGD("player is going to paused state, just change the pending state as playing");
 			}
 			else
 			{
@@ -216,7 +217,7 @@ __mmplayer_check_state(mm_player_t* player, enum PlayerCommandState command)
 			else if ( pending_state == MM_PLAYER_STATE_PLAYING )
 			{
 				if ( current_state == MM_PLAYER_STATE_PAUSED ) {
-					debug_log("player is PAUSED going to PLAYING, just change the pending state as PAUSED");
+					LOGD("player is PAUSED going to PLAYING, just change the pending state as PAUSED");
 				} else {
 					goto INVALID_STATE;
 				}
@@ -245,7 +246,7 @@ __mmplayer_check_state(mm_player_t* player, enum PlayerCommandState command)
 			}
 			else if ( pending_state == MM_PLAYER_STATE_PAUSED )
 			{
-				debug_log("player is going to paused state, just change the pending state as playing");
+				LOGD("player is going to paused state, just change the pending state as playing");
 			}
 			else
 			{
@@ -262,20 +263,20 @@ __mmplayer_check_state(mm_player_t* player, enum PlayerCommandState command)
 	return MM_ERROR_NONE;
 
 INVALID_STATE:
-	debug_warning("since player is in wrong state(%s). it's not able to apply the command(%d)",
+	LOGW("since player is in wrong state(%s). it's not able to apply the command(%d)",
 		MMPLAYER_STATE_GET_NAME(current_state), command);
 	return MM_ERROR_PLAYER_INVALID_STATE;
 
 NOT_COMPLETED_SEEK:
-	debug_warning("not completed seek");
+	LOGW("not completed seek");
 	return MM_ERROR_PLAYER_DOING_SEEK;
 
 NO_OP:
-	debug_warning("player is in the desired state(%s). doing noting", MMPLAYER_STATE_GET_NAME(current_state));
+	LOGW("player is in the desired state(%s). doing noting", MMPLAYER_STATE_GET_NAME(current_state));
 	return MM_ERROR_PLAYER_NO_OP;
 
 ALREADY_GOING:
-	debug_warning("player is already going to %s, doing nothing", MMPLAYER_STATE_GET_NAME(pending_state));
+	LOGW("player is already going to %s, doing nothing", MMPLAYER_STATE_GET_NAME(pending_state));
 	return MM_ERROR_PLAYER_NO_OP;
 }
 
@@ -288,17 +289,17 @@ __mmplayer_gst_set_state (mm_player_t* player, GstElement * element,  GstState s
 
 	MMPLAYER_FENTER();
 
-	return_val_if_fail ( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
-	return_val_if_fail ( element, MM_ERROR_INVALID_ARGUMENT );
+	MMPLAYER_RETURN_VAL_IF_FAIL ( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
+	MMPLAYER_RETURN_VAL_IF_FAIL ( element, MM_ERROR_INVALID_ARGUMENT );
 
-	debug_log("setting [%s] element state to : %s\n", GST_ELEMENT_NAME(element), gst_element_state_get_name(state));
+	LOGD("setting [%s] element state to : %s\n", GST_ELEMENT_NAME(element), gst_element_state_get_name(state));
 
 	/* set state */
 	ret = gst_element_set_state(element, state);
 
 	if ( ret == GST_STATE_CHANGE_FAILURE )
 	{
-		debug_error("failed to set [%s] state\n", GST_ELEMENT_NAME(element));
+		LOGE("failed to set [%s] state\n", GST_ELEMENT_NAME(element));
 
 		/* dump state of all element */
 		__mmplayer_dump_pipeline_state( player );
@@ -309,7 +310,7 @@ __mmplayer_gst_set_state (mm_player_t* player, GstElement * element,  GstState s
 	/* return here so state transition to be done in async mode */
 	if ( async )
 	{
-		debug_log("async state transition. not waiting for state complete.\n");
+		LOGD("async state transition. not waiting for state complete.\n");
 		return MM_ERROR_NONE;
 	}
 
@@ -318,11 +319,11 @@ __mmplayer_gst_set_state (mm_player_t* player, GstElement * element,  GstState s
 
 	if ( ret == GST_STATE_CHANGE_FAILURE || ( state != element_state ) )
 	{
-		debug_error("failed to change [%s] element state to [%s] within %d sec\n",
+		LOGE("failed to change [%s] element state to [%s] within %d sec\n",
 			GST_ELEMENT_NAME(element),
 			gst_element_state_get_name(state), timeout );
 
-		debug_error(" [%s] state : %s   pending : %s \n",
+		LOGE(" [%s] state : %s   pending : %s \n",
 			GST_ELEMENT_NAME(element),
 			gst_element_state_get_name(element_state),
 			gst_element_state_get_name(element_pending_state) );
@@ -333,7 +334,7 @@ __mmplayer_gst_set_state (mm_player_t* player, GstElement * element,  GstState s
 		return MM_ERROR_PLAYER_INTERNAL;
 	}
 
-	debug_log("[%s] element state has changed\n", GST_ELEMENT_NAME(element));
+	LOGD("[%s] element state has changed\n", GST_ELEMENT_NAME(element));
 
 	MMPLAYER_FLEAVE();
 
@@ -350,7 +351,7 @@ void __mmplayer_remove_g_source_from_context(GMainContext *context, guint source
 
 	if (source != NULL)
 	{
-		debug_warning("context: %p, source id: %d, source: %p", context, source_id, source);
+		LOGW("context: %p, source id: %d, source: %p", context, source_id, source);
 		g_source_destroy(source);
 	}
 
@@ -373,7 +374,7 @@ __mmplayer_dump_pipeline_state( mm_player_t* player )
 
 	MMPLAYER_FENTER();
 
-	return_val_if_fail ( player &&
+	MMPLAYER_RETURN_VAL_IF_FAIL ( player &&
 		player->pipeline &&
 		player->pipeline->mainbin,
 		FALSE );
@@ -392,7 +393,7 @@ __mmplayer_dump_pipeline_state( mm_player_t* player )
 				factory = gst_element_get_factory (element) ;
 				if (factory)
 				{
-					debug_error("%s:%s : From:%s To:%s   refcount : %d\n", GST_OBJECT_NAME(factory) , GST_ELEMENT_NAME(element) ,
+					LOGE("%s:%s : From:%s To:%s   refcount : %d\n", GST_OBJECT_NAME(factory) , GST_ELEMENT_NAME(element) ,
 						gst_element_state_get_name(state), gst_element_state_get_name(pending) , GST_OBJECT_REFCOUNT_VALUE(element));
 				}
 				 g_value_reset (&item);
@@ -418,7 +419,7 @@ __mmplayer_dump_pipeline_state( mm_player_t* player )
 
 	if (factory)
 	{
-		debug_error("%s:%s : From:%s To:%s  refcount : %d\n",
+		LOGE("%s:%s : From:%s To:%s  refcount : %d\n",
 			GST_OBJECT_NAME(factory),
 			GST_ELEMENT_NAME(element),
 			gst_element_state_get_name(state),
@@ -459,7 +460,7 @@ __get_state_name ( int state )
 gboolean
 __is_rtsp_streaming ( mm_player_t* player )
 {
-	return_val_if_fail ( player, FALSE );
+	MMPLAYER_RETURN_VAL_IF_FAIL ( player, FALSE );
 
 	return ( player->profile.uri_type == MM_PLAYER_URI_TYPE_URL_RTSP ) ? TRUE : FALSE;
 }
@@ -467,7 +468,7 @@ __is_rtsp_streaming ( mm_player_t* player )
 gboolean
 __is_wfd_streaming ( mm_player_t* player )
 {
-  return_val_if_fail ( player, FALSE );
+  MMPLAYER_RETURN_VAL_IF_FAIL ( player, FALSE );
 
   return ( player->profile.uri_type == MM_PLAYER_URI_TYPE_URL_WFD ) ? TRUE : FALSE;
 }
@@ -475,7 +476,7 @@ __is_wfd_streaming ( mm_player_t* player )
 gboolean
 __is_http_streaming ( mm_player_t* player )
 {
-	return_val_if_fail ( player, FALSE );
+	MMPLAYER_RETURN_VAL_IF_FAIL ( player, FALSE );
 
 	return ( player->profile.uri_type == MM_PLAYER_URI_TYPE_URL_HTTP ) ? TRUE : FALSE;
 }
@@ -483,7 +484,7 @@ __is_http_streaming ( mm_player_t* player )
 gboolean
 __is_streaming ( mm_player_t* player )
 {
-	return_val_if_fail ( player, FALSE );
+	MMPLAYER_RETURN_VAL_IF_FAIL ( player, FALSE );
 
   return ( __is_http_progressive_down( player ) || __is_rtsp_streaming ( player ) || __is_wfd_streaming ( player ) || __is_http_streaming ( player )
           || __is_http_live_streaming ( player ) || __is_dash_streaming ( player ) || __is_smooth_streaming(player) ) ? TRUE : FALSE;
@@ -492,7 +493,7 @@ __is_streaming ( mm_player_t* player )
 gboolean
 __is_live_streaming ( mm_player_t* player )
 {
-	return_val_if_fail ( player, FALSE );
+	MMPLAYER_RETURN_VAL_IF_FAIL ( player, FALSE );
 
 	return ( __is_rtsp_streaming ( player ) && player->streaming_type == STREAMING_SERVICE_LIVE ) ? TRUE : FALSE;
 }
@@ -500,7 +501,7 @@ __is_live_streaming ( mm_player_t* player )
 gboolean
 __is_http_live_streaming( mm_player_t* player )
 {
-	return_val_if_fail( player, FALSE );
+	MMPLAYER_RETURN_VAL_IF_FAIL( player, FALSE );
 
 	return ( player->profile.uri_type == MM_PLAYER_URI_TYPE_HLS ) ? TRUE : FALSE;
 }
@@ -508,7 +509,7 @@ __is_http_live_streaming( mm_player_t* player )
 gboolean
 __is_dash_streaming ( mm_player_t* player )
 {
-	return_val_if_fail ( player, FALSE );
+	MMPLAYER_RETURN_VAL_IF_FAIL ( player, FALSE );
 
 	return ( player->profile.uri_type == MM_PLAYER_URI_TYPE_DASH ) ? TRUE : FALSE;
 }
@@ -516,7 +517,7 @@ __is_dash_streaming ( mm_player_t* player )
 gboolean
 __is_smooth_streaming ( mm_player_t* player )
 {
-	return_val_if_fail ( player, FALSE );
+	MMPLAYER_RETURN_VAL_IF_FAIL ( player, FALSE );
 
 	return ( player->profile.uri_type == MM_PLAYER_URI_TYPE_SS ) ? TRUE : FALSE;
 }
@@ -525,7 +526,7 @@ __is_smooth_streaming ( mm_player_t* player )
 gboolean
 __is_http_progressive_down(mm_player_t* player)
 {
-	return_val_if_fail( player, FALSE );
+	MMPLAYER_RETURN_VAL_IF_FAIL( player, FALSE );
 
 	return ((player->pd_mode) ? TRUE:FALSE);
 }
@@ -538,7 +539,7 @@ __mmplayer_check_useful_message(mm_player_t *player, GstMessage * message)
 
 	if ( !(player->pipeline && player->pipeline->mainbin) )
 	{
-		debug_error("player pipeline handle is null");
+		LOGE("player pipeline handle is null");
 		return TRUE;
 	}
 
@@ -574,7 +575,7 @@ __mmplayer_check_useful_message(mm_player_t *player, GstMessage * message)
 				(player->streamer->is_buffering == TRUE) &&
 				(buffer_percent == MAX_BUFFER_PERCENT))
 			{
-				debug_log (">>> [%s] Buffering DONE is detected !!\n", GST_OBJECT_NAME(GST_MESSAGE_SRC(message)));
+				LOGD (">>> [%s] Buffering DONE is detected !!\n", GST_OBJECT_NAME(GST_MESSAGE_SRC(message)));
 				player->streamer->is_buffering_done = TRUE;
 			}
 
@@ -592,14 +593,14 @@ __mmplayer_check_useful_message(mm_player_t *player, GstMessage * message)
 gboolean
 __mmplayer_post_message(mm_player_t* player, enum MMMessageType msgtype, MMMessageParamType* param)
 {
-	return_val_if_fail( player, FALSE );
+	MMPLAYER_RETURN_VAL_IF_FAIL( player, FALSE );
 
 	if ( !player->msg_cb )
 	{
 		return FALSE;
 	}
 
-	//debug_log("Message (type : %d)  will be posted using msg-cb(%p). \n", msgtype, player->msg_cb);
+	//LOGD("Message (type : %d)  will be posted using msg-cb(%p). \n", msgtype, player->msg_cb);
 
 	player->msg_cb(msgtype, param, player->msg_cb_param);
 
@@ -614,8 +615,8 @@ __mmplayer_handle_gst_error ( mm_player_t* player, GstMessage * message, GError*
 
 	MMPLAYER_FENTER();
 
-	return_val_if_fail( player, FALSE );
-	return_val_if_fail( error, FALSE );
+	MMPLAYER_RETURN_VAL_IF_FAIL( player, FALSE );
+	MMPLAYER_RETURN_VAL_IF_FAIL( error, FALSE );
 
 	/* NOTE : do somthing necessary inside of __gst_handle_XXX_error. not here */
 
@@ -639,7 +640,7 @@ __mmplayer_handle_gst_error ( mm_player_t* player, GstMessage * message, GError*
 	}
 	else
 	{
-		debug_warning("This error domain is not defined.\n");
+		LOGW("This error domain is not defined.\n");
 
 		/* we treat system error as an internal error */
 		msg_param.code = MM_ERROR_PLAYER_INVALID_STREAM;
@@ -651,7 +652,7 @@ __mmplayer_handle_gst_error ( mm_player_t* player, GstMessage * message, GError*
 
 		msg_param.data = (void *) error->message;
 
-		debug_error("-Msg src : [%s]	Domain : [%s]   Error : [%s]  Code : [%d] is tranlated to error code : [0x%x]\n",
+		LOGE("-Msg src : [%s]	Domain : [%s]   Error : [%s]  Code : [%d] is tranlated to error code : [0x%x]\n",
 			msg_src_element, g_quark_to_string (error->domain), error->message, error->code, msg_param.code);
 	}
 
@@ -668,7 +669,7 @@ __mmplayer_handle_gst_error ( mm_player_t* player, GstMessage * message, GError*
 	}
 	else
 	{
-		debug_log("skip error post because it's sent already.\n");
+		LOGD("skip error post because it's sent already.\n");
 	}
 
 	MMPLAYER_FLEAVE();
@@ -683,7 +684,7 @@ __gst_handle_core_error( mm_player_t* player, int code )
 
 	MMPLAYER_FENTER();
 
-	return_val_if_fail( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
+	MMPLAYER_RETURN_VAL_IF_FAIL( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
 
 	switch ( code )
 	{
@@ -719,7 +720,7 @@ __gst_handle_library_error( mm_player_t* player, int code )
 
 	MMPLAYER_FENTER();
 
-	return_val_if_fail( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
+	MMPLAYER_RETURN_VAL_IF_FAIL( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
 
 	switch ( code )
 	{
@@ -746,7 +747,7 @@ __gst_handle_resource_error( mm_player_t* player, int code )
 
 	MMPLAYER_FENTER();
 
-	return_val_if_fail( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
+	MMPLAYER_RETURN_VAL_IF_FAIL( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
 
 	switch ( code )
 	{
@@ -795,9 +796,9 @@ __gst_handle_stream_error( mm_player_t* player, GError* error, GstMessage * mess
 
 	MMPLAYER_FENTER();
 
-	return_val_if_fail( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
-	return_val_if_fail( error, MM_ERROR_INVALID_ARGUMENT );
-	return_val_if_fail ( message, MM_ERROR_INVALID_ARGUMENT );
+	MMPLAYER_RETURN_VAL_IF_FAIL( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
+	MMPLAYER_RETURN_VAL_IF_FAIL( error, MM_ERROR_INVALID_ARGUMENT );
+	MMPLAYER_RETURN_VAL_IF_FAIL ( message, MM_ERROR_INVALID_ARGUMENT );
 
 	switch ( error->code )
 	{
@@ -838,9 +839,9 @@ __gst_transform_gsterror( mm_player_t* player, GstMessage * message, GError* err
 
 	MMPLAYER_FENTER();
 
-	return_val_if_fail ( message, MM_ERROR_INVALID_ARGUMENT );
-	return_val_if_fail ( message->src, MM_ERROR_INVALID_ARGUMENT );
-	return_val_if_fail ( error, MM_ERROR_INVALID_ARGUMENT );
+	MMPLAYER_RETURN_VAL_IF_FAIL ( message, MM_ERROR_INVALID_ARGUMENT );
+	MMPLAYER_RETURN_VAL_IF_FAIL ( message->src, MM_ERROR_INVALID_ARGUMENT );
+	MMPLAYER_RETURN_VAL_IF_FAIL ( error, MM_ERROR_INVALID_ARGUMENT );
 
 	src_element = GST_ELEMENT_CAST(message->src);
 	if ( !src_element )
@@ -858,7 +859,7 @@ __gst_transform_gsterror( mm_player_t* player, GstMessage * message, GError* err
 	if ( !klass )
 		goto INTERNAL_ERROR;
 
-	debug_log("error code=%d, msg=%s, src element=%s, class=%s\n",
+	LOGD("error code=%d, msg=%s, src element=%s, class=%s\n",
 			error->code, error->message, src_element_name, klass);
 
 	//<-
@@ -866,7 +867,7 @@ __gst_transform_gsterror( mm_player_t* player, GstMessage * message, GError* err
 		if (player->selector) {
 			int msg_src_pos = 0;
 			gint active_pad_index = player->selector[MM_PLAYER_TRACK_TYPE_AUDIO].active_pad_index;
-			debug_log ("current  active pad index  -%d", active_pad_index);
+			LOGD ("current  active pad index  -%d", active_pad_index);
 
 			if  (src_element_name) {
 				int idx = 0;
@@ -876,7 +877,7 @@ __gst_transform_gsterror( mm_player_t* player, GstMessage * message, GError* err
 					for ( ;adec ; adec = g_list_next(adec)) {
 						gchar *name = adec->data;
 
-						debug_log("found audio decoder name  = %s", name);
+						LOGD("found audio decoder name  = %s", name);
 						if (g_strrstr(name, src_element_name)) {
 							msg_src_pos = idx;
 							break;
@@ -884,11 +885,11 @@ __gst_transform_gsterror( mm_player_t* player, GstMessage * message, GError* err
 						idx++;
 					}
 				}
-				debug_log("active pad = %d, error src index = %d", active_pad_index,  msg_src_pos);
+				LOGD("active pad = %d, error src index = %d", active_pad_index,  msg_src_pos);
 			}
 
 			if (active_pad_index != msg_src_pos) {
-				debug_log("skip error because error is posted from no activated track");
+				LOGD("skip error because error is posted from no activated track");
 				return MM_ERROR_NONE;
 			}
 		}
@@ -943,7 +944,7 @@ __gst_transform_gsterror( mm_player_t* player, GstMessage * message, GError* err
 				{
 					if ( ( player->can_support_codec & FOUND_PLUGIN_VIDEO ) )
 					{
-						debug_log("Video can keep playing.\n");
+						LOGD("Video can keep playing.\n");
 						return MM_ERROR_PLAYER_AUDIO_CODEC_NOT_FOUND;
 					}
 					else
@@ -956,7 +957,7 @@ __gst_transform_gsterror( mm_player_t* player, GstMessage * message, GError* err
 				{
 					if ( ( player->can_support_codec & FOUND_PLUGIN_AUDIO ) )
 					{
-						debug_log("Audio can keep playing.\n");
+						LOGD("Audio can keep playing.\n");
 						return MM_ERROR_PLAYER_VIDEO_CODEC_NOT_FOUND;
 					}
 					else
@@ -972,7 +973,7 @@ __gst_transform_gsterror( mm_player_t* player, GstMessage * message, GError* err
 		case GST_STREAM_ERROR_DECRYPT:
 		case GST_STREAM_ERROR_DECRYPT_NOKEY:
 		{
-			debug_error("decryption error, [%s] failed, reason : [%s]\n", src_element_name, error->message);
+			LOGE("decryption error, [%s] failed, reason : [%s]\n", src_element_name, error->message);
 
 			if ( strstr(error->message, "rights expired") )
 			{
@@ -1006,7 +1007,7 @@ INTERNAL_ERROR:
 	return MM_ERROR_PLAYER_INTERNAL;
 
 CODEC_NOT_FOUND:
-	debug_log("not found any available codec. Player should be destroyed.\n");
+	LOGD("not found any available codec. Player should be destroyed.\n");
 	return MM_ERROR_PLAYER_CODEC_NOT_FOUND;
 }
 
@@ -1019,7 +1020,7 @@ __mmplayer_get_video_angle(mm_player_t* player, int *user_angle, int *org_angle)
 
 	if ( !attrs )
 	{
-		debug_error("cannot get content attribute");
+		LOGE("cannot get content attribute");
 		return MM_ERROR_PLAYER_INTERNAL;
 	}
 
@@ -1055,14 +1056,14 @@ __mmplayer_get_video_angle(mm_player_t* player, int *user_angle, int *org_angle)
 		else if (!strcmp (org_orient, "rotate-270"))
 			*org_angle = 270;
 		else
-			debug_log ("original rotation is %s", org_orient);
+			LOGD ("original rotation is %s", org_orient);
 	}
 	else
 	{
-		debug_log ("content_video_orientation get fail");
+		LOGD ("content_video_orientation get fail");
 	}
 
-	debug_log("check user angle: %d, orientation: %d", *user_angle, *org_angle);
+	LOGD("check user angle: %d, orientation: %d", *user_angle, *org_angle);
 
 	return MM_ERROR_NONE;
 }
@@ -1074,8 +1075,8 @@ int _mmplayer_set_shm_stream_path(MMHandleType hplayer, const char *path)
 
 	MMPLAYER_FENTER();
 
-	return_val_if_fail ( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
-	return_val_if_fail(path, MM_ERROR_INVALID_ARGUMENT);
+	MMPLAYER_RETURN_VAL_IF_FAIL ( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
+	MMPLAYER_RETURN_VAL_IF_FAIL(path, MM_ERROR_INVALID_ARGUMENT);
 
 	result = mm_attrs_set_string_by_name(player->attrs, "shm_stream_path", path)
 

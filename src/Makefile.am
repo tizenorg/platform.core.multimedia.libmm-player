@@ -38,6 +38,7 @@ libmmfplayer_la_CFLAGS =  -I$(srcdir)/include \
 			$(ICU_CFLAGS) \
 			$(UTILX_CFLAGS) \
 			$(MEDIAPACKET_CFLAGS) \
+			$(DLOG_CFLAGS) \
 			-Werror -Wno-deprecated -Wno-deprecated-declarations -Wno-cpp
 
 libmmfplayerclient_la_CFLAGS =  -I$(srcdir)/include \
@@ -47,6 +48,7 @@ libmmfplayerclient_la_CFLAGS =  -I$(srcdir)/include \
 			$(GST_VIDEO_CFLAGS) \
 			$(GST_APP_CFLAGS) \
 			$(VCONF_CFLAGS) \
+			$(DLOG_CFLAGS) \
 			-Werror -Wno-deprecated -Wno-deprecated-declarations -Wno-cpp
 
 noinst_HEADERS = include/mm_player_utils.h \
@@ -72,6 +74,7 @@ libmmfplayer_la_LIBADD = $(GST_LIBS) \
 		$(VCONF_LIBS) \
 		$(ICU_LIBS) \
 		$(MEDIAPACKET_LIBS) \
+		$(DLOG_LIBS) \
 		$(UTILX_LIBS)
 
 libmmfplayerclient_la_LIBADD = $(GST_LIBS) \
@@ -81,13 +84,8 @@ libmmfplayerclient_la_LIBADD = $(GST_LIBS) \
 		$(GST_VIDEO_LIBS) \
 		$(GST_APP_LIBS) \
 		$(INIPARSER_LIBS) \
+		$(DLOG_LIBS) \
 		$(VCONF_LIBS)
-
-libmmfplayer_la_CFLAGS += $(MMLOG_CFLAGS) -DMMF_LOG_OWNER=0x008 -DMMF_DEBUG_PREFIX=\"MMF-PLAYER\" -D_INTERNAL_SESSION_MANAGER_
-libmmfplayer_la_LIBADD += $(MMLOG_LIBS)
-
-libmmfplayerclient_la_CFLAGS += $(MMLOG_CFLAGS) -DMMF_LOG_OWNER=0x008 -DMMF_DEBUG_PREFIX=\"MMF-PLAYER\" -D_INTERNAL_SESSION_MANAGER_
-libmmfplayerclient_la_LIBADD += $(MMLOG_LIBS)
 
 if IS_SDK
 libmmfplayer_la_CFLAGS += -DIS_SDK

@@ -25,6 +25,7 @@
 |  INCLUDE FILES																			|
 |																							|
 ========================================================================================== */
+#include <dlog.h>
 #include <mm_attrs_private.h>
 #include <mm_attrs.h>
 #include "mm_player_utils.h"
@@ -57,15 +58,15 @@ _mmplayer_get_attribute(MMHandleType handle,  char **err_attr_name, const char *
 
 	/* NOTE : Don't need to check err_attr_name because it can be set NULL */
 	/* if it's not want to know it. */
-	return_val_if_fail(attribute_name, MM_ERROR_COMMON_INVALID_ARGUMENT);
-	return_val_if_fail(handle, MM_ERROR_COMMON_INVALID_ARGUMENT);
+	MMPLAYER_RETURN_VAL_IF_FAIL(attribute_name, MM_ERROR_COMMON_INVALID_ARGUMENT);
+	MMPLAYER_RETURN_VAL_IF_FAIL(handle, MM_ERROR_COMMON_INVALID_ARGUMENT);
 
 	attrs = MM_PLAYER_GET_ATTRS(handle);
 
 	result = mm_attrs_get_valist(attrs, err_attr_name, attribute_name, args_list);
 
 	if ( result != MM_ERROR_NONE)
-		debug_error("failed to get %s attribute\n", attribute_name);
+		LOGE("failed to get %s attribute\n", attribute_name);
 
 	return result;
 }
@@ -78,8 +79,8 @@ _mmplayer_set_attribute(MMHandleType handle,  char **err_attr_name, const char *
 
 	/* NOTE : Don't need to check err_attr_name because it can be set NULL */
 	/* if it's not want to know it. */
-	return_val_if_fail(attribute_name, MM_ERROR_COMMON_INVALID_ARGUMENT);
-	return_val_if_fail(handle, MM_ERROR_COMMON_INVALID_ARGUMENT);
+	MMPLAYER_RETURN_VAL_IF_FAIL(attribute_name, MM_ERROR_COMMON_INVALID_ARGUMENT);
+	MMPLAYER_RETURN_VAL_IF_FAIL(handle, MM_ERROR_COMMON_INVALID_ARGUMENT);
 
 	attrs = MM_PLAYER_GET_ATTRS(handle);
 
@@ -88,14 +89,14 @@ _mmplayer_set_attribute(MMHandleType handle,  char **err_attr_name, const char *
 
 	if (result != MM_ERROR_NONE)
 	{
-		debug_error("failed to set %s attribute\n", attribute_name);
+		LOGE("failed to set %s attribute\n", attribute_name);
 		return result;
 	}
 
 	result = __mmplayer_apply_attribute(handle, attribute_name);
 	if (result != MM_ERROR_NONE)
 	{
-		debug_error("failed to apply attributes\n");
+		LOGE("failed to apply attributes\n");
 		return result;
 	}
 
@@ -109,9 +110,9 @@ _mmplayer_get_attributes_info(MMHandleType handle,  const char *attribute_name, 
 	MMHandleType attrs = 0;
 	MMAttrsInfo src_info = {0, };
 
-	return_val_if_fail(attribute_name, MM_ERROR_COMMON_INVALID_ARGUMENT);
-	return_val_if_fail(dst_info, MM_ERROR_COMMON_INVALID_ARGUMENT);
-	return_val_if_fail(handle, MM_ERROR_COMMON_INVALID_ARGUMENT);
+	MMPLAYER_RETURN_VAL_IF_FAIL(attribute_name, MM_ERROR_COMMON_INVALID_ARGUMENT);
+	MMPLAYER_RETURN_VAL_IF_FAIL(dst_info, MM_ERROR_COMMON_INVALID_ARGUMENT);
+	MMPLAYER_RETURN_VAL_IF_FAIL(handle, MM_ERROR_COMMON_INVALID_ARGUMENT);
 
 	attrs = MM_PLAYER_GET_ATTRS(handle);
 
@@ -119,7 +120,7 @@ _mmplayer_get_attributes_info(MMHandleType handle,  const char *attribute_name, 
 
 	if ( result != MM_ERROR_NONE)
 	{
-		debug_error("failed to get attribute info\n");
+		LOGE("failed to get attribute info\n");
 		return result;
 	}
 
@@ -167,8 +168,8 @@ __mmplayer_apply_attribute(MMHandleType handle, const char *attribute_name)
 {
 	mm_player_t* player = 0;
 
-	return_val_if_fail(handle, MM_ERROR_COMMON_INVALID_ARGUMENT);
-	return_val_if_fail(attribute_name, MM_ERROR_COMMON_INVALID_ARGUMENT);
+	MMPLAYER_RETURN_VAL_IF_FAIL(handle, MM_ERROR_COMMON_INVALID_ARGUMENT);
+	MMPLAYER_RETURN_VAL_IF_FAIL(attribute_name, MM_ERROR_COMMON_INVALID_ARGUMENT);
 
 	player = MM_PLAYER_CAST(handle);
 
@@ -191,7 +192,7 @@ __mmplayer_apply_attribute(MMHandleType handle, const char *attribute_name)
 
 		if ( MM_ERROR_NONE != _mmplayer_update_video_param( player ) )
 		{
-			debug_error("failed to update video param");
+			LOGE("failed to update video param");
 			return MM_ERROR_PLAYER_INTERNAL;
 		}
 	}
@@ -208,7 +209,7 @@ _mmplayer_construct_attribute(MMHandleType handle)
 	int num_of_attrs = 0;
 	mmf_attrs_construct_info_t *base = NULL;
 
-	return_val_if_fail (handle, 0);
+	MMPLAYER_RETURN_VAL_IF_FAIL (handle, 0);
 
 	player = MM_PLAYER_CAST(handle);
 
@@ -1094,7 +1095,7 @@ _mmplayer_construct_attribute(MMHandleType handle)
 
 	if ( !base )
 	{
-		debug_error("failed to alloc attrs constructor");
+		LOGE("failed to alloc attrs constructor");
 		return 0;
 	}
 
@@ -1119,7 +1120,7 @@ _mmplayer_construct_attribute(MMHandleType handle)
 
 	if ( !attrs )
 	{
-		debug_error("failed to create player attrs");
+		LOGE("failed to create player attrs");
 		return 0;
 	}
 
@@ -1157,7 +1158,7 @@ _mmplayer_deconstruct_attribute(MMHandleType handle) // @
 {
 	mm_player_t *player = MM_PLAYER_CAST(handle);
 
-	return_val_if_fail ( player, FALSE );
+	MMPLAYER_RETURN_VAL_IF_FAIL ( player, FALSE );
 
 	if (player->attrs)
 	{

@@ -19,7 +19,7 @@
  * limitations under the License.
  *
  */
-#include <mm_debug.h>
+#include <dlog.h>
 #include <mm_error.h>
 #include "mm_player_pd.h"
 #include "mm_player_utils.h"
@@ -49,14 +49,14 @@ __pd_downloader_callback(GstBus *bus, GstMessage *msg, gpointer data)
 	MMPLAYER_FENTER();
 
 	/* chech player handle */
-	return_val_if_fail ( data, MM_ERROR_INVALID_ARGUMENT );
+	MMPLAYER_RETURN_VAL_IF_FAIL ( data, MM_ERROR_INVALID_ARGUMENT );
 
 	player = MM_PLAYER_CAST((MMHandleType)data);
 
 	/* get PD downloader handle */
 	pd = MM_PLAYER_GET_PD((MMHandleType)data);
 
-	return_val_if_fail ( pd, MM_ERROR_INVALID_ARGUMENT );
+	MMPLAYER_RETURN_VAL_IF_FAIL ( pd, MM_ERROR_INVALID_ARGUMENT );
 
 //	g_print("%s\n", GST_MESSAGE_TYPE_NAME(msg));
 
@@ -64,7 +64,7 @@ __pd_downloader_callback(GstBus *bus, GstMessage *msg, gpointer data)
 	{
 		case GST_MESSAGE_EOS:
 			{
-				debug_log("PD Downloader EOS received....\n");
+				LOGD("PD Downloader EOS received....\n");
 
 				g_object_set (G_OBJECT (pd->playback_pipeline_src), "eos", TRUE, NULL);
 
@@ -85,7 +85,7 @@ __pd_downloader_callback(GstBus *bus, GstMessage *msg, gpointer data)
 
 				/* get error code */
 				gst_message_parse_error( msg, &error, &debug );
-				debug_error ("GST_MESSAGE_ERROR = %s\n", debug);
+				LOGE ("GST_MESSAGE_ERROR = %s\n", debug);
 
 				new_msg = gst_message_new_error (GST_OBJECT_CAST (pd->playback_pipeline_src), error, debug);
 
@@ -104,8 +104,8 @@ __pd_downloader_callback(GstBus *bus, GstMessage *msg, gpointer data)
 				GError* error = NULL;
 
 				gst_message_parse_warning(msg, &error, &debug);
-				debug_warning("warning : %s\n", error->message);
-				debug_warning("debug : %s\n", debug);
+				LOGW("warning : %s\n", error->message);
+				LOGW("debug : %s\n", debug);
 
 				MMPLAYER_FREEIF(debug);
 				g_error_free( error);
@@ -128,7 +128,7 @@ __pd_downloader_callback(GstBus *bus, GstMessage *msg, gpointer data)
 				break;
 
 			src_name = gst_object_get_name (msg->src);
-			debug_log ("%s changed state from %s to %s", src_name,
+			LOGD ("%s changed state from %s to %s", src_name,
 				gst_element_state_get_name (old_state),
 				gst_element_state_get_name (new_state));
 			g_free (src_name);
@@ -173,18 +173,18 @@ __pd_downloader_callback(GstBus *bus, GstMessage *msg, gpointer data)
 
 				_mmplayer_unrealize_pd_downloader ((MMHandleType)data);
 
-				debug_error("failed to query total size for download\n");
+				LOGE("failed to query total size for download\n");
 				break;
 			}
 
 			pd->total_size = size;
 
-			debug_log("PD total size : %lld bytes\n", size);
+			LOGD("PD total size : %lld bytes\n", size);
 		}
 		break;
 
 		default:
-			debug_warning("unhandled message\n");
+			LOGW("unhandled message\n");
 			break;
 	}
 
@@ -198,11 +198,11 @@ gboolean __pd_downloader_post_message(mm_player_t * player, enum MMMessageType m
 {
 	MMPLAYER_FENTER();
 
-	return_val_if_fail( player, FALSE );
+	MMPLAYER_RETURN_VAL_IF_FAIL( player, FALSE );
 
 	if ( !player->pd_msg_cb )
 	{
-		debug_warning("no msg callback. can't post\n");
+		LOGW("no msg callback. can't post\n");
 		return FALSE;
 	}
 
@@ -221,22 +221,22 @@ int _mmplayer_get_pd_downloader_status(MMHandleType handle, guint64 *current_pos
 	mm_player_pd_t * pd = NULL;
 	guint64 bytes = 0;
 
-	return_val_if_fail(handle, MM_ERROR_INVALID_ARGUMENT);
+	MMPLAYER_RETURN_VAL_IF_FAIL(handle, MM_ERROR_INVALID_ARGUMENT);
 
 	pd = MM_PLAYER_GET_PD(handle);
 
-	return_val_if_fail(pd, MM_ERROR_INVALID_ARGUMENT);
-	return_val_if_fail(pd->downloader_pipeline, MM_ERROR_PLAYER_INVALID_STATE);
+	MMPLAYER_RETURN_VAL_IF_FAIL(pd, MM_ERROR_INVALID_ARGUMENT);
+	MMPLAYER_RETURN_VAL_IF_FAIL(pd->downloader_pipeline, MM_ERROR_PLAYER_INVALID_STATE);
 
 	if ( !pd->total_size )
 	{
-		debug_warning("not ready to get total size\n");
+		LOGW("not ready to get total size\n");
 		return MM_ERROR_PLAYER_INTERNAL;
 	}
 
 	g_object_get(pd->downloader_sink, "current-bytes", &bytes, NULL);
 
-	debug_log("PD status : %lld / %lld\n", bytes, pd->total_size);
+	LOGD("PD status : %lld / %lld\n", bytes, pd->total_size);
 
 	*current_pos = bytes;
 	*total_size = pd->total_size;
@@ -257,7 +257,7 @@ mm_player_pd_t * _mmplayer_create_pd_downloader()
 	pd = (mm_player_pd_t *) malloc (sizeof (mm_player_pd_t));
 	if ( !pd )
 	{
-		debug_error ("Failed to create pd downloader handle...\n");
+		LOGE ("Failed to create pd downloader handle...\n");
 		return FALSE;
 	}
 	memset( pd, 0, sizeof (mm_player_pd_t));
@@ -274,7 +274,7 @@ gboolean _mmplayer_destroy_pd_downloader (MMHandleType handle)
 
 	mm_player_pd_t * pd = NULL;
 
-	return_val_if_fail ( handle, MM_ERROR_INVALID_ARGUMENT );
+	MMPLAYER_RETURN_VAL_IF_FAIL ( handle, MM_ERROR_INVALID_ARGUMENT );
 
 	pd = MM_PLAYER_GET_PD(handle);
 
@@ -296,10 +296,10 @@ gboolean _mmplayer_realize_pd_downloader (MMHandleType handle, gchar *src_uri, g
 
 	mm_player_pd_t * pd = NULL;
 
-	return_val_if_fail ( handle, MM_ERROR_INVALID_ARGUMENT );
-	return_val_if_fail ( src_uri, MM_ERROR_INVALID_ARGUMENT );
-	return_val_if_fail ( dst_uri, MM_ERROR_INVALID_ARGUMENT );
-	return_val_if_fail ( pushsrc, MM_ERROR_INVALID_ARGUMENT );
+	MMPLAYER_RETURN_VAL_IF_FAIL ( handle, MM_ERROR_INVALID_ARGUMENT );
+	MMPLAYER_RETURN_VAL_IF_FAIL ( src_uri, MM_ERROR_INVALID_ARGUMENT );
+	MMPLAYER_RETURN_VAL_IF_FAIL ( dst_uri, MM_ERROR_INVALID_ARGUMENT );
+	MMPLAYER_RETURN_VAL_IF_FAIL ( pushsrc, MM_ERROR_INVALID_ARGUMENT );
 
 	pd = MM_PLAYER_GET_PD(handle);
 
@@ -327,7 +327,7 @@ gboolean _mmplayer_start_pd_downloader (MMHandleType handle)
 
 	mm_player_pd_t * pd = NULL;
 
-	return_val_if_fail ( handle, MM_ERROR_INVALID_ARGUMENT );
+	MMPLAYER_RETURN_VAL_IF_FAIL ( handle, MM_ERROR_INVALID_ARGUMENT );
 
 	pd = MM_PLAYER_GET_PD(handle);
 
@@ -335,7 +335,7 @@ gboolean _mmplayer_start_pd_downloader (MMHandleType handle)
 	pd->downloader_pipeline = gst_pipeline_new ("PD Downloader");
 	if (NULL == pd->downloader_pipeline)
 	{
-		debug_error ("Can't create PD download pipeline...");
+		LOGE ("Can't create PD download pipeline...");
 		return FALSE;
 	}
 
@@ -343,7 +343,7 @@ gboolean _mmplayer_start_pd_downloader (MMHandleType handle)
 	pd->downloader_src = gst_element_factory_make ("souphttpsrc", "PD HTTP download source");
 	if (NULL == pd->downloader_src)
 	{
-		debug_error ("Can't create PD download src...");
+		LOGE ("Can't create PD download src...");
 		return FALSE;
 	}
 
@@ -351,7 +351,7 @@ gboolean _mmplayer_start_pd_downloader (MMHandleType handle)
 	pd->downloader_queue = gst_element_factory_make ("queue", "PD download queue");
 	if (NULL == pd->downloader_queue)
 	{
-		debug_error ("Can't create PD download queue...");
+		LOGE ("Can't create PD download queue...");
 		return FALSE;
 	}
 
@@ -359,7 +359,7 @@ gboolean _mmplayer_start_pd_downloader (MMHandleType handle)
 	pd->downloader_sink = gst_element_factory_make ("filesink", "PD download sink");
 	if (NULL == pd->downloader_sink)
 	{
-		debug_error ("Can't create PD download sink...");
+		LOGE ("Can't create PD download sink...");
 		return FALSE;
 	}
 
@@ -373,7 +373,7 @@ gboolean _mmplayer_start_pd_downloader (MMHandleType handle)
 	bret = gst_element_link_many (pd->downloader_src, pd->downloader_queue, pd->downloader_sink, NULL);
 	if (FALSE == bret)
 	{
-		debug_error ("Can't link elements src and sink...");
+		LOGE ("Can't link elements src and sink...");
 		return FALSE;
 	}
 
@@ -388,26 +388,26 @@ gboolean _mmplayer_start_pd_downloader (MMHandleType handle)
 	/* set file download location on filesink*/
 	g_object_set (G_OBJECT (pd->downloader_sink), "location", pd->location_to_save, NULL);
 
-	secure_debug_log ("src location = %s, save location = %s\n", pd->path_read_from, pd->location_to_save);
+	SECURE_LOGD ("src location = %s, save location = %s\n", pd->path_read_from, pd->location_to_save);
 
 	/* Start to download */
 	sret = gst_element_set_state (pd->downloader_pipeline, GST_STATE_PLAYING);
 	if (GST_STATE_CHANGE_FAILURE == sret)
 	{
-		debug_error ("PD download pipeline failed to go to PLAYING state...");
+		LOGE ("PD download pipeline failed to go to PLAYING state...");
 		return FALSE;
 	}
 
-	debug_log ("set_state :: sret = %d\n", sret);
+	LOGD ("set_state :: sret = %d\n", sret);
 
 	sret = gst_element_get_state (pd->downloader_pipeline, &cur_state, &pending_state, GST_CLOCK_TIME_NONE);
 	if (GST_STATE_CHANGE_FAILURE == sret)
 	{
-		debug_error ("PD download pipeline failed to do get_state...");
+		LOGE ("PD download pipeline failed to do get_state...");
 		return FALSE;
 	}
 
-	debug_log ("get-state :: sret = %d\n", sret);
+	LOGD ("get-state :: sret = %d\n", sret);
 
 	MMPLAYER_FLEAVE();
 
@@ -421,11 +421,11 @@ gboolean _mmplayer_unrealize_pd_downloader (MMHandleType handle)
 
 	mm_player_pd_t * pd = NULL;
 
-	return_val_if_fail ( handle, FALSE );
+	MMPLAYER_RETURN_VAL_IF_FAIL ( handle, FALSE );
 
 	pd = MM_PLAYER_GET_PD(handle);
 
-	return_val_if_fail ( pd && pd->downloader_pipeline, FALSE );
+	MMPLAYER_RETURN_VAL_IF_FAIL ( pd && pd->downloader_pipeline, FALSE );
 
 	gst_element_set_state (pd->downloader_pipeline, GST_STATE_NULL);
 	gst_element_get_state (pd->downloader_pipeline, NULL, NULL, GST_CLOCK_TIME_NONE);
@@ -449,7 +449,7 @@ gint _mm_player_set_pd_downloader_message_cb(MMHandleType handle, MMMessageCallb
 
 	mm_player_t * player = NULL;
 
-	return_val_if_fail ( handle, MM_ERROR_INVALID_ARGUMENT );
+	MMPLAYER_RETURN_VAL_IF_FAIL ( handle, MM_ERROR_INVALID_ARGUMENT );
 
 	player = MM_PLAYER_CAST((MMHandleType)handle);
 
@@ -459,7 +459,7 @@ gint _mm_player_set_pd_downloader_message_cb(MMHandleType handle, MMMessageCallb
 	player->pd_msg_cb = callback;
 	player->pd_msg_cb_param = user_param;
 
-	debug_log("msg_cb : %p     msg_cb_param : %p\n", callback, user_param);
+	LOGD("msg_cb : %p     msg_cb_param : %p\n", callback, user_param);
 
 	MMPLAYER_FLEAVE();
 

@@ -23,6 +23,7 @@
 #include <gst/gst.h>
 #include <string.h>
 
+#include <dlog.h>
 #include <mm_types.h>
 #include <mm_message.h>
 
@@ -31,7 +32,6 @@
 #include "mm_player_attrs.h"
 #include "mm_player_utils.h"
 #include "mm_player_ini.h"
-#include "mm_debug.h"
 #include "mm_player_capture.h"
 #include "mm_player_tracks.h"
 #include "mm_player_es.h"
@@ -41,14 +41,14 @@ int mm_player_create(MMHandleType *player)
 	int result = MM_ERROR_NONE;
 	mm_player_t* new_player = NULL;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 
 	/* alloc player structure */
 	new_player = g_malloc(sizeof(mm_player_t));
 	if ( ! new_player )
 	{
-		debug_error("Cannot allocate memory for player\n");
+		LOGE("Cannot allocate memory for player\n");
 		goto ERROR;
 	}
 	memset(new_player, 0, sizeof(mm_player_t));
@@ -67,14 +67,14 @@ int mm_player_create(MMHandleType *player)
 	result = mm_player_ini_load(&new_player->ini);
 	if(result != MM_ERROR_NONE)
 	{
-		debug_error("can't load ini");
+		LOGE("can't load ini");
 		goto ERROR;
 	}
 
 	result = mm_player_audio_effect_ini_load(&new_player->ini);
 	if(result != MM_ERROR_NONE)
 	{
-		debug_error("can't load audio ini");
+		LOGE("can't load audio ini");
 		goto ERROR;
 	}
 
@@ -84,7 +84,7 @@ int mm_player_create(MMHandleType *player)
 
 	if(result != MM_ERROR_NONE)
 	{
-		debug_error("failed to create player");
+		LOGE("failed to create player");
 		goto ERROR;
 	}
 
@@ -111,7 +111,7 @@ int  mm_player_destroy(MMHandleType player)
 {
 	int result = MM_ERROR_NONE;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	MMPLAYER_CMD_LOCK( player );
 
@@ -134,7 +134,7 @@ int mm_player_sound_register(MMHandleType player, int pid)
 {
 	int result = MM_ERROR_NONE;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	MMPLAYER_CMD_LOCK( player );
 
@@ -149,7 +149,7 @@ int mm_player_realize(MMHandleType player)
 {
 	int result = MM_ERROR_NONE;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	MMPLAYER_CMD_LOCK( player );
 
@@ -164,7 +164,7 @@ int mm_player_unrealize(MMHandleType player)
 {
 	int result = MM_ERROR_NONE;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	MMPLAYER_CMD_LOCK( player );
 
@@ -179,7 +179,7 @@ int mm_player_set_message_callback(MMHandleType player, MMMessageCallback callba
 {
 	int result = MM_ERROR_NONE;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	MMPLAYER_CMD_LOCK( player );
 
@@ -194,7 +194,7 @@ int mm_player_set_pd_message_callback(MMHandleType player, MMMessageCallback cal
 {
 	int result = MM_ERROR_NONE;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	result = _mm_player_set_pd_downloader_message_cb(player, callback, user_param);
 
@@ -205,7 +205,7 @@ int mm_player_set_audio_stream_callback(MMHandleType player, mm_player_audio_str
 {
 	int result = MM_ERROR_NONE;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	MMPLAYER_CMD_LOCK( player );
 
@@ -220,7 +220,7 @@ int mm_player_set_audio_stream_callback_ex(MMHandleType player, bool sync, mm_pl
 {
 	int result = MM_ERROR_NONE;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	MMPLAYER_CMD_LOCK( player );
 
@@ -235,7 +235,7 @@ int mm_player_set_video_stream_callback(MMHandleType player, mm_player_video_str
 {
 	int result = MM_ERROR_NONE;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	MMPLAYER_CMD_LOCK( player );
 
@@ -250,7 +250,7 @@ int mm_player_set_video_frame_render_error_callback(MMHandleType player, mm_play
 {
 	int result = MM_ERROR_NONE;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	MMPLAYER_CMD_LOCK( player );
 
@@ -265,7 +265,7 @@ int mm_player_do_video_capture(MMHandleType player)
 {
 	int result = MM_ERROR_NONE;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	MMPLAYER_CMD_LOCK( player );
 
@@ -280,7 +280,7 @@ int mm_player_set_prepare_buffering_time(MMHandleType player, int second)
 {
 	int result = MM_ERROR_NONE;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	MMPLAYER_CMD_LOCK( player );
 
@@ -295,7 +295,7 @@ int mm_player_set_runtime_buffering_mode(MMHandleType player, MMPlayerBufferingM
 {
 	int result = MM_ERROR_NONE;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	MMPLAYER_CMD_LOCK( player );
 
@@ -310,8 +310,8 @@ int mm_player_set_volume(MMHandleType player, MMPlayerVolumeType *volume)
 {
 	int result = MM_ERROR_NONE;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
-	return_val_if_fail(volume, MM_ERROR_INVALID_ARGUMENT);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(volume, MM_ERROR_INVALID_ARGUMENT);
 
 	MMPLAYER_CMD_LOCK( player );
 
@@ -326,8 +326,8 @@ int mm_player_get_volume(MMHandleType player, MMPlayerVolumeType *volume)
 {
 	int result = MM_ERROR_NONE;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
-	return_val_if_fail(volume, MM_ERROR_INVALID_ARGUMENT);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(volume, MM_ERROR_INVALID_ARGUMENT);
 
 	MMPLAYER_CMD_LOCK( player );
 
@@ -342,7 +342,7 @@ int mm_player_set_mute(MMHandleType player, int mute)
 {
 	int result = MM_ERROR_NONE;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	MMPLAYER_CMD_LOCK( player );
 
@@ -357,8 +357,8 @@ int mm_player_get_mute(MMHandleType player, int *mute)
 {
 	int result = MM_ERROR_NONE;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
-	return_val_if_fail(mute, MM_ERROR_INVALID_ARGUMENT);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(mute, MM_ERROR_INVALID_ARGUMENT);
 
 	MMPLAYER_CMD_LOCK( player );
 
@@ -373,8 +373,8 @@ int mm_player_get_state(MMHandleType player, MMPlayerStateType *state)
 {
 	int result = MM_ERROR_NONE;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
-	return_val_if_fail(state, MM_ERROR_COMMON_INVALID_ARGUMENT);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(state, MM_ERROR_COMMON_INVALID_ARGUMENT);
 
 	*state = MM_PLAYER_STATE_NULL;
 
@@ -388,7 +388,7 @@ int mm_player_change_videosink(MMHandleType player, MMDisplaySurfaceType display
 {
 	int result = MM_ERROR_NONE;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	MMPLAYER_CMD_LOCK( player );
 
@@ -403,7 +403,7 @@ int mm_player_push_buffer(MMHandleType player, unsigned char *buf, int size)
 {
 	int result = MM_ERROR_NONE;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	//MMPLAYER_CMD_LOCK( player );
 
@@ -418,7 +418,7 @@ int mm_player_start(MMHandleType player)
 {
 	int result = MM_ERROR_NONE;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	MMPLAYER_CMD_LOCK( player );
 
@@ -433,7 +433,7 @@ int  mm_player_stop(MMHandleType player)
 {
 	int result = MM_ERROR_NONE;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	MMPLAYER_CMD_LOCK( player );
 
@@ -448,7 +448,7 @@ int mm_player_pause(MMHandleType player)
 {
 	int result = MM_ERROR_NONE;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	MMPLAYER_CMD_LOCK( player );
 
@@ -463,7 +463,7 @@ int mm_player_resume(MMHandleType player)
 {
 	int result = MM_ERROR_NONE;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	MMPLAYER_CMD_LOCK( player );
 
@@ -478,7 +478,7 @@ int mm_player_activate_section_repeat(MMHandleType player, int start_pos, int en
 {
 	int result = MM_ERROR_NONE;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	MMPLAYER_CMD_LOCK( player );
 
@@ -493,7 +493,7 @@ int mm_player_deactivate_section_repeat(MMHandleType player)
 {
 	int result = MM_ERROR_NONE;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	MMPLAYER_CMD_LOCK( player );
 
@@ -508,7 +508,7 @@ int mm_player_gst_set_audio_channel(MMHandleType player, MMPlayerAudioChannel ch
 {
 	int result = MM_ERROR_NONE;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 	MMPLAYER_CMD_LOCK( player );
 
 	result = _mmplayer_gst_set_audio_channel(player, ch);
@@ -521,7 +521,7 @@ int mm_player_set_play_speed(MMHandleType player, float rate)
 {
 	int result = MM_ERROR_NONE;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	MMPLAYER_CMD_LOCK( player );
 
@@ -536,11 +536,11 @@ int mm_player_set_position(MMHandleType player, MMPlayerPosFormatType format, in
 {
 	int result = MM_ERROR_NONE;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	if (format >= MM_PLAYER_POS_FORMAT_NUM)
 	{
-		debug_error("wrong format\n");
+		LOGE("wrong format\n");
 		return MM_ERROR_COMMON_INVALID_ARGUMENT;
 	}
 
@@ -557,12 +557,12 @@ int mm_player_get_position(MMHandleType player, MMPlayerPosFormatType format, un
 {
 	int result = MM_ERROR_NONE;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
-	return_val_if_fail(pos, MM_ERROR_COMMON_INVALID_ARGUMENT);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(pos, MM_ERROR_COMMON_INVALID_ARGUMENT);
 
 	if (format >= MM_PLAYER_POS_FORMAT_NUM)
 	{
-		debug_error("wrong format\n");
+		LOGE("wrong format\n");
 		return MM_ERROR_COMMON_INVALID_ARGUMENT;
 	}
 
@@ -579,8 +579,8 @@ int mm_player_get_buffer_position(MMHandleType player, MMPlayerPosFormatType for
 {
 	int result = MM_ERROR_NONE;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
-	return_val_if_fail(start_pos && stop_pos, MM_ERROR_COMMON_INVALID_ARGUMENT);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(start_pos && stop_pos, MM_ERROR_COMMON_INVALID_ARGUMENT);
 
 	MMPLAYER_CMD_LOCK( player );
 
@@ -595,7 +595,7 @@ int mm_player_set_external_subtitle_path(MMHandleType player, const char* path)
 {
 	int result = MM_ERROR_NONE;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	MMPLAYER_CMD_LOCK( player );
 
@@ -609,11 +609,11 @@ int mm_player_adjust_subtitle_position(MMHandleType player, MMPlayerPosFormatTyp
 {
 	int result = MM_ERROR_NONE;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	if (format >= MM_PLAYER_POS_FORMAT_NUM)
 	{
-		debug_error("wrong format(%d) \n", format);
+		LOGE("wrong format(%d) \n", format);
 		return MM_ERROR_INVALID_ARGUMENT;
 	}
 
@@ -629,7 +629,7 @@ int mm_player_adjust_subtitle_position(MMHandleType player, MMPlayerPosFormatTyp
 int mm_player_adjust_video_position(MMHandleType player, int offset)
 {
 	int result = MM_ERROR_NONE;
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 	MMPLAYER_CMD_LOCK( player );
 
 	result = _mmplayer_adjust_video_postion(player, offset);
@@ -643,7 +643,7 @@ int mm_player_set_subtitle_silent(MMHandleType player, int silent)
 {
 	int result = MM_ERROR_NONE;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	MMPLAYER_CMD_LOCK( player );
 
@@ -658,7 +658,7 @@ int mm_player_get_subtitle_silent(MMHandleType player, int* silent)
 {
 	int result = MM_ERROR_NONE;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	MMPLAYER_CMD_LOCK( player );
 
@@ -674,8 +674,8 @@ int mm_player_set_attribute(MMHandleType player,  char **err_attr_name, const ch
 	int result = MM_ERROR_NONE;
 	va_list var_args;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
-	return_val_if_fail(first_attribute_name, MM_ERROR_COMMON_INVALID_ARGUMENT);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(first_attribute_name, MM_ERROR_COMMON_INVALID_ARGUMENT);
 
 	va_start (var_args, first_attribute_name);
 	result = _mmplayer_set_attribute(player, err_attr_name, first_attribute_name, var_args);
@@ -689,8 +689,8 @@ int mm_player_get_attribute(MMHandleType player,  char **err_attr_name, const ch
 	int result = MM_ERROR_NONE;
 	va_list var_args;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
-	return_val_if_fail(first_attribute_name, MM_ERROR_COMMON_INVALID_ARGUMENT);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(first_attribute_name, MM_ERROR_COMMON_INVALID_ARGUMENT);
 
 	va_start (var_args, first_attribute_name);
 	result = _mmplayer_get_attribute(player, err_attr_name, first_attribute_name, var_args);
@@ -704,9 +704,9 @@ int mm_player_get_attribute_info(MMHandleType player,  const char *attribute_nam
 	int result = MM_ERROR_NONE;
 
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
-	return_val_if_fail(attribute_name, MM_ERROR_COMMON_INVALID_ARGUMENT);
-	return_val_if_fail(info, MM_ERROR_COMMON_INVALID_ARGUMENT);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(attribute_name, MM_ERROR_COMMON_INVALID_ARGUMENT);
+	MMPLAYER_RETURN_VAL_IF_FAIL(info, MM_ERROR_COMMON_INVALID_ARGUMENT);
 
 	result = _mmplayer_get_attributes_info((MMHandleType)player, attribute_name, info);
 
@@ -717,9 +717,9 @@ int mm_player_get_pd_status(MMHandleType player, guint64 *current_pos, guint64 *
 {
 	int result = MM_ERROR_NONE;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
-	return_val_if_fail(current_pos, MM_ERROR_COMMON_INVALID_ARGUMENT);
-	return_val_if_fail(total_size, MM_ERROR_COMMON_INVALID_ARGUMENT);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(current_pos, MM_ERROR_COMMON_INVALID_ARGUMENT);
+	MMPLAYER_RETURN_VAL_IF_FAIL(total_size, MM_ERROR_COMMON_INVALID_ARGUMENT);
 
 	result = _mmplayer_get_pd_downloader_status(player, current_pos, total_size);
 
@@ -730,8 +730,8 @@ int mm_player_get_track_count(MMHandleType player, MMPlayerTrackType type, int *
 {
 	int result = MM_ERROR_NONE;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
-	return_val_if_fail(count, MM_ERROR_COMMON_INVALID_ARGUMENT);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(count, MM_ERROR_COMMON_INVALID_ARGUMENT);
 
 	MMPLAYER_CMD_LOCK( player );
 
@@ -746,7 +746,7 @@ int mm_player_select_track(MMHandleType player, MMPlayerTrackType type, int inde
 {
 	int result = MM_ERROR_NONE;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	MMPLAYER_CMD_LOCK( player );
 
@@ -761,7 +761,7 @@ int mm_player_track_add_subtitle_language(MMHandleType player, int index)
 {
 	int result = MM_ERROR_NONE;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	MMPLAYER_CMD_LOCK( player );
 
@@ -776,7 +776,7 @@ int mm_player_track_remove_subtitle_language(MMHandleType player, int index)
 {
 	int result = MM_ERROR_NONE;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	MMPLAYER_CMD_LOCK( player );
 
@@ -792,8 +792,8 @@ int mm_player_get_current_track(MMHandleType player, MMPlayerTrackType type, int
 {
 	int result = MM_ERROR_NONE;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
-	return_val_if_fail(index, MM_ERROR_COMMON_INVALID_ARGUMENT);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(index, MM_ERROR_COMMON_INVALID_ARGUMENT);
 
 	MMPLAYER_CMD_LOCK( player );
 
@@ -808,7 +808,7 @@ int mm_player_get_track_language_code(MMHandleType player,  MMPlayerTrackType ty
 {
 	int result = MM_ERROR_NONE;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	MMPLAYER_CMD_LOCK( player );
 
@@ -823,7 +823,7 @@ int mm_player_set_display_zoom(MMHandleType player, float level, int x, int y)
 {
 	int result = MM_ERROR_NONE;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	MMPLAYER_CMD_LOCK( player );
 
@@ -838,8 +838,8 @@ int mm_player_get_display_zoom(MMHandleType player, float *level, int *x, int *y
 {
 	int result = MM_ERROR_NONE;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
-	return_val_if_fail(level, MM_ERROR_COMMON_INVALID_ARGUMENT);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(level, MM_ERROR_COMMON_INVALID_ARGUMENT);
 
 	MMPLAYER_CMD_LOCK( player );
 
@@ -859,7 +859,7 @@ int mm_player_set_video_share_master_clock(MMHandleType player,
 {
 	int result = MM_ERROR_NONE;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	MMPLAYER_CMD_LOCK( player );
 
@@ -877,10 +877,10 @@ int mm_player_get_video_share_master_clock(MMHandleType player,
 {
 	int result = MM_ERROR_NONE;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
-	return_val_if_fail(video_time, MM_ERROR_COMMON_INVALID_ARGUMENT);
-	return_val_if_fail(media_clock, MM_ERROR_COMMON_INVALID_ARGUMENT);
-	return_val_if_fail(audio_time, MM_ERROR_COMMON_INVALID_ARGUMENT);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(video_time, MM_ERROR_COMMON_INVALID_ARGUMENT);
+	MMPLAYER_RETURN_VAL_IF_FAIL(media_clock, MM_ERROR_COMMON_INVALID_ARGUMENT);
+	MMPLAYER_RETURN_VAL_IF_FAIL(audio_time, MM_ERROR_COMMON_INVALID_ARGUMENT);
 
 	MMPLAYER_CMD_LOCK( player );
 
@@ -895,8 +895,8 @@ int mm_player_get_video_rotate_angle(MMHandleType player, int *angle)
 {
 	int result = MM_ERROR_NONE;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
-	return_val_if_fail(angle, MM_ERROR_COMMON_INVALID_ARGUMENT);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(angle, MM_ERROR_COMMON_INVALID_ARGUMENT);
 
 	MMPLAYER_CMD_LOCK( player );
 
@@ -911,7 +911,7 @@ int mm_player_set_video_hub_download_mode(MMHandleType player, bool mode)
 {
 	int result = MM_ERROR_NONE;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	MMPLAYER_CMD_LOCK( player );
 
@@ -926,7 +926,7 @@ int mm_player_enable_sync_handler(MMHandleType player, bool enable)
 {
 	int result = MM_ERROR_NONE;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	MMPLAYER_CMD_LOCK( player );
 
@@ -941,7 +941,7 @@ int mm_player_set_uri(MMHandleType player, const char *uri)
 {
 	int result = MM_ERROR_NONE;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	MMPLAYER_CMD_LOCK( player );
 
@@ -957,7 +957,7 @@ int mm_player_set_next_uri(MMHandleType player, const char *uri)
 {
 	int result = MM_ERROR_NONE;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	MMPLAYER_CMD_LOCK( player );
 
@@ -973,7 +973,7 @@ int mm_player_get_next_uri(MMHandleType player, char **uri)
 {
 	int result = MM_ERROR_NONE;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	MMPLAYER_CMD_LOCK( player );
 
@@ -989,7 +989,7 @@ int mm_player_track_foreach_selected_subtitle_language(MMHandleType player, mm_p
 {
 	int result = MM_ERROR_NONE;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	MMPLAYER_CMD_LOCK( player );
 
@@ -1005,8 +1005,8 @@ int mm_player_has_closed_caption(MMHandleType player, bool *exist)
 {
 	int result = MM_ERROR_NONE;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
-	return_val_if_fail(exist, MM_ERROR_INVALID_ARGUMENT);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(exist, MM_ERROR_INVALID_ARGUMENT);
 
 	MMPLAYER_CMD_LOCK( player );
 
@@ -1021,8 +1021,8 @@ int mm_player_enable_media_packet_video_stream(MMHandleType player, bool enable)
 {
 	int result = MM_ERROR_NONE;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
-	return_val_if_fail(enable, MM_ERROR_INVALID_ARGUMENT);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(enable, MM_ERROR_INVALID_ARGUMENT);
 
 	MMPLAYER_CMD_LOCK( player );
 
@@ -1051,7 +1051,7 @@ int mm_player_submit_packet(MMHandleType player, media_packet_h packet)
 
 	int result = MM_ERROR_NONE;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	/* no lock here, otherwise callback for the "need-data" signal of appsrc will be blocking */
 	//MMPLAYER_CMD_LOCK( player );
@@ -1067,9 +1067,9 @@ int mm_player_set_video_info (MMHandleType player, media_format_h format)
 {
 	int result = MM_ERROR_NONE;
 
-	debug_log("\n");
+	LOGD("\n");
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	MMPLAYER_CMD_LOCK( player );
 
@@ -1085,9 +1085,9 @@ int mm_player_set_audio_info (MMHandleType player, media_format_h format)
 {
 	int result = MM_ERROR_NONE;
 
-	debug_log("\n");
+	LOGD("\n");
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	MMPLAYER_CMD_LOCK( player );
 
@@ -1102,9 +1102,9 @@ int mm_player_set_subtitle_info (MMHandleType player, MMPlayerSubtitleStreamInfo
 {
 	int result = MM_ERROR_NONE;
 
-	debug_log("\n");
+	LOGD("\n");
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	MMPLAYER_CMD_LOCK( player );
 
@@ -1119,9 +1119,9 @@ int mm_player_set_media_stream_buffer_max_size(MMHandleType player, MMPlayerStre
 {
 	int result = MM_ERROR_NONE;
 
-	debug_log("\n");
+	LOGD("\n");
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	MMPLAYER_CMD_LOCK( player );
 
@@ -1137,10 +1137,10 @@ int mm_player_get_media_stream_buffer_max_size(MMHandleType player, MMPlayerStre
 	int result = MM_ERROR_NONE;
 	guint64 _max_size = 0;
 
-	debug_log("\n");
+	LOGD("\n");
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
-	return_val_if_fail(max_size, MM_ERROR_INVALID_ARGUMENT);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(max_size, MM_ERROR_INVALID_ARGUMENT);
 
 	MMPLAYER_CMD_LOCK( player );
 
@@ -1156,9 +1156,9 @@ int mm_player_set_media_stream_buffer_min_percent(MMHandleType player, MMPlayerS
 {
 	int result = MM_ERROR_NONE;
 
-	debug_log("\n");
+	LOGD("\n");
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	MMPLAYER_CMD_LOCK( player );
 
@@ -1173,10 +1173,10 @@ int mm_player_get_media_stream_buffer_min_percent(MMHandleType player, MMPlayerS
 {
 	int result = MM_ERROR_NONE;
 
-	debug_log("\n");
+	LOGD("\n");
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
-	return_val_if_fail(min_percent, MM_ERROR_INVALID_ARGUMENT);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(min_percent, MM_ERROR_INVALID_ARGUMENT);
 
 	MMPLAYER_CMD_LOCK( player );
 
@@ -1191,9 +1191,9 @@ int mm_player_set_media_stream_buffer_status_callback(MMHandleType player, MMPla
 {
 	int result = MM_ERROR_NONE;
 
-	debug_log("\n");
+	LOGD("\n");
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	MMPLAYER_CMD_LOCK( player );
 
@@ -1208,9 +1208,9 @@ int mm_player_set_media_stream_seek_data_callback(MMHandleType player, MMPlayerS
 {
 	int result = MM_ERROR_NONE;
 
-	debug_log("\n");
+	LOGD("\n");
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	MMPLAYER_CMD_LOCK( player );
 
@@ -1225,7 +1225,7 @@ int mm_player_set_audio_stream_changed_callback(MMHandleType player, mm_player_s
 {
 	int result = MM_ERROR_NONE;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	MMPLAYER_CMD_LOCK( player );
 
@@ -1240,7 +1240,7 @@ int mm_player_set_video_stream_changed_callback(MMHandleType player, mm_player_s
 {
 	int result = MM_ERROR_NONE;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	MMPLAYER_CMD_LOCK( player );
 
@@ -1255,7 +1255,7 @@ int mm_player_set_pcm_spec(MMHandleType player, int samplerate, int channel)
 {
 	int result = MM_ERROR_NONE;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	MMPLAYER_CMD_LOCK( player );
 
@@ -1270,8 +1270,8 @@ int mm_player_set_shm_stream_path(MMHandleType player, const char *path)
 {
 	int result = MM_ERROR_NONE;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
-	return_val_if_fail(path, MM_ERROR_INVALID_ARGUMENT);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(path, MM_ERROR_INVALID_ARGUMENT);
 
 	MMPLAYER_CMD_LOCK( player );
 
@@ -1287,8 +1287,8 @@ int mm_player_get_raw_video_caps(MMHandleType player, char **caps)
 {
 	int result = MM_ERROR_NONE;
 
-	return_val_if_fail(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
-	return_val_if_fail(caps, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(caps, MM_ERROR_INVALID_ARGUMENT);
 
 	MMPLAYER_CMD_LOCK( player );
 

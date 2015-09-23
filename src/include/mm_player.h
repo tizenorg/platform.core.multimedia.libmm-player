@@ -1021,7 +1021,7 @@ char *g_err_attr_name = NULL;
 
 if (mm_player_create(&g_player) != MM_ERROR_NONE)
 {
-	debug_error("failed to create player\n");
+	LOGE("failed to create player\n");
 }
 
 if (mm_player_set_attribute(g_player,
@@ -1030,7 +1030,7 @@ if (mm_player_set_attribute(g_player,
 						"display_overlay", (void*)&g_win.xid, sizeof(g_win.xid),
 						NULL) != MM_ERROR_NONE)
 {
-	debug_error("failed to set %s attribute\n", g_err_attr_name);
+	LOGE("failed to set %s attribute\n", g_err_attr_name);
 	free(g_err_attr_name);
 }
 
@@ -1057,7 +1057,7 @@ int mm_player_create(MMHandleType *player);
  * @code
 if (mm_player_destroy(g_player) != MM_ERROR_NONE)
 {
-	debug_error("failed to destroy player\n");
+	LOGE("failed to destroy player\n");
 }
  * @endcode
  */
@@ -1092,7 +1092,7 @@ int mm_player_sound_register(MMHandleType player, int pid);
  * @code
 if (mm_player_realize(g_player) != MM_ERROR_NONE)
 {
-	debug_error("failed to realize player\n");
+	LOGE("failed to realize player\n");
 }
  * @endcode
  */
@@ -1116,7 +1116,7 @@ int mm_player_realize(MMHandleType player) ;
  * @code
 if (mm_player_unrealize(g_player) != MM_ERROR_NONE)
 {
-	debug_error("failed to unrealize player\n");
+	LOGE("failed to unrealize player\n");
 }
  * @endcode
  */
@@ -1137,7 +1137,7 @@ int mm_player_unrealize(MMHandleType player);
  * @code
 if (mm_player_get_state(g_player, &state) != MM_ERROR_NONE)
 {
-	debug_error("failed to get state\n");
+	LOGE("failed to get state\n");
 }
  * @endcode
  */
@@ -1164,7 +1164,7 @@ for (i = 0; i < MM_VOLUME_CHANNEL_NUM; i++)
 
 if (mm_player_set_volume(g_player, &volume) != MM_ERROR_NONE)
 {
-    debug_error("failed to set volume\n");
+    LOGE("failed to set volume\n");
 }
  * @endcode
  */
@@ -1187,11 +1187,11 @@ int i;
 
 if (mm_player_get_volume(g_player, &volume) != MM_ERROR_NONE)
 {
-        debug_warning("failed to get volume\n");
+        LOGW("failed to get volume\n");
 }
 
 for (i = 0; i < MM_VOLUME_CHANNEL_NUM; i++)
-	debug_log("channel[%d] = %d \n", i, volume.level[i]);
+	LOGD("channel[%d] = %d \n", i, volume.level[i]);
  * @endcode
  */
 int mm_player_get_volume(MMHandleType player, MMPlayerVolumeType *volume);
@@ -1214,7 +1214,7 @@ int mm_player_get_volume(MMHandleType player, MMPlayerVolumeType *volume);
  * @code
 if (mm_player_start(g_player) != MM_ERROR_NONE)
 {
-	debug_error("failed to start player\n");
+	LOGE("failed to start player\n");
 }
  * @endcode
  */
@@ -1237,7 +1237,7 @@ int mm_player_start(MMHandleType player);
  * @code
 if (mm_player_stop(g_player) != MM_ERROR_NONE)
 {
-	debug_error("failed to stop player\n");
+	LOGE("failed to stop player\n");
 }
  * @endcode
  */
@@ -1258,7 +1258,7 @@ int mm_player_stop(MMHandleType player);
  * @code
 if (mm_player_pause(g_player) != MM_ERROR_NONE)
 {
-	debug_error("failed to pause player\n");
+	LOGE("failed to pause player\n");
 }
  * @endcode
  */
@@ -1279,7 +1279,7 @@ int mm_player_pause(MMHandleType player);
  * @code
 if (mm_player_resume(g_player) != MM_ERROR_NONE)
 {
-	debug_error("failed to resume player\n");
+	LOGE("failed to resume player\n");
 }
  * @endcode
  */
@@ -1302,7 +1302,7 @@ int position = 1000; //1sec
 
 if (mm_player_set_position(g_player, MM_PLAYER_POS_FORMAT_TIME, position) != MM_ERROR_NONE)
 {
-	debug_error("failed to set position\n");
+	LOGE("failed to set position\n");
 }
  * @endcode
  */
@@ -1327,7 +1327,7 @@ mm_player_get_position(g_player, MM_PLAYER_POS_FORMAT_TIME, &position);
 
 mm_player_get_attribute(g_player, &g_err_name, "content_duration", &duration, NULL);
 
-debug_log("pos: [%d/%d] msec\n", position, duration);
+LOGD("pos: [%d/%d] msec\n", position, duration);
  * @endcode
  */
 int mm_player_get_position(MMHandleType player, MMPlayerPosFormatType format, unsigned long *pos);
@@ -1349,7 +1349,7 @@ int start_pos = 0, stop_pos = 0;
 
 mm_player_get_buffer_position(g_player, MM_PLAYER_POS_FORMAT_PERCENT, &start_pos, &stop_pos );
 
-debug_log("buffer position: [%d] ~ [%d] \%\n", start_pos, stop_pos );
+LOGD("buffer position: [%d] ~ [%d] \%\n", start_pos, stop_pos );
  * @endcode
  */
 int mm_player_get_buffer_position(MMHandleType player, MMPlayerPosFormatType format, unsigned long *start_pos, unsigned long *stop_pos);
@@ -1390,7 +1390,7 @@ int mm_player_activate_section_repeat(MMHandleType player, int start_pos, int en
  * @code
 if ( mm_player_deactivate_section_repeat(g_player) != MM_ERROR_NONE)
 {
-	debug_warning("failed to deactivate section repeat\n");
+	LOGW("failed to deactivate section repeat\n");
 }
  * @endcode
  */
@@ -1459,7 +1459,7 @@ int mm_player_set_message_callback(MMHandleType player, MMMessageCallback callba
  * @code
 bool audio_callback(void *stream, int stream_size, void *user_param)
 {
-	debug_log("audio stream callback\n");
+	LOGD("audio stream callback\n");
 	return TRUE;
 }
 mm_player_set_audio_stream_callback(g_player, audio_callback, NULL);
@@ -1480,7 +1480,7 @@ mm_player_set_audio_stream_callback(g_player, audio_callback, NULL);
  * @code
 if (mm_player_set_mute(g_player, TRUE) != MM_ERROR_NONE)
 {
-	debug_warning("failed to set mute\n");
+	LOGW("failed to set mute\n");
 }
  * @endcode
  */
@@ -1501,10 +1501,10 @@ int mute;
 
 if (mm_player_get_mute(g_player, &mute) != MM_ERROR_NONE)
 {
-	debug_warning("failed to get mute\n");
+	LOGW("failed to get mute\n");
 }
 
-debug_log("mute status:%d\n", mute);
+LOGD("mute status:%d\n", mute);
  * @endcode
  */
 int mm_player_get_mute(MMHandleType player, int *mute);
@@ -1527,7 +1527,7 @@ int pos;
 pos = 5000;
 if (mm_player_adjust_subtitle_position(g_player, MM_PLAYER_POS_FORMAT_TIME, pos) != MM_ERROR_NONE)
 {
-	debug_warning("failed to adjust subtitle postion.\n");
+	LOGW("failed to adjust subtitle postion.\n");
 }
  * @endcode
  */
@@ -1567,7 +1567,7 @@ mm_player_set_attribute(g_player,
 
 if (mm_player_set_subtitle_silent(g_player, TRUE) != MM_ERROR_NONE)
 {
-	debug_warning("failed to set subtitle silent\n");
+	LOGW("failed to set subtitle silent\n");
 }
  * @endcode
  */
@@ -1589,7 +1589,7 @@ int silent = FALSE;
 
 if (mm_player_get_subtitle_silent(g_player, &silent) != MM_ERROR_NONE)
 {
-	debug_warning("failed to set subtitle silent\n");
+	LOGW("failed to set subtitle silent\n");
 }
  * @endcode
  */
@@ -1620,7 +1620,7 @@ if (mm_player_set_attribute(g_player,
 						"profile_play_count", count,
 						NULL) != MM_ERROR_NONE)
 {
-	debug_warning("failed to set %s attribute\n", g_err_attr_name);
+	LOGW("failed to set %s attribute\n", g_err_attr_name);
 	free(g_err_attr_name);
 }
 
@@ -1648,7 +1648,7 @@ char *g_err_attr_name = NULL;
 
 if (mm_player_get_attribute(g_player, &g_err_attr_name, "content_duration", &duration, NULL) != MM_ERROR_NONE)
 {
-	debug_warning("failed to set %s attribute\n", g_err_attr_name);
+	LOGW("failed to set %s attribute\n", g_err_attr_name);
 	free(g_err_attr_name);
 }
  * @endcode
@@ -1671,17 +1671,17 @@ int mm_player_get_attribute(MMHandleType player,  char **err_attr_name, const ch
  * @code
 if (mm_player_get_attribute_info (g_player, "display_method", &method_info) != MM_ERROR_NONE)
 {
-	debug_warning("failed to get info\n");
+	LOGW("failed to get info\n");
 }
 
-debug_log("type:%d \n", method_info.type); //int, double..
-debug_log("flag:%d \n", method_info.flag); //readable, writable..
-debug_log("validity type:%d \n", method_info.validity_type); //range, array..
+LOGD("type:%d \n", method_info.type); //int, double..
+LOGD("flag:%d \n", method_info.flag); //readable, writable..
+LOGD("validity type:%d \n", method_info.validity_type); //range, array..
 
 if (method_info. validity_type == MM_PLAYER_ATTRS_VALID_TYPE_INT_RANGE)
 {
-	debug_log("range min:%d\n", method_info.int_range.min);
-	debug_log("range max:%d\n", method_info.int_range.max);
+	LOGD("range min:%d\n", method_info.int_range.min);
+	LOGD("range max:%d\n", method_info.int_range.max);
 }
  * @endcode
  */
@@ -1705,7 +1705,7 @@ guint64 total_size = 0LLU;
 
 if (mm_player_get_pd_status(g_player, &current_pos, &total_size, NULL) != MM_ERROR_NONE)
 {
-	debug_log("current download pos = %llu, total size = %llu\n", current_pos, total_size);
+	LOGD("current download pos = %llu, total size = %llu\n", current_pos, total_size);
 }
  * @endcode
  */
@@ -1728,10 +1728,10 @@ int msg_callback(int message, MMMessageParamType *param, void *user_param)
 	switch (message)
 	{
 		case MM_MESSAGE_PD_DOWNLOADER_START:
-			debug_log("Progressive download is started...\n");
+			LOGD("Progressive download is started...\n");
 			break;
 	 	case MM_MESSAGE_PD_DOWNLOADER_END:
-	 		debug_log("Progressive download is ended...\n");
+	 		LOGD("Progressive download is ended...\n");
 	    	  	break;
 		default:
 			break;
@@ -1762,10 +1762,10 @@ gint audio_count = 0;
 
 if (mm_player_get_track_count (g_player, MM_PLAYER_TRACK_TYPE_AUDIO, &audio_count) != MM_ERROR_NONE)
 {
-	debug_warning("failed to get audio track count\n");
+	LOGW("failed to get audio track count\n");
 }
 
-debug_log("audio track count : %d \n", audio_count);
+LOGD("audio track count : %d \n", audio_count);
  * @endcode
  */
 int mm_player_get_track_count(MMHandleType player,  MMPlayerTrackType type, int *count);
@@ -1874,7 +1874,7 @@ gint second = 10; //10sec
 
 if (mm_player_set_prepare_buffering_time(g_player, second) != MM_ERROR_NONE)
 {
-	debug_error("failed to set buffer size\n");
+	LOGE("failed to set buffer size\n");
 }
  * @endcode
  */
@@ -1895,7 +1895,7 @@ int mm_player_set_prepare_buffering_time(MMHandleType player, int second);
 
 if (mm_player_set_runtime_buffering_mode(g_player, MM_PLAYER_BUFFERING_MODE_ADAPTIVE, 10) != MM_ERROR_NONE)
 {
-	debug_error("failed to set buffering mode\n");
+	LOGE("failed to set buffering mode\n");
 }
  * @endcode
  */

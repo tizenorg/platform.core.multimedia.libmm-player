@@ -23,8 +23,9 @@
 /*===========================================================================================
 |																							|
 |  INCLUDE FILES																			|
-|  																							|
+|																							|
 ========================================================================================== */
+#include <dlog.h>
 #include "mm_player_es.h"
 #include "mm_player_utils.h"
 #include "mm_player_internal.h"
@@ -52,7 +53,7 @@ static int
 _convert_media_format_video_mime_to_str (MMPlayerVideoStreamInfo * video,
     media_format_mimetype_e mime)
 {
-  return_val_if_fail (video, MM_ERROR_INVALID_ARGUMENT);
+  MMPLAYER_RETURN_VAL_IF_FAIL (video, MM_ERROR_INVALID_ARGUMENT);
 
   switch (mime) {
     case MEDIA_FORMAT_MPEG4_SP:
@@ -76,7 +77,7 @@ static int
 _convert_media_format_audio_mime_to_str (MMPlayerAudioStreamInfo * audio,
     media_format_mimetype_e mime)
 {
-  return_val_if_fail (audio, MM_ERROR_INVALID_ARGUMENT);
+  MMPLAYER_RETURN_VAL_IF_FAIL (audio, MM_ERROR_INVALID_ARGUMENT);
 
   switch (mime) {
     case MEDIA_FORMAT_AAC:
@@ -103,7 +104,7 @@ _parse_media_format (MMPlayerVideoStreamInfo * video,
 
     if (media_format_get_audio_info (format, &mime, &channel, &samplerate, NULL,
             &avg_bps) != MEDIA_FORMAT_ERROR_NONE) {
-      debug_error ("media_format_get_audio_info failed");
+      LOGE ("media_format_get_audio_info failed");
 	  return MM_ERROR_PLAYER_INTERNAL;
     }
 
@@ -121,7 +122,7 @@ _parse_media_format (MMPlayerVideoStreamInfo * video,
 
     if (media_format_get_video_info (format, &mime, &width, &height, &avg_bps,
             NULL) != MEDIA_FORMAT_ERROR_NONE) {
-      debug_error ("media_format_get_video_info failed");
+      LOGE ("media_format_get_video_info failed");
 	  return MM_ERROR_PLAYER_INTERNAL;
     }
 
@@ -145,26 +146,26 @@ _mmplayer_update_video_info(MMHandleType hplayer, media_format_h fmt)
 
   MMPLAYER_FENTER ();
 
-  return_val_if_fail (player, FALSE);
-  return_val_if_fail (fmt, FALSE);
+  MMPLAYER_RETURN_VAL_IF_FAIL (player, FALSE);
+  MMPLAYER_RETURN_VAL_IF_FAIL (fmt, FALSE);
 
   if (player->v_stream_caps)
   {
     str = gst_caps_get_structure (player->v_stream_caps, 0);
     if ( !gst_structure_get_int (str, "width", &cur_width))
     {
-      debug_log ("missing 'width' field in video caps");
+      LOGD ("missing 'width' field in video caps");
     }
 
     if ( !gst_structure_get_int (str, "height", &cur_height))
     {
-      debug_log ("missing 'height' field in video caps");
+      LOGD ("missing 'height' field in video caps");
     }
 
     media_format_get_video_info(fmt, &mimetype, &width, &height, NULL, NULL);
     if ((cur_width != width) || (cur_height != height))
     {
-      debug_warning ("resolution is changed %dx%d -> %dx%d",
+      LOGW ("resolution is changed %dx%d -> %dx%d",
                           cur_width, cur_height, width, height);
       _mmplayer_set_video_info(hplayer, fmt);
       ret = TRUE;
@@ -186,7 +187,7 @@ _mmplayer_set_media_stream_buffer_status_cb(MMHandleType hplayer,
 
 	MMPLAYER_FENTER ();
 
-	return_val_if_fail (player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL (player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	if ((type < MM_PLAYER_STREAM_TYPE_DEFAULT) || (type > MM_PLAYER_STREAM_TYPE_TEXT))
 		return MM_ERROR_INVALID_ARGUMENT;
@@ -195,18 +196,18 @@ _mmplayer_set_media_stream_buffer_status_cb(MMHandleType hplayer,
 	{
 		if (!callback)
 		{
-			debug_log ("[type:%d] will be clear.\n", type);
+			LOGD ("[type:%d] will be clear.\n", type);
 		}
 		else
 		{
-			debug_log ("[type:%d] will be overwritten.\n", type);
+			LOGD ("[type:%d] will be overwritten.\n", type);
 		}
 	}
 
 	player->media_stream_buffer_status_cb[type] = callback;
 	player->buffer_cb_user_param = user_param;
 
-	debug_log ("player handle %p, type %d, callback %p\n", player, type,
+	LOGD ("player handle %p, type %d, callback %p\n", player, type,
 		player->media_stream_buffer_status_cb[type]);
 
 	MMPLAYER_FLEAVE ();
@@ -224,7 +225,7 @@ _mmplayer_set_media_stream_seek_data_cb(MMHandleType hplayer,
 
 	MMPLAYER_FENTER ();
 
-	return_val_if_fail (player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL (player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	if ((type < MM_PLAYER_STREAM_TYPE_DEFAULT) || (type > MM_PLAYER_STREAM_TYPE_TEXT))
 		return MM_ERROR_INVALID_ARGUMENT;
@@ -233,18 +234,18 @@ _mmplayer_set_media_stream_seek_data_cb(MMHandleType hplayer,
 	{
 		if (!callback)
 		{
-			debug_log ("[type:%d] will be clear.\n", type);
+			LOGD ("[type:%d] will be clear.\n", type);
 		}
 		else
 		{
-			debug_log ("[type:%d] will be overwritten.\n", type);
+			LOGD ("[type:%d] will be overwritten.\n", type);
 		}
 	}
 
 	player->media_stream_seek_data_cb[type] = callback;
 	player->buffer_cb_user_param = user_param;
 
-	debug_log ("player handle %p, type %d, callback %p\n", player, type,
+	LOGD ("player handle %p, type %d, callback %p\n", player, type,
 		player->media_stream_seek_data_cb[type]);
 
 	MMPLAYER_FLEAVE ();
@@ -259,14 +260,14 @@ _mmplayer_set_media_stream_max_size(MMHandleType hplayer, MMPlayerStreamType typ
 
 	MMPLAYER_FENTER ();
 
-	return_val_if_fail (player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL (player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	if ((type < MM_PLAYER_STREAM_TYPE_DEFAULT) || (type > MM_PLAYER_STREAM_TYPE_TEXT))
 		return MM_ERROR_INVALID_ARGUMENT;
 
 	player->media_stream_buffer_max_size[type] = max_size;
 
-	debug_log ("type %d, max_size %llu\n",
+	LOGD ("type %d, max_size %llu\n",
 					type, player->media_stream_buffer_max_size[type]);
 
 	MMPLAYER_FLEAVE ();
@@ -281,8 +282,8 @@ _mmplayer_get_media_stream_max_size(MMHandleType hplayer, MMPlayerStreamType typ
 
 	MMPLAYER_FENTER ();
 
-	return_val_if_fail (player, MM_ERROR_PLAYER_NOT_INITIALIZED);
-	return_val_if_fail (max_size, MM_ERROR_INVALID_ARGUMENT);
+	MMPLAYER_RETURN_VAL_IF_FAIL (player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL (max_size, MM_ERROR_INVALID_ARGUMENT);
 
 	if ((type < MM_PLAYER_STREAM_TYPE_DEFAULT) || (type > MM_PLAYER_STREAM_TYPE_TEXT))
 		return MM_ERROR_INVALID_ARGUMENT;
@@ -301,14 +302,14 @@ _mmplayer_set_media_stream_min_percent(MMHandleType hplayer, MMPlayerStreamType 
 
 	MMPLAYER_FENTER ();
 
-	return_val_if_fail (player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL (player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	if ((type < MM_PLAYER_STREAM_TYPE_DEFAULT) || (type > MM_PLAYER_STREAM_TYPE_TEXT))
 		return MM_ERROR_INVALID_ARGUMENT;
 
 	player->media_stream_buffer_min_percent[type] = min_percent;
 
-	debug_log ("type %d, min_per %u\n",
+	LOGD ("type %d, min_per %u\n",
 					type, player->media_stream_buffer_min_percent[type]);
 
 	MMPLAYER_FLEAVE ();
@@ -323,8 +324,8 @@ _mmplayer_get_media_stream_min_percent(MMHandleType hplayer, MMPlayerStreamType 
 
 	MMPLAYER_FENTER ();
 
-	return_val_if_fail (player, MM_ERROR_PLAYER_NOT_INITIALIZED);
-	return_val_if_fail (min_percent, MM_ERROR_INVALID_ARGUMENT);
+	MMPLAYER_RETURN_VAL_IF_FAIL (player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL (min_percent, MM_ERROR_INVALID_ARGUMENT);
 
 	if ((type < MM_PLAYER_STREAM_TYPE_DEFAULT) || (type > MM_PLAYER_STREAM_TYPE_TEXT))
 		return MM_ERROR_INVALID_ARGUMENT;
@@ -347,8 +348,8 @@ _mmplayer_submit_packet (MMHandleType hplayer, media_packet_h packet)
   media_format_h fmt = NULL;
   bool flag = FALSE;
 
-  return_val_if_fail (packet, MM_ERROR_INVALID_ARGUMENT);
-  return_val_if_fail ( player &&
+  MMPLAYER_RETURN_VAL_IF_FAIL (packet, MM_ERROR_INVALID_ARGUMENT);
+  MMPLAYER_RETURN_VAL_IF_FAIL ( player &&
     player->pipeline &&
     player->pipeline->mainbin &&
     player->pipeline->mainbin[MMPLAYER_M_SRC].gst,
@@ -380,7 +381,7 @@ _mmplayer_submit_packet (MMHandleType hplayer, media_packet_h packet)
 
     _buffer = gst_buffer_new_and_alloc (size);
     if (!_buffer) {
-        debug_error("failed to allocate memory for push buffer\n");
+        LOGE("failed to allocate memory for push buffer\n");
         return MM_ERROR_PLAYER_NO_FREE_SPACE;
     }
 
@@ -401,7 +402,7 @@ _mmplayer_submit_packet (MMHandleType hplayer, media_packet_h packet)
       if (GST_CAPS_IS_SIMPLE (player->a_stream_caps))
         GST_BUFFER_CAPS (_buffer) = gst_caps_copy (player->a_stream_caps);
       else
-        debug_error ("External Demuxer case: Audio Buffer Caps not set.");
+        LOGE ("External Demuxer case: Audio Buffer Caps not set.");
 #endif
       if (player->pipeline->mainbin[MMPLAYER_M_2ND_SRC].gst)
         gst_app_src_push_buffer (GST_APP_SRC (player->pipeline->mainbin[MMPLAYER_M_2ND_SRC].gst), _buffer);
@@ -412,7 +413,7 @@ _mmplayer_submit_packet (MMHandleType hplayer, media_packet_h packet)
       if (GST_CAPS_IS_SIMPLE (player->v_stream_caps))
         GST_BUFFER_CAPS (_buffer) = gst_caps_copy (player->v_stream_caps);
       else
-        debug_error ("External Demuxer case: Video Buffer Caps not set.");
+        LOGE ("External Demuxer case: Video Buffer Caps not set.");
 #endif
       /* get format to check video format */
       media_packet_get_format (packet, &fmt);
@@ -433,15 +434,15 @@ _mmplayer_submit_packet (MMHandleType hplayer, media_packet_h packet)
       if (GST_CAPS_IS_SIMPLE (player->s_stream_caps))
         GST_BUFFER_CAPS (_buffer) = gst_caps_copy (player->s_stream_caps);
       else
-        debug_error ("External Demuxer case: Subtitle Buffer Caps not set.");
+        LOGE ("External Demuxer case: Subtitle Buffer Caps not set.");
 #endif
       gst_app_src_push_buffer (GST_APP_SRC (player->pipeline->mainbin[MMPLAYER_M_SUBSRC].gst), _buffer);
     } else {
-      debug_error ("Not a valid packet from external demux");
+      LOGE ("Not a valid packet from external demux");
       return FALSE;
     }
   } else {
-    debug_log ("Sending EOS on pipeline...");
+    LOGD ("Sending EOS on pipeline...");
     if (streamtype == MM_PLAYER_TRACK_TYPE_AUDIO) {
       if (player->pipeline->mainbin[MMPLAYER_M_2ND_SRC].gst)
         g_signal_emit_by_name (player->pipeline->
@@ -476,10 +477,10 @@ _mmplayer_video_caps_new (MMHandleType hplayer, MMPlayerVideoStreamInfo * video,
   mm_player_t *player = MM_PLAYER_CAST (hplayer);
 
   MMPLAYER_FENTER ();
-  return_val_if_fail (player, MM_ERROR_PLAYER_NOT_INITIALIZED);
-  return_val_if_fail (video, MM_ERROR_PLAYER_NOT_INITIALIZED);
+  MMPLAYER_RETURN_VAL_IF_FAIL (player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+  MMPLAYER_RETURN_VAL_IF_FAIL (video, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
-  debug_log ("width=%d height=%d framerate num=%d, den=%d",
+  LOGD ("width=%d height=%d framerate num=%d, den=%d",
     video->width, video->height, video->framerate_num, video->framerate_den);
 
   caps = gst_caps_new_simple (video->mime,
@@ -512,7 +513,7 @@ _mmplayer_video_caps_new (MMHandleType hplayer, MMPlayerVideoStreamInfo * video,
 
   if (player->v_stream_caps)
   {
-    debug_warning ("caps will be updated ");
+    LOGW ("caps will be updated ");
 
     gst_caps_unref(player->v_stream_caps);
     player->v_stream_caps = NULL;
@@ -536,7 +537,7 @@ _mmplayer_set_video_info (MMHandleType hplayer, media_format_h format)
 
   MMPLAYER_FENTER ();
 
-  return_val_if_fail (player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+  MMPLAYER_RETURN_VAL_IF_FAIL (player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
   ret = _parse_media_format (&video, NULL, format);
   if(ret != MM_ERROR_NONE)
@@ -597,7 +598,7 @@ _mmplayer_set_audio_info (MMHandleType hplayer, media_format_h format)
 
   MMPLAYER_FENTER ();
 
-  return_val_if_fail (hplayer, MM_ERROR_PLAYER_NOT_INITIALIZED);
+  MMPLAYER_RETURN_VAL_IF_FAIL (hplayer, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
   ret = _parse_media_format (NULL, &audio, format);
   if(ret != MM_ERROR_NONE)
@@ -605,7 +606,7 @@ _mmplayer_set_audio_info (MMHandleType hplayer, media_format_h format)
 
   audio.user_info = 0;           //test
 
-  debug_log ("set audio player[%p] info [%p] version=%d rate=%d channel=%d",
+  LOGD ("set audio player[%p] info [%p] version=%d rate=%d channel=%d",
       player, audio, audio.version, audio.sample_rate, audio.channels);
 
   if (strstr (audio.mime, "audio/mpeg")) {
@@ -687,10 +688,10 @@ _mmplayer_set_subtitle_info (MMHandleType hplayer,
 
   MMPLAYER_FENTER ();
 
-  return_val_if_fail (player, MM_ERROR_PLAYER_NOT_INITIALIZED);
-  return_val_if_fail (info, MM_ERROR_PLAYER_NOT_INITIALIZED);
+  MMPLAYER_RETURN_VAL_IF_FAIL (player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+  MMPLAYER_RETURN_VAL_IF_FAIL (info, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
-  debug_log ("set subtitle player[%p] info [%p]", player, info);
+  LOGD ("set subtitle player[%p] info [%p]", player, info);
 
 
   caps = gst_caps_new_simple (info->mime, NULL, NULL);  // TO CHECK

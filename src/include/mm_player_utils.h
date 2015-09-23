@@ -25,6 +25,7 @@
 
 #include <glib.h>
 #include <gst/gst.h>
+#include <dlog.h>
 #include <mm_player_ini.h>
 #include <mm_types.h>
 #include <mm_error.h>
@@ -55,8 +56,8 @@ x = NULL;
 #define MMPLAYER_GET_ATTRS(x_player)		((mm_player_t*)x_player)->attrs
 
 #if 0
-#define MMPLAYER_FENTER();					debug_fenter();
-#define MMPLAYER_FLEAVE();					debug_fleave();
+#define MMPLAYER_FENTER();					LOGD("<ENTER>");
+#define MMPLAYER_FLEAVE();					LOGD("<LEAVE>");
 #else
 #define MMPLAYER_FENTER();
 #define MMPLAYER_FLEAVE();
@@ -80,28 +81,40 @@ x = NULL;
 #define GST_PAD_LINK 				gst_pad_link
 #endif
 
+#define MMPLAYER_RETURN_IF_FAIL(expr) \
+		if(!(expr)) { \
+			LOGW("faild [%s]", #expr); \
+			return; \
+		}
+
+#define MMPLAYER_RETURN_VAL_IF_FAIL(expr, var) \
+		if(!(expr)) { \
+			LOGW("faild [%s]", #expr); \
+			return (var); \
+		}
+
 /* debug caps string */
 #define MMPLAYER_LOG_GST_CAPS_TYPE(x_caps) \
 do \
 { \
 	gchar* caps_type = NULL; \
 	caps_type = gst_caps_to_string(x_caps); \
-	debug_log ("caps: %s\n", caps_type ); \
+	LOGD ("caps: %s\n", caps_type ); \
 	MMPLAYER_FREEIF (caps_type) \
 } while (0)
 
 /* message posting */
 #define MMPLAYER_POST_MSG( x_player, x_msgtype, x_msg_param ) \
-debug_log("posting %s to application\n", #x_msgtype); \
+LOGD("posting %s to application\n", #x_msgtype); \
 __mmplayer_post_message(x_player, x_msgtype, x_msg_param);
 
 /* setting player state */
 #define MMPLAYER_SET_STATE( x_player, x_state ) \
-debug_log("update state machine to %d\n", x_state); \
+LOGD("update state machine to %d\n", x_state); \
 __mmplayer_set_state(x_player, x_state);
 
-#define MMPLAYER_CHECK_STATE_RETURN_IF_FAIL( x_player, x_command ) \
-debug_log("checking player state before doing %s\n", #x_command); \
+#define MMPLAYER_CHECK_STATE( x_player, x_command ) \
+LOGD("checking player state before doing %s\n", #x_command); \
 switch ( __mmplayer_check_state(x_player, x_command) ) \
 { \
 	case MM_ERROR_PLAYER_INVALID_STATE: \
@@ -119,24 +132,24 @@ switch ( __mmplayer_check_state(x_player, x_command) ) \
 
 /* setting element state */
 #define MMPLAYER_ELEMENT_SET_STATE( x_element, x_state ) \
-debug_log("setting state [%s:%d] to [%s]\n", #x_state, x_state, GST_ELEMENT_NAME( x_element ) ); \
+LOGD("setting state [%s:%d] to [%s]\n", #x_state, x_state, GST_ELEMENT_NAME( x_element ) ); \
 if ( GST_STATE_CHANGE_FAILURE == gst_element_set_state ( x_element, x_state) ) \
 { \
-	debug_error("failed to set state %s to %s\n", #x_state, GST_ELEMENT_NAME( x_element )); \
+	LOGE("failed to set state %s to %s\n", #x_state, GST_ELEMENT_NAME( x_element )); \
 	goto STATE_CHANGE_FAILED; \
 }
 
 #define MMPLAYER_CHECK_NULL( x_var ) \
 if ( ! x_var ) \
 { \
-	debug_error("[%s] is NULL\n", #x_var ); \
+	LOGE("[%s] is NULL\n", #x_var ); \
 	goto ERROR; \
 }
 
 #define MMPLAYER_CHECK_CMD_IF_EXIT( x_player ) \
 if ( x_player->cmd == MMPLAYER_COMMAND_UNREALIZE || x_player->cmd == MMPLAYER_COMMAND_DESTROY ) \
 { \
-	debug_log("it's exit state...\n");\
+	LOGD("it's exit state...\n");\
 	goto ERROR;  \
 }
 
@@ -156,7 +169,7 @@ do \
 	item = (MMPlayerSignalItem*) g_malloc( sizeof (MMPlayerSignalItem) ); \
 	if ( ! item ) \
 	{ \
-		debug_error("cannot connect signal [%s]\n", x_signal ); \
+		LOGE("cannot connect signal [%s]\n", x_signal ); \
 	} \
 	else \
 	{ \
@@ -166,7 +179,7 @@ do \
 		if ((x_type >= MM_PLAYER_SIGNAL_TYPE_AUTOPLUG) && (x_type < MM_PLAYER_SIGNAL_TYPE_MAX)) \
 			x_player->signals[x_type] = g_list_append(x_player->signals[x_type], item); \
 		else \
-			debug_error("wrong signal type [%d]\n", x_type ); \
+			LOGE("wrong signal type [%d]\n", x_type ); \
 	} \
 } while ( 0 );
 
@@ -179,7 +192,7 @@ do \
 		gst_element_set_state(x_bin[x_id].gst, GST_STATE_NULL); \
 		gst_bin_remove(GST_BIN(x_player->pipeline->mainbin[MMPLAYER_M_PIPE].gst), x_bin[x_id].gst); \
 		x_bin[x_id].gst = NULL; \
-		debug_log("release done [element %d]", x_id); \
+		LOGD("release done [element %d]", x_id); \
 	} \
 } while ( 0 )
 
@@ -191,7 +204,7 @@ do \
 #define 	MMPLAYER_STATE_GET_NAME(state) __get_state_name(state)
 
 #define 	MMPLAYER_PRINT_STATE(x_player) \
-debug_log("-- prev %s, current %s, pending %s, target %s --\n", \
+LOGD("-- prev %s, current %s, pending %s, target %s --\n", \
 	MMPLAYER_STATE_GET_NAME(MMPLAYER_PREV_STATE(x_player)), \
  	MMPLAYER_STATE_GET_NAME(MMPLAYER_CURRENT_STATE(x_player)), \
 	MMPLAYER_STATE_GET_NAME(MMPLAYER_PENDING_STATE(x_player)), \
@@ -222,7 +235,7 @@ debug_log("-- prev %s, current %s, pending %s, target %s --\n", \
 #define MMPLAYER_VIDEO_SINK_CHECK(x_player) \
 do \
 { \
-	return_val_if_fail ( x_player && \
+	MMPLAYER_RETURN_VAL_IF_FAIL ( x_player && \
 		x_player->pipeline && \
 		x_player->pipeline->videobin && \
 		x_player->pipeline->videobin[MMPLAYER_V_SINK].gst, \
