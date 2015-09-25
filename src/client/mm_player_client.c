@@ -739,7 +739,7 @@ int _mmplayer_update_video_param(mm_player_t *player)
 
 
 				/* if evasimagesink using converter */
-				if (player->set_mode.video_zc && player->pipeline->videobin[MMPLAYER_V_CONV].gst)
+				if (player->set_mode.video_zc && player->pipeline->mainbin[MMPLAYER_M_V_CONV].gst)
 				{
 					int width = 0;
 					int height = 0;
@@ -1474,4 +1474,23 @@ static int __mmplayer_mused_set_state(mm_player_t* player, int state)
 	}
 
 	return ret;
+}
+
+int mm_player_get_state_timeout(MMHandleType player, int *timeout, bool is_streaming)
+{
+	mm_player_t* handle = (mm_player_t*) player;
+
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(timeout, MM_ERROR_INVALID_ARGUMENT);
+
+	MMPLAYER_CMD_LOCK( player );
+
+	if(is_streaming)
+		*timeout = handle->ini.live_state_change_timeout;
+	else
+		*timeout = handle->ini.localplayback_state_change_timeout;
+
+	MMPLAYER_CMD_UNLOCK( player );
+
+	return MM_ERROR_NONE;
 }

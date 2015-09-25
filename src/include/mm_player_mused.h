@@ -48,6 +48,7 @@ int mm_player_mused_destroy(MMHandleType player);
 int mm_player_mused_realize(MMHandleType player, char *caps);
 int mm_player_mused_unrealize(MMHandleType player);
 int mm_player_mused_pre_unrealize(MMHandleType player);
+int mm_player_get_state_timeout(MMHandleType player, int *timeout, bool is_streaming);
 
 /**
  * This function get string of raw video caps.

@@ -1298,3 +1298,17 @@ int mm_player_get_raw_video_caps(MMHandleType player, char **caps)
 
 	return result;
 }
+
+int mm_player_is_streaming(MMHandleType player, bool *is_streaming)
+{
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(is_streaming, MM_ERROR_INVALID_ARGUMENT);
+
+	MMPLAYER_CMD_LOCK( player );
+
+	*is_streaming = MMPLAYER_IS_STREAMING(player);
+
+	MMPLAYER_CMD_UNLOCK( player );
+
+	return MM_ERROR_NONE;
+}

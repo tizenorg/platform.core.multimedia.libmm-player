@@ -16239,20 +16239,6 @@ _mmplayer_get_video_rotate_angle(MMHandleType hplayer, int *angle)
 	return MM_ERROR_NONE;
 }
 
-gboolean
-__mmplayer_is_streaming(mm_player_t* player)
-{
-	gboolean result = FALSE;
-
-	MMPLAYER_FENTER();
-
-	MMPLAYER_RETURN_VAL_IF_FAIL (player, FALSE);
-	result = __is_streaming (player) ;
-
-	MMPLAYER_FLEAVE();
-	return result;
-}
-
 static gboolean
 __mmplayer_add_dump_buffer_probe(mm_player_t *player, GstElement *element)
 {

@@ -828,8 +828,6 @@ int _mmplayer_audio_effect_custom_apply(mm_player_t *player);
 
 int _mmplayer_set_audiostream_cb_ex(MMHandleType hplayer, bool sync, mm_player_audio_stream_callback_ex callback, void *user_param);
 gboolean __mmplayer_post_message(mm_player_t* player, enum MMMessageType msgtype, MMMessageParamType* param);
-gboolean __mmplayer_is_streaming(mm_player_t* player);
-
 
 int _mmplayer_gst_set_audio_channel(MMHandleType hplayer, MMPlayerAudioChannel ch_idx);
 int _mmplayer_change_track_language (MMHandleType hplayer, MMPlayerTrackType type, int index);
@@ -878,6 +876,7 @@ gint __gst_handle_stream_error( mm_player_t* player, GError* error, GstMessage *
 int _mmplayer_set_shm_stream_path(MMHandleType hplayer, const char *path);
 int _mmplayer_get_raw_video_caps(mm_player_t *player, char **caps);
 int _mmplayer_sound_register_with_pid(MMHandleType hplayer, int pid);
+int _mmplayer_is_streaming(MMHandleType hplayer, bool* is_streaming);
 int __mmplayer_get_video_angle(mm_player_t* player, int *user_angle, int *org_angle);
 #ifdef __cplusplus
 	}
