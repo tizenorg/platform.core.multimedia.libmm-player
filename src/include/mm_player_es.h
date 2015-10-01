@@ -37,7 +37,6 @@ extern "C"
 /*=======================================================================================
 | GLOBAL FUNCTION PROTOTYPES								|
 ========================================================================================*/
-
 int _mmplayer_set_video_info (MMHandleType player, media_format_h format);
 
 int _mmplayer_set_audio_info (MMHandleType player, media_format_h format);

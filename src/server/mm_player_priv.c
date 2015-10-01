@@ -230,7 +230,7 @@ static void	__mmplayer_add_new_caps(GstPad* pad, GParamSpec* unused, gpointer da
 static void __mmplayer_set_unlinked_mime_type(mm_player_t* player, GstCaps *caps);
 
 /* util */
-static gboolean __is_es_buff_src(mm_player_t* player);
+static gboolean __is_ms_buff_src(mm_player_t* player);
 static gboolean __has_suffix(mm_player_t * player, const gchar * suffix);
 
 static int  __mmplayer_realize_streaming_ext(mm_player_t* player);
@@ -2872,7 +2872,7 @@ __mmplayer_gst_decode_pad_added (GstElement *elem, GstPad *pad, gpointer data)
 			gint samplerate = 0;
 			gint channels = 0;
 
-			if (MMPLAYER_IS_ES_BUFF_SRC(player))
+			if (MMPLAYER_IS_MS_BUFF_SRC(player))
 			{
 				__mmplayer_gst_decode_callback (elem, pad, player);
 				return;
@@ -3661,7 +3661,7 @@ __mmplayer_gst_decode_no_more_pads (GstElement *elem, gpointer data)
 	}
 
 
-	if (!MMPLAYER_IS_ES_BUFF_SRC(player))
+	if (!MMPLAYER_IS_MS_BUFF_SRC(player))
 	{
 		if (text_selector)
 		{
@@ -7014,9 +7014,9 @@ __mmplayer_gst_create_pipeline(mm_player_t* player) // @
 				G_CALLBACK(__gst_appsrc_enough_data), player);
 		}
 		break;
-		case MM_PLAYER_URI_TYPE_ES_BUFF:
+		case MM_PLAYER_URI_TYPE_MS_BUFF:
 		{
-			LOGD("es buff src is selected\n");
+			LOGD("MS buff src is selected\n");
 
 			if (player->v_stream_caps)
 			{
@@ -7240,7 +7240,7 @@ __mmplayer_gst_create_pipeline(mm_player_t* player) // @
 				NULL,
 				0);
 	}
-	if (MMPLAYER_IS_ES_BUFF_SRC(player))
+	if (MMPLAYER_IS_MS_BUFF_SRC(player))
 	{
 		if (player->v_stream_caps)
 		{
@@ -7307,7 +7307,7 @@ __mmplayer_gst_create_pipeline(mm_player_t* player) // @
 	/* create autoplugging element if src element is not a rtsp src */
 	if ((player->profile.uri_type != MM_PLAYER_URI_TYPE_URL_RTSP) &&
 		(player->profile.uri_type != MM_PLAYER_URI_TYPE_URL_WFD) &&
-		(player->profile.uri_type != MM_PLAYER_URI_TYPE_ES_BUFF))
+		(player->profile.uri_type != MM_PLAYER_URI_TYPE_MS_BUFF))
 	{
 		element = NULL;
 		enum MainElementID elemId = MMPLAYER_M_NUM;
@@ -7387,7 +7387,7 @@ __mmplayer_gst_create_pipeline(mm_player_t* player) // @
 	/* now we have completed mainbin. take it */
 	player->pipeline->mainbin = mainbin;
 
-	if (MMPLAYER_IS_ES_BUFF_SRC(player))
+	if (MMPLAYER_IS_MS_BUFF_SRC(player))
 	{
 		GstPad *srcpad = NULL;
 
@@ -8167,7 +8167,7 @@ __gst_set_position(mm_player_t* player, int format, unsigned long position, gboo
 		&& MMPLAYER_CURRENT_STATE(player) != MM_PLAYER_STATE_PAUSED )
 		goto PENDING;
 
-	if( !MMPLAYER_IS_ES_BUFF_SRC(player) )
+	if( !MMPLAYER_IS_MS_BUFF_SRC(player) )
 	{
 		/* check duration */
 		/* NOTE : duration cannot be zero except live streaming.
@@ -8209,7 +8209,7 @@ __gst_set_position(mm_player_t* player, int format, unsigned long position, gboo
 	{
 		case MM_PLAYER_POS_FORMAT_TIME:
 		{
-			if( !MMPLAYER_IS_ES_BUFF_SRC(player) )
+			if( !MMPLAYER_IS_MS_BUFF_SRC(player) )
 			{
 				/* check position is valid or not */
 				if ( position > dur_msec )
@@ -8635,7 +8635,7 @@ static int __mmfplayer_parse_profile(const char *uri, void *param, MMPlayerParse
 		if (strlen(path))
 		{
 			strcpy(data->uri, uri);
-			data->uri_type = MM_PLAYER_URI_TYPE_ES_BUFF;
+			data->uri_type = MM_PLAYER_URI_TYPE_MS_BUFF;
 			ret = MM_ERROR_NONE;
 		}
 	}
@@ -9771,12 +9771,15 @@ _mmplayer_realize(MMHandleType hplayer) // @
 	mm_attrs_get_string_by_name(attrs, "profile_uri", &uri);
 	mm_attrs_get_data_by_name(attrs, "profile_user_param", &param);
 
-	ret = __mmfplayer_parse_profile((const char*)uri, param, &player->profile);
-
-	if (ret != MM_ERROR_NONE)
+	if (player->profile.uri_type == MM_PLAYER_URI_TYPE_NONE)
 	{
-		LOGE("failed to parse profile\n");
-		return ret;
+		ret = __mmfplayer_parse_profile((const char*)uri, param, &player->profile);
+
+		if (ret != MM_ERROR_NONE)
+		{
+			LOGE("failed to parse profile\n");
+			return ret;
+		}
 	}
 
 	/* FIXIT : we can use thouse in player->profile directly */
@@ -9787,7 +9790,7 @@ _mmplayer_realize(MMHandleType hplayer) // @
 		player->mem_buf.offset = 0;
 	}
 
-	if (player->profile.uri_type == MM_PLAYER_URI_TYPE_ES_BUFF)
+	if (uri && (strstr(uri, "es_buff://")))
 	{
 		if (strstr(uri, "es_buff://push_mode"))
 		{
@@ -11531,7 +11534,7 @@ __mmplayer_try_to_plug(mm_player_t* player, GstPad *pad, const GstCaps *caps) //
 		klass = gst_element_factory_get_metadata (GST_ELEMENT_FACTORY(factory), GST_ELEMENT_METADATA_KLASS);
 
 		/*parsers are not required in case of external feeder*/
-		if (g_strrstr(klass, "Codec/Parser") && MMPLAYER_IS_ES_BUFF_SRC(player))
+		if (g_strrstr(klass, "Codec/Parser") && MMPLAYER_IS_MS_BUFF_SRC(player))
 			continue;
 
 		/* NOTE : msl don't need to use image plugins.
@@ -12772,7 +12775,7 @@ GstCaps* caps, GstElementFactory* factory, gpointer data)
 		goto DONE;
 	}
 
-	if ((MMPLAYER_IS_ES_BUFF_SRC(player)) &&
+	if ((MMPLAYER_IS_MS_BUFF_SRC(player)) &&
 		(g_strrstr(klass, "Codec/Demuxer") || (g_strrstr(klass, "Codec/Parser"))))
 	{
 		// TO CHECK : subtitle if needed, add subparse exception.
@@ -14706,7 +14709,7 @@ __gst_send_event_to_sink( mm_player_t* player, GstEvent* event )
 					}
 				}
 
-				if( MMPLAYER_IS_ES_BUFF_SRC(player))
+				if( MMPLAYER_IS_MS_BUFF_SRC(player))
 				{
 					sinks = g_list_next (sinks);
 					continue;
@@ -15917,11 +15920,11 @@ int _mmplayer_get_subtitle_silent (MMHandleType hplayer, int* silent)
 }
 
 gboolean
-__is_es_buff_src( mm_player_t* player )
+__is_ms_buff_src( mm_player_t* player )
 {
 	MMPLAYER_RETURN_VAL_IF_FAIL ( player, FALSE );
 
-	return ( player->profile.uri_type == MM_PLAYER_URI_TYPE_ES_BUFF) ? TRUE : FALSE;
+	return ( player->profile.uri_type == MM_PLAYER_URI_TYPE_MS_BUFF) ? TRUE : FALSE;
 }
 
 gboolean

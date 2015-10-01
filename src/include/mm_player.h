@@ -2106,7 +2106,6 @@ int mm_player_submit_packet(MMHandleType player, media_packet_h packet);
  *
  * @endcode
  */
-
 int mm_player_set_video_info (MMHandleType player, media_format_h format);
 
 /**mm_player_set_audio_info
@@ -2118,7 +2117,6 @@ int mm_player_set_video_info (MMHandleType player, media_format_h format);
  *
  * @endcode
  */
-
 int mm_player_set_audio_info (MMHandleType player, media_format_h format);
 
 /**mm_player_set_subtitle_info
@@ -2130,7 +2128,6 @@ int mm_player_set_audio_info (MMHandleType player, media_format_h format);
  *
  * @endcode
  */
-
 int mm_player_set_subtitle_info (MMHandleType player, MMPlayerSubtitleStreamInfo *info);
 
 /**

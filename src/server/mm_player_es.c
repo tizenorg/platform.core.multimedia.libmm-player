@@ -529,6 +529,18 @@ _mmplayer_video_caps_new (MMHandleType hplayer, MMPlayerVideoStreamInfo * video,
   return MM_ERROR_NONE;
 }
 
+static void
+_mmplayer_set_uri_type(mm_player_t *player)
+{
+	MMPLAYER_FENTER ();
+
+	player->profile.uri_type = MM_PLAYER_URI_TYPE_MS_BUFF;
+	player->es_player_push_mode = TRUE;
+
+	MMPLAYER_FLEAVE ();
+	return;
+}
+
 int
 _mmplayer_set_video_info (MMHandleType hplayer, media_format_h format)
 {
@@ -539,6 +551,8 @@ _mmplayer_set_video_info (MMHandleType hplayer, media_format_h format)
   MMPLAYER_FENTER ();
 
   MMPLAYER_RETURN_VAL_IF_FAIL (player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+
+  _mmplayer_set_uri_type(player);
 
   ret = _parse_media_format (&video, NULL, format);
   if(ret != MM_ERROR_NONE)
@@ -600,6 +614,8 @@ _mmplayer_set_audio_info (MMHandleType hplayer, media_format_h format)
   MMPLAYER_FENTER ();
 
   MMPLAYER_RETURN_VAL_IF_FAIL (hplayer, MM_ERROR_PLAYER_NOT_INITIALIZED);
+
+  _mmplayer_set_uri_type(player);
 
   ret = _parse_media_format (NULL, &audio, format);
   if(ret != MM_ERROR_NONE)
