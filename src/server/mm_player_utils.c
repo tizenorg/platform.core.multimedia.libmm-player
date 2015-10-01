@@ -390,6 +390,11 @@ util_get_charset(const char *file_path)
 		goto done;
 	}
 
+	/* CP949 encoding is an extension of the EUC-KR and it is backwards compatible.*/
+	if(charset && !strcmp(charset, "EUC-KR")) {
+		charset = "CP949";
+	}
+
 done:
 	if(fin)
 		fclose(fin);
