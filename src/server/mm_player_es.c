@@ -344,9 +344,12 @@ _mmplayer_submit_packet (MMHandleType hplayer, media_packet_h packet)
   GstBuffer *_buffer = NULL;
   mm_player_t *player = (mm_player_t *) hplayer;
   guint8 *buf = NULL;
+  uint64_t size = 0;
+  enum MainElementID elemId = MMPLAYER_M_NUM;
   MMPlayerTrackType streamtype = MM_PLAYER_TRACK_TYPE_AUDIO;
   media_format_h fmt = NULL;
   bool flag = FALSE;
+  bool is_eos = FALSE;
 
   MMPLAYER_RETURN_VAL_IF_FAIL (packet, MM_ERROR_INVALID_ARGUMENT);
   MMPLAYER_RETURN_VAL_IF_FAIL ( player &&
@@ -358,31 +361,51 @@ _mmplayer_submit_packet (MMHandleType hplayer, media_packet_h packet)
   /* get stream type if audio or video */
   media_packet_is_audio (packet, &flag);
   if (flag) {
-	streamtype = MM_PLAYER_TRACK_TYPE_AUDIO;
+    streamtype = MM_PLAYER_TRACK_TYPE_AUDIO;
+    if (player->pipeline->mainbin[MMPLAYER_M_2ND_SRC].gst) {
+      elemId = MMPLAYER_M_2ND_SRC;
+    } else if (g_strrstr (GST_ELEMENT_NAME (player->pipeline->mainbin[MMPLAYER_M_SRC].gst), "audio_appsrc")) {
+      elemId = MMPLAYER_M_SRC;
+    } else {
+      LOGE ("there is no audio appsrc");
+      ret = MM_ERROR_PLAYER_INTERNAL;
+      goto ERROR;
+    }
   } else {
-	media_packet_is_video (packet, &flag);
-
-	if (flag)
-	  streamtype = MM_PLAYER_TRACK_TYPE_VIDEO;
-	else
-	  streamtype = MM_PLAYER_TRACK_TYPE_TEXT;
+    media_packet_is_video (packet, &flag);
+    if (flag) {
+      streamtype = MM_PLAYER_TRACK_TYPE_VIDEO;
+      elemId = MMPLAYER_M_SRC;
+    } else {
+      streamtype = MM_PLAYER_TRACK_TYPE_TEXT;
+      elemId = MMPLAYER_M_SUBSRC;
+    }
   }
 
   /* get data */
-  media_packet_get_buffer_data_ptr (packet, (void **) &buf);
+  if (media_packet_get_buffer_data_ptr (packet, (void **) &buf) != MEDIA_PACKET_ERROR_NONE) {
+    LOGE("failed to get buffer data ptr");
+    ret = MM_ERROR_PLAYER_INTERNAL;
+    goto ERROR;
+  }
 
-  if (buf != NULL) {
+  if (media_packet_get_buffer_size (packet, &size) != MEDIA_PACKET_ERROR_NONE) {
+    LOGE("failed to get buffer size");
+    ret = MM_ERROR_PLAYER_INTERNAL;
+    goto ERROR;
+  }
+
+  if (buf != NULL && size > 0) {
     GstMapInfo buff_info = GST_MAP_INFO_INIT;
-    uint64_t size = 0;
     uint64_t pts = 0;
 
     /* get size */
-    media_packet_get_buffer_size (packet, &size);
-
     _buffer = gst_buffer_new_and_alloc (size);
+
     if (!_buffer) {
         LOGE("failed to allocate memory for push buffer\n");
-        return MM_ERROR_PLAYER_NO_FREE_SPACE;
+        ret = MM_ERROR_PLAYER_NO_FREE_SPACE;
+        goto ERROR;
     }
 
     if (gst_buffer_map (_buffer, &buff_info, GST_MAP_READWRITE)) {
@@ -393,76 +416,54 @@ _mmplayer_submit_packet (MMHandleType hplayer, media_packet_h packet)
       gst_buffer_unmap (_buffer, &buff_info);
     }
 
-    /* get pts */
-    media_packet_get_pts (packet, &pts);
-    GST_BUFFER_PTS (_buffer) = (GstClockTime) (pts * 1000000);
-
-    if (streamtype == MM_PLAYER_TRACK_TYPE_AUDIO) {
-#if 0                           // TO CHECK : has gone (set to pad)
-      if (GST_CAPS_IS_SIMPLE (player->a_stream_caps))
-        GST_BUFFER_CAPS (_buffer) = gst_caps_copy (player->a_stream_caps);
-      else
-        LOGE ("External Demuxer case: Audio Buffer Caps not set.");
-#endif
-      if (player->pipeline->mainbin[MMPLAYER_M_2ND_SRC].gst)
-        gst_app_src_push_buffer (GST_APP_SRC (player->pipeline->mainbin[MMPLAYER_M_2ND_SRC].gst), _buffer);
-      else if (g_strrstr (GST_ELEMENT_NAME (player->pipeline->mainbin[MMPLAYER_M_SRC].gst), "audio_appsrc"))
-        gst_app_src_push_buffer (GST_APP_SRC (player->pipeline->mainbin[MMPLAYER_M_SRC].gst), _buffer);
-    } else if (streamtype == MM_PLAYER_TRACK_TYPE_VIDEO) {
-#if 0                           // TO CHECK : has gone (set to pad)
-      if (GST_CAPS_IS_SIMPLE (player->v_stream_caps))
-        GST_BUFFER_CAPS (_buffer) = gst_caps_copy (player->v_stream_caps);
-      else
-        LOGE ("External Demuxer case: Video Buffer Caps not set.");
-#endif
+    if (streamtype == MM_PLAYER_TRACK_TYPE_VIDEO) {
       /* get format to check video format */
       media_packet_get_format (packet, &fmt);
-      if (fmt)
-      {
-        gboolean ret = FALSE;
-        ret = _mmplayer_update_video_info(hplayer, fmt);
-        if (ret)
-        {
+      if (fmt) {
+        if (_mmplayer_update_video_info(hplayer, fmt)) {
+          LOGD("update video caps");
           g_object_set(G_OBJECT(player->pipeline->mainbin[MMPLAYER_M_SRC].gst),
                                     "caps", player->v_stream_caps, NULL);
         }
       }
+    }
 
-      gst_app_src_push_buffer (GST_APP_SRC (player->pipeline->mainbin[MMPLAYER_M_SRC].gst), _buffer);
-    } else if (streamtype == MM_PLAYER_TRACK_TYPE_TEXT) {
-#if 0                           // TO CHECK : has gone (set to pad)
-      if (GST_CAPS_IS_SIMPLE (player->s_stream_caps))
-        GST_BUFFER_CAPS (_buffer) = gst_caps_copy (player->s_stream_caps);
-      else
-        LOGE ("External Demuxer case: Subtitle Buffer Caps not set.");
-#endif
-      gst_app_src_push_buffer (GST_APP_SRC (player->pipeline->mainbin[MMPLAYER_M_SUBSRC].gst), _buffer);
+    /* get pts */
+    if (media_packet_get_pts (packet, &pts) != MEDIA_PACKET_ERROR_NONE) {
+      LOGE("failed to get pts info");
+      ret = MM_ERROR_PLAYER_INTERNAL;
+      goto ERROR;
+    }
+    GST_BUFFER_PTS (_buffer) = (GstClockTime) (pts * 1000000);
+
+    if ((elemId < MMPLAYER_M_NUM) && (player->pipeline->mainbin[elemId].gst)) {
+      gst_app_src_push_buffer (GST_APP_SRC (player->pipeline->mainbin[elemId].gst), _buffer);
     } else {
-      LOGE ("Not a valid packet from external demux");
-      return FALSE;
-    }
-  } else {
-    LOGD ("Sending EOS on pipeline...");
-    if (streamtype == MM_PLAYER_TRACK_TYPE_AUDIO) {
-      if (player->pipeline->mainbin[MMPLAYER_M_2ND_SRC].gst)
-        g_signal_emit_by_name (player->pipeline->
-            mainbin[MMPLAYER_M_2ND_SRC].gst, "end-of-stream", &ret);
-      else
-        g_signal_emit_by_name (player->pipeline->mainbin[MMPLAYER_M_SRC].gst,
-            "end-of-stream", &ret);
-    } else if (streamtype == MM_PLAYER_TRACK_TYPE_VIDEO) {
-      g_signal_emit_by_name (player->pipeline->mainbin[MMPLAYER_M_SRC].gst,
-          "end-of-stream", &ret);
-    } else if (streamtype == MM_PLAYER_TRACK_TYPE_TEXT) {
-      g_signal_emit_by_name (player->pipeline->mainbin[MMPLAYER_M_SUBSRC].gst,
-          "end-of-stream", &ret);
+      LOGE ("elem(%d) does not exist.", elemId);
+      ret = MM_ERROR_PLAYER_INTERNAL;
+      goto ERROR;
     }
   }
 
-  if (MMPLAYER_PENDING_STATE (player) == MM_PLAYER_STATE_PLAYING) {
-    //ret = __mmplayer_set_state(player, MM_PLAYER_STATE_PLAYING);
+  /* check eos */
+  if (media_packet_is_end_of_stream(packet, &is_eos) != MEDIA_PACKET_ERROR_NONE) {
+    LOGE("failed to get eos info");
+    ret = MM_ERROR_PLAYER_INTERNAL;
+    goto ERROR;
   }
 
+  if (is_eos) {
+    LOGW ("we got eos of stream type(%d)", streamtype);
+    if ((elemId < MMPLAYER_M_NUM) && (player->pipeline->mainbin[elemId].gst)) {
+      g_signal_emit_by_name (player->pipeline->
+          mainbin[elemId].gst, "end-of-stream", &ret);
+    } else {
+      LOGE ("elem(%d) does not exist.", elemId);
+      ret = MM_ERROR_PLAYER_INTERNAL;
+    }
+  }
+
+ERROR:
   return ret;
 }
 
