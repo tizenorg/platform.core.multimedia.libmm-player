@@ -97,10 +97,19 @@ int _mmplayer_select_track(MMHandleType hplayer, MMPlayerTrackType type, int ind
 		GstElement *subparse = NULL;
 		MMPlayerLangStruct *temp = NULL;
 		unsigned long cur_time = 0;
+		guint num_of_list = 0;
 
 		if(!player->pipeline || !player->pipeline->textbin[MMPLAYER_T_FAKE_SINK].gst)
 		{
 			ret = MM_ERROR_PLAYER_NOT_INITIALIZED;
+			goto EXIT;
+		}
+
+		num_of_list = g_list_length(player->subtitle_language_list);
+		if (index < 0 || index >= num_of_list)
+		{
+			LOGE("req track index is wrong");
+			ret = MM_ERROR_INVALID_ARGUMENT;
 			goto EXIT;
 		}
 
