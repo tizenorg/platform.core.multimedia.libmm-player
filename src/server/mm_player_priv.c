@@ -6259,10 +6259,9 @@ __mmplayer_update_subtitle( GstElement* object, GstBuffer *buffer, GstPad *pad, 
 	MMPLAYER_RETURN_VAL_IF_FAIL ( buffer, FALSE );
 
 	gst_buffer_map(buffer, &mapinfo, GST_MAP_READ);
-	text = g_memdup(mapinfo.data, mapinfo.size);
+	text = mapinfo.data;
 	text_size = mapinfo.size;
 	duration = GST_BUFFER_DURATION(buffer);
-
 
 	if ( player->set_mode.subtitle_off )
 	{
