@@ -1287,8 +1287,9 @@ __mmplayer_handle_buffering_message ( mm_player_t* player )
 
 	MMPLAYER_CMD_LOCK( player );
 
-	if( !player || !player->streamer || MMPLAYER_IS_LIVE_STREAMING(player))
+	if( !player || !player->streamer || (MMPLAYER_IS_LIVE_STREAMING(player) && MMPLAYER_IS_RTSP_STREAMING(player)))
 	{
+		LOGW("do nothing for buffering msg\n");
 		ret = MM_ERROR_PLAYER_INVALID_STATE;
 		goto unlock_exit;
 	}
