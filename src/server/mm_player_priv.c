@@ -2700,7 +2700,7 @@ __mmplayer_gst_selector_blocked(GstPad* pad, GstPadProbeInfo *info, gpointer dat
 }
 
 static GstPadProbeReturn
-__mmplayer_audio_data_probe (GstPad *pad, GstPadProbeInfo *info, gpointer u_data)
+__mmplayer_gapless_sinkbin_data_probe (GstPad *pad, GstPadProbeInfo *info, gpointer u_data)
 {
 	mm_player_t* player = (mm_player_t*) u_data;
 	GstBuffer *pad_buffer = gst_pad_probe_info_get_buffer(info);
@@ -2708,8 +2708,12 @@ __mmplayer_audio_data_probe (GstPad *pad, GstPadProbeInfo *info, gpointer u_data
 	/* TO_CHECK: performance */
 	MMPLAYER_RETURN_VAL_IF_FAIL (player && GST_IS_BUFFER(pad_buffer), GST_PAD_PROBE_OK);
 
-	if (GST_BUFFER_PTS_IS_VALID(pad_buffer) && GST_BUFFER_DURATION_IS_VALID(pad_buffer))
+	if (GST_BUFFER_PTS_IS_VALID(pad_buffer) && GST_BUFFER_DURATION_IS_VALID(pad_buffer)) {
+		/* keep next buffer pts for sychronization of gapless playback */
+		/* see : __mmplayer_gst_selector_event_probe() */
+		/* next buffer start position = current buffer pts + current buffer duration*/
 		player->gapless.next_pts = GST_BUFFER_PTS(pad_buffer) + GST_BUFFER_DURATION(pad_buffer);
+	}
 
 	return GST_PAD_PROBE_OK;
 }
@@ -2732,6 +2736,7 @@ __mmplayer_gst_selector_event_probe (GstPad * pad, GstPadProbeInfo * info, gpoin
 				break;
 
 			if (player->gapless.stream_changed) {
+				/* FIXME: need to set max(duraion, next_pts)? */
 				player->gapless.start_time += player->gapless.next_pts;
 				player->gapless.stream_changed = FALSE;
 			}
@@ -2864,7 +2869,16 @@ __mmplayer_gst_decode_pad_added (GstElement *elem, GstPad *pad, gpointer data)
 
 			goto DONE;
 		}
-		__mmplayer_gst_decode_callback (elem, pad, player);
+
+		if (MMPLAYER_IS_MS_BUFF_SRC(player))
+		{
+			__mmplayer_gst_decode_callback (elem, pad, player);
+			return;
+		}
+
+		LOGD ("video selector \n");
+		elemId = MMPLAYER_M_V_INPUT_SELECTOR;
+		stream_type = MM_PLAYER_TRACK_TYPE_VIDEO;
 	}
 	else
 	{
@@ -2927,11 +2941,7 @@ __mmplayer_gst_decode_pad_added (GstElement *elem, GstPad *pad, gpointer data)
 		}
 	}
 
-	if(strstr(name, "video"))
-		return;
-
 	selector = player->pipeline->mainbin[elemId].gst;
-
 	if (selector == NULL)
 	{
 		selector = gst_element_factory_make ("input-selector", NULL);
@@ -3520,6 +3530,7 @@ __mmplayer_gst_decode_no_more_pads (GstElement *elem, gpointer data)
 {
 	mm_player_t* player = NULL;
 	GstPad* srcpad = NULL;
+	GstElement* video_selector = NULL;
 	GstElement* audio_selector = NULL;
 	GstElement* text_selector = NULL;
 	MMHandleType attrs = 0;
@@ -3581,8 +3592,34 @@ __mmplayer_gst_decode_no_more_pads (GstElement *elem, gpointer data)
 						NULL,
 						((dur_bytes>0)?((guint64)dur_bytes):0));
 	}
+
+	video_selector = player->pipeline->mainbin[MMPLAYER_M_V_INPUT_SELECTOR].gst;
 	audio_selector = player->pipeline->mainbin[MMPLAYER_M_A_INPUT_SELECTOR].gst;
 	text_selector = player->pipeline->mainbin[MMPLAYER_M_T_INPUT_SELECTOR].gst;
+	if (video_selector)
+	{
+		// [link] input-selector :: videobin
+		srcpad = gst_element_get_static_pad (video_selector, "src");
+		if (!srcpad)
+		{
+			LOGE("failed to get srcpad from video selector\n");
+			goto ERROR;
+		}
+
+		LOGD ("got pad %s:%s from video selector\n", GST_DEBUG_PAD_NAME(srcpad));
+		if (!text_selector && !audio_selector)
+			player->no_more_pad = TRUE;
+
+		__mmplayer_gst_decode_callback (video_selector, srcpad, player);
+
+		LOGD ("unblocking %s:%s", GST_DEBUG_PAD_NAME(srcpad));
+		if (player->selector[MM_PLAYER_TRACK_TYPE_VIDEO].block_id)
+		{
+			gst_pad_remove_probe (srcpad, player->selector[MM_PLAYER_TRACK_TYPE_VIDEO].block_id);
+			player->selector[MM_PLAYER_TRACK_TYPE_VIDEO].block_id = 0;
+		}
+	}
+
 	if (audio_selector)
 	{
 		active_index = player->selector[MM_PLAYER_TRACK_TYPE_AUDIO].active_pad_index;
@@ -3660,7 +3697,6 @@ __mmplayer_gst_decode_no_more_pads (GstElement *elem, gpointer data)
 			__mmplayer_pipeline_complete (NULL, player);
 		}
 	}
-
 
 	if (!MMPLAYER_IS_MS_BUFF_SRC(player))
 	{
@@ -5300,7 +5336,7 @@ __mmplayer_gst_create_audio_pipeline(mm_player_t* player)
 	}
 
 	player->gapless.audio_data_probe_id = gst_pad_add_probe(ghostpad, GST_PAD_PROBE_TYPE_BUFFER,
-			__mmplayer_audio_data_probe, player, NULL);
+			__mmplayer_gapless_sinkbin_data_probe, player, NULL);
 
 	gst_object_unref(pad);
 
@@ -5838,6 +5874,9 @@ __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps, MMDispl
 		goto ERROR;
 	}
 	gst_object_unref(pad);
+
+	player->gapless.video_data_probe_id = gst_pad_add_probe(player->ghost_pad_for_videobin, GST_PAD_PROBE_TYPE_BUFFER,
+			__mmplayer_gapless_sinkbin_data_probe, player, NULL);
 
 	/* done. free allocated variables */
 	g_list_free(element_bucket);
@@ -7518,6 +7557,14 @@ __mmplayer_reset_gapless_state(mm_player_t* player)
 		GstPad *sinkpad;
 		sinkpad = gst_element_get_static_pad(player->pipeline->audiobin[MMPLAYER_A_BIN].gst, "sink");
 		gst_pad_remove_probe (sinkpad, player->gapless.audio_data_probe_id);
+		gst_object_unref (sinkpad);
+	}
+
+	if (player->gapless.video_data_probe_id != 0)
+	{
+		GstPad *sinkpad;
+		sinkpad = gst_element_get_static_pad(player->pipeline->videobin[MMPLAYER_V_BIN].gst, "sink");
+		gst_pad_remove_probe (sinkpad, player->gapless.video_data_probe_id);
 		gst_object_unref (sinkpad);
 	}
 	memset(&player->gapless, 0, sizeof(mm_player_gapless_t));
@@ -11946,14 +11993,6 @@ __mmplayer_verify_next_play_path(mm_player_t *player)
 		goto ERROR;
 	}
 
-	/* seamless playback is supported in case of audio only */
-	mm_attrs_get_int_by_name(attrs, "content_video_found", &mode);
-	if (mode)
-	{
-		LOGD("video found");
-		goto ERROR;
-	}
-
 	if (mm_attrs_get_int_by_name (attrs, "pd_mode", &mode) == MM_ERROR_NONE)
 	{
 		if (mode == TRUE)
@@ -12411,6 +12450,11 @@ __mmplayer_deactivate_selector(mm_player_t *player, MMPlayerTrackType type)
 			sinkId = MMPLAYER_A_BIN;
 			sinkbin = player->pipeline->audiobin;
 		break;
+		case MM_PLAYER_TRACK_TYPE_VIDEO:
+			selectorId = MMPLAYER_M_V_INPUT_SELECTOR;
+			sinkId = MMPLAYER_V_BIN;
+			sinkbin = player->pipeline->videobin;
+		break;
 		case MM_PLAYER_TRACK_TYPE_TEXT:
 			selectorId = MMPLAYER_M_T_INPUT_SELECTOR;
 			sinkId = MMPLAYER_T_BIN;
@@ -12476,6 +12520,7 @@ __mmplayer_deactivate_old_path(mm_player_t *player)
 	MMPLAYER_RETURN_IF_FAIL ( player );
 
 	if ((!__mmplayer_deactivate_selector(player, MM_PLAYER_TRACK_TYPE_AUDIO)) ||
+		(!__mmplayer_deactivate_selector(player, MM_PLAYER_TRACK_TYPE_VIDEO)) ||
 		(!__mmplayer_deactivate_selector(player, MM_PLAYER_TRACK_TYPE_TEXT)))
 	{
 		LOGE("deactivate selector error");
@@ -12972,7 +13017,6 @@ __mmplayer_gst_decode_drained(GstElement *bin, gpointer data)
 
 	/* deactivate pipeline except sinkbins to set up the new pipeline of next uri*/
 	__mmplayer_deactivate_old_path(player);
-
 	g_mutex_unlock(&player->cmd_lock);
 
 	MMPLAYER_FLEAVE();
@@ -13121,7 +13165,6 @@ __mmplayer_gst_element_added (GstElement *bin, GstElement *element, gpointer dat
 		}
 	}
 
-	MMPLAYER_GENERATE_DOT_IF_ENABLED ( player, "pipeline-status-added" );
 	return;
 }
 
@@ -15761,6 +15804,7 @@ __mmplayer_change_selector_pad (mm_player_t* player, MMPlayerTrackType type, int
 	}
 	else
 	{
+		/* Changing Video Track is not supported. */
 		LOGE ("Track Type Error\n");
 		goto EXIT;
 	}

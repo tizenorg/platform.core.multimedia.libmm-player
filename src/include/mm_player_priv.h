@@ -213,6 +213,7 @@ enum MainElementID
 	MMPLAYER_M_DEMUX,
 	MMPLAYER_M_SUBPARSE,
 	MMPLAYER_M_DEMUX_EX,
+	MMPLAYER_M_V_INPUT_SELECTOR,	// video input_select
 	MMPLAYER_M_A_INPUT_SELECTOR,	// audio input_select
 	MMPLAYER_M_T_INPUT_SELECTOR,	// text input_select
 	MMPLAYER_M_A_TEE,
@@ -445,6 +446,7 @@ typedef struct {
 	GstClockTime start_time;	/* updated once get SEGMENT event */
 
 	gulong audio_data_probe_id;
+	gulong video_data_probe_id;
 } mm_player_gapless_t;
 
 typedef struct {
