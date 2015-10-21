@@ -517,7 +517,7 @@ int mm_player_gst_set_audio_channel(MMHandleType player, MMPlayerAudioChannel ch
 	return result;
 }
 
-int mm_player_set_play_speed(MMHandleType player, float rate)
+int mm_player_set_play_speed(MMHandleType player, float rate, bool streaming)
 {
 	int result = MM_ERROR_NONE;
 
@@ -525,7 +525,7 @@ int mm_player_set_play_speed(MMHandleType player, float rate)
 
 	MMPLAYER_CMD_LOCK( player );
 
-	result = _mmplayer_set_playspeed(player, rate);
+	result = _mmplayer_set_playspeed(player, rate, streaming);
 
 	MMPLAYER_CMD_UNLOCK( player );
 

@@ -175,7 +175,7 @@ typedef bool	(*mm_player_audio_stream_callback_ex) (MMPlayerAudioStreamDataType 
  *
  * @param	player		[in]	Handle of player.
  * @param	ratio		[in]	Speed for playback.
- *
+ * @param	streaming	[in]	If @c true, rate value can be set even if it is streaming playback.
  * @return	This function returns zero on success, or negative value with error
  *			code
  * @remark	The current supported range is from -64x to 64x.
@@ -184,7 +184,7 @@ typedef bool	(*mm_player_audio_stream_callback_ex) (MMPlayerAudioStreamDataType 
  * @see
  * @since
  */
-int mm_player_set_play_speed(MMHandleType player, float rate);
+int mm_player_set_play_speed(MMHandleType player, float rate, bool streaming);
 
 /**
  * This function set callback function for receiving video stream from player.

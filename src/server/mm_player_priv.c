@@ -8299,7 +8299,7 @@ __gst_set_position(mm_player_t* player, int format, unsigned long position, gboo
 
 	/* MSL should guarante playback rate when seek is selected during trick play of fast forward. */
 	if ( player->playback_rate > 1.0 )
-		_mmplayer_set_playspeed ( (MMHandleType)player, player->playback_rate );
+		_mmplayer_set_playspeed ((MMHandleType)player, player->playback_rate, FALSE);
 
 	MMPLAYER_FLEAVE();
 	return MM_ERROR_NONE;
@@ -10774,7 +10774,7 @@ _mmplayer_deactivate_section_repeat(MMHandleType hplayer)
 }
 
 int
-_mmplayer_set_playspeed(MMHandleType hplayer, float rate)
+_mmplayer_set_playspeed(MMHandleType hplayer, float rate, bool streaming)
 {
 	mm_player_t* player = (mm_player_t*)hplayer;
 	gint64 pos_msec = 0;
@@ -10785,7 +10785,7 @@ _mmplayer_set_playspeed(MMHandleType hplayer, float rate)
 	MMPLAYER_FENTER();
 
 	MMPLAYER_RETURN_VAL_IF_FAIL ( player && player->pipeline, MM_ERROR_PLAYER_NOT_INITIALIZED );
-	MMPLAYER_RETURN_VAL_IF_FAIL ( !MMPLAYER_IS_STREAMING(player), MM_ERROR_NOT_SUPPORT_API );
+	MMPLAYER_RETURN_VAL_IF_FAIL ( streaming || !MMPLAYER_IS_STREAMING(player), MM_ERROR_NOT_SUPPORT_API );
 
 	/* The sound of video is not supported under 0.0 and over 2.0. */
 	if(rate >= TRICK_PLAY_MUTE_THRESHOLD_MAX || rate < TRICK_PLAY_MUTE_THRESHOLD_MIN)
