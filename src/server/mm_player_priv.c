@@ -13255,6 +13255,7 @@ __mmplayer_release_misc(mm_player_t* player)
 	player->last_multiwin_status = FALSE;
 	player->has_closed_caption = FALSE;
 	player->set_mode.media_packet_video_stream = FALSE;
+	player->profile.uri_type = MM_PLAYER_URI_TYPE_NONE;
 	memset(&player->set_mode, 0, sizeof(MMPlayerSetMode));
 	/* recover mode */
 	player->set_mode.rich_audio = cur_mode;
