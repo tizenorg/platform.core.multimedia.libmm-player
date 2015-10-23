@@ -250,7 +250,6 @@ static int __mmplayer_gst_switching_element(mm_player_t *player, GstElement *sea
 
 static void __mmplayer_update_buffer_setting(mm_player_t *player, GstMessage *buffering_msg);
 static GstElement *__mmplayer_element_create_and_link(mm_player_t *player, GstPad* pad, const char* name);
-static gboolean __mmplayer_can_do_interrupt(mm_player_t *player);
 
 /* device change post proc */
 void __mmplayer_device_change_post_process(gpointer user);
@@ -879,7 +878,8 @@ __mmplayer_set_state(mm_player_t* player, int state) // @
 	MMMessageParamType msg = {0, };
 	int sound_result = MM_ERROR_NONE;
 	gboolean post_bos = FALSE;
-	gboolean interrupted_by_asm = FALSE;
+	gboolean interrupted_by_focus = FALSE;
+	gboolean interrupted_by_resource = FALSE;
 	int ret = MM_ERROR_NONE;
 
 	MMPLAYER_RETURN_VAL_IF_FAIL ( player, FALSE );
@@ -907,7 +907,8 @@ __mmplayer_set_state(mm_player_t* player, int state) // @
 	MMPLAYER_PRINT_STATE(player);
 
 	/* do some FSM stuffs before posting new state to application  */
-	interrupted_by_asm = player->sound_focus.by_asm_cb;
+	interrupted_by_focus = player->sound_focus.by_asm_cb;
+	interrupted_by_resource = player->resource_manager.by_rm_cb;
 
 	switch ( MMPLAYER_CURRENT_STATE(player) )
 	{
@@ -1078,11 +1079,14 @@ __mmplayer_set_state(mm_player_t* player, int state) // @
 
 		LOGD ("player reach the target state (%s)", MMPLAYER_STATE_GET_NAME(MMPLAYER_TARGET_STATE(player)));
 
-		/* state changed by asm callback */
-		if ( interrupted_by_asm )
+		/* state changed by focus or resource callback */
+		if ( interrupted_by_focus || interrupted_by_resource )
 		{
 			msg.union_type = MM_MSG_UNION_CODE;
-			msg.code = player->sound_focus.focus_changed_msg;	/* FIXME: player.c convert function have to be modified. */
+			if (interrupted_by_focus)
+				msg.code = player->sound_focus.focus_changed_msg;	/* FIXME: player.c convert function have to be modified. */
+			else if (interrupted_by_resource)
+				msg.code = MM_MSG_CODE_INTERRUPTED_BY_RESOURCE_CONFLICT;
 			MMPLAYER_POST_MSG( player, MM_MESSAGE_STATE_INTERRUPTED, &msg );
 		}
 		/* state changed by usecase */
@@ -3822,11 +3826,31 @@ __mmplayer_gst_decode_callback(GstElement *elem, GstPad *pad, gpointer data) // 
 			/* NOTE : not make videobin because application dose not want to play it even though file has video stream. */
 			/* get video surface type */
 			int surface_type = 0;
-			mm_attrs_get_int_by_name (player->attrs, "display_surface_type", &surface_type);
+			int surface_client_type = 0;
+			mm_attrs_get_int_by_name(player->attrs, "display_surface_type", &surface_type);
+			mm_attrs_get_int_by_name(player->attrs, "display_surface_client_type", &surface_client_type);
+			LOGD("display_surface_type : server(%d), client(%d)\n", surface_type, surface_client_type);
 
 			if (surface_type == MM_DISPLAY_SURFACE_NULL)
 			{
 				LOGD("not make videobin because it dose not want\n");
+				goto ERROR;
+			}
+			if (surface_client_type == MM_DISPLAY_SURFACE_X)
+			{
+				/* prepare resource manager for video overlay */
+				if((_mmplayer_resource_manager_prepare(&player->resource_manager, RESOURCE_TYPE_VIDEO_OVERLAY)))
+				{
+					LOGE("could not prepare for video_overlay resource\n");
+					goto ERROR;
+				}
+			}
+
+			/* acquire resources for video playing */
+			if((player->resource_manager.rset && _mmplayer_resource_manager_acquire(&player->resource_manager)))
+			{
+				LOGE("could not acquire resources for video playing\n");
+				_mmplayer_resource_manager_unprepare(&player->resource_manager);
 				goto ERROR;
 			}
 
@@ -8945,7 +8969,7 @@ gboolean _asm_lazy_pause(gpointer *data)
 	return FALSE;
 }
 
-static gboolean
+gboolean
 __mmplayer_can_do_interrupt(mm_player_t *player)
 {
 	if (!player || !player->pipeline || !player->attrs)
@@ -9380,6 +9404,13 @@ _mmplayer_create_player(MMHandleType handle) // @
 		goto ERROR;
 	}
 
+	/* initialize resource manager */
+	if ( MM_ERROR_NONE != _mmplayer_resource_manager_init(&player->resource_manager, player))
+	{
+		LOGE("failed to initialize resource manager\n");
+		goto ERROR;
+	}
+
 #if 0 //need to change and test
 	/* to add active device callback */
 	if ( MM_ERROR_NONE != mm_sound_add_device_information_changed_callback(MM_SOUND_DEVICE_STATE_ACTIVATED_FLAG, __mmplayer_sound_device_info_changed_cb_func, (void*)player))
@@ -9675,6 +9706,12 @@ _mmplayer_destroy(MMHandleType handle) // @
 		LOGE("failed to deregister asm server\n");
 	}
 
+	/* de-initialize resource manager */
+	if ( MM_ERROR_NONE != _mmplayer_resource_manager_deinit(&player->resource_manager))
+	{
+		LOGE("failed to deinitialize resource manager\n");
+	}
+
 #ifdef USE_LAZY_PAUSE
 	if (player->lazy_pause_event_id)
 	{
@@ -9941,8 +9978,22 @@ _mmplayer_unrealize(MMHandleType hplayer)
 		ret = _mmplayer_sound_release_focus(&player->sound_focus);
 		if ( ret != MM_ERROR_NONE )
 		{
-			LOGE("failed to release sound focus\n");
-			return ret;
+			LOGE("failed to release sound focus, ret(0x%x)\n", ret);
+		}
+
+		ret = _mmplayer_resource_manager_release(&player->resource_manager);
+		if ( ret == MM_ERROR_RESOURCE_INVALID_STATE )
+		{
+			LOGW("it could be in the middle of resource callback or there's no acquired resource\n");
+			ret = MM_ERROR_NONE;
+		}
+		else if (ret != MM_ERROR_NONE)
+		{
+			LOGE("failed to release resource, ret(0x%x)\n", ret);
+		}
+		ret = _mmplayer_resource_manager_unprepare(&player->resource_manager);
+		{
+			LOGE("failed to unprepare resource, ret(0x%x)\n", ret);
 		}
 	}
 	else
@@ -12866,7 +12917,7 @@ GstCaps* caps, GstElementFactory* factory, gpointer data)
 	}
 	else if ((g_strrstr(klass, "Codec/Decoder/Video")))
 	{
-		if (g_strrstr(factory_name, "omx_"))
+		if (g_strrstr(factory_name, "omx"))
 		{
 			char *env = getenv ("MM_PLAYER_HW_CODEC_DISABLE");
 			if (env != NULL)
@@ -12877,6 +12928,14 @@ GstCaps* caps, GstElementFactory* factory, gpointer data)
 					result = GST_AUTOPLUG_SELECT_SKIP;
 					goto DONE;
 				}
+			}
+
+			/* prepare resource manager for video decoder */
+			if((_mmplayer_resource_manager_prepare(&player->resource_manager, RESOURCE_TYPE_VIDEO_DECODER)))
+			{
+				LOGW ("could not prepare for video_decoder resource, skip it.");
+				result = GST_AUTOPLUG_SELECT_SKIP;
+				goto DONE;
 			}
 		}
 	}

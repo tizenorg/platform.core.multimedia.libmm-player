@@ -10,6 +10,7 @@ includelibmmfplayer_HEADERS = include/mm_player.h \
 libmmfplayer_la_SOURCES = server/mm_player.c \
 			  server/mm_player_priv.c \
 			  server/mm_player_utils.c \
+			  server/mm_player_resource.c \
 			  server/mm_player_sound_focus.c \
 			  server/mm_player_capture.c \
 			  server/mm_player_pd.c \
@@ -34,6 +35,8 @@ libmmfplayer_la_CFLAGS =  -I$(srcdir)/include \
 			$(GST_APP_CFLAGS) \
 			$(MMSESSION_CFLAGS) \
 			$(MMSOUND_CFLAGS) \
+			$(MRP_RESOURCE_CFLAGS) \
+			$(MRP_GLIB_CFLAGS) \
 			$(VCONF_CFLAGS) \
 			$(ICU_CFLAGS) \
 			$(UTILX_CFLAGS) \
@@ -71,6 +74,8 @@ libmmfplayer_la_LIBADD = $(GST_LIBS) \
 		$(INIPARSER_LIBS) \
 		$(MMSESSION_LIBS) \
 		$(MMSOUND_LIBS) \
+		$(MRP_RESOURCE_LIBS) \
+		$(MRP_GLIB_LIBS) \
 		$(VCONF_LIBS) \
 		$(ICU_LIBS) \
 		$(MEDIAPACKET_LIBS) \

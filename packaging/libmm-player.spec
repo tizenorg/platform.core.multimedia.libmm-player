@@ -3,7 +3,7 @@
 
 Name:       libmm-player
 Summary:    Multimedia Framework Player Library
-Version:    0.5.65
+Version:    0.5.66
 Release:    0
 Group:      Multimedia/Libraries
 License:    Apache-2.0
@@ -30,6 +30,8 @@ BuildRequires:  pkgconfig(iniparser)
 BuildRequires:  pkgconfig(vconf)
 BuildRequires:  pkgconfig(icu-i18n)
 BuildRequires:  pkgconfig(capi-media-tool)
+BuildRequires:  pkgconfig(murphy-resource)
+BuildRequires:  pkgconfig(murphy-glib)
 
 %description
 Multimedia Framework Player Library files.

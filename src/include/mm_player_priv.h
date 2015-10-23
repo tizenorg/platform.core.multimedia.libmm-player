@@ -42,6 +42,7 @@
 #include "mm_player_audioeffect.h"
 #include "mm_message.h"
 #include "mm_player_ini.h"
+#include "mm_player_resource.h"
 #include "mm_player_sound_focus.h"
 #include "mm_player_pd.h"
 #include "mm_player_streaming.h"
@@ -656,6 +657,10 @@ typedef struct {
 	gboolean is_nv12_tiled;
 	gboolean is_drm_file;
 
+	/* resource manager for H/W resources */
+	MMPlayerResourceManager resource_manager;
+
+	/* sound focus for being compatible with legacy session policy internally */
 	MMPlayerSoundFocus sound_focus;
 
 	gboolean is_subtitle_off;
@@ -858,6 +863,7 @@ gboolean __mmplayer_dump_pipeline_state( mm_player_t* player );
 void __mmplayer_remove_g_source_from_context(GMainContext *context, guint source_id);
 /* util */
 const gchar * __get_state_name ( int state );
+gboolean __mmplayer_can_do_interrupt(mm_player_t *player);
 gboolean __is_streaming( mm_player_t* player );
 gboolean __is_rtsp_streaming( mm_player_t* player );
 gboolean __is_wfd_streaming( mm_player_t* player );
