@@ -104,13 +104,12 @@ static void mrp_state_callback(mrp_res_context_t *context, mrp_res_error_t err, 
 		LOGE(" - user data is null\n");
 		return;
 	}
+	player = (mm_player_t*)user_data;
 	if (err != MRP_RES_ERROR_NONE)
 	{
-		LOGE(" - error message received from Murphy, err(0x%x)\n", err);
+		LOGE(" - error message received from Murphy, for the player(%p), err(0x%x)\n", player, err);
 		return;
 	}
-
-	player = (mm_player_t*)user_data;
 
 	switch(context->state)
 	{
@@ -236,6 +235,7 @@ static void mrp_resource_release_cb (mrp_res_context_t *cx, const mrp_res_resour
 		}
 		else
 			LOGW("could not find videobin");
+		MMPLAYER_CMD_UNLOCK(player);
 	}
 
 	MMPLAYER_FLEAVE();

@@ -9016,10 +9016,10 @@ __mmplayer_can_do_interrupt(mm_player_t *player)
 		goto INTERRUPT;
 	}
 
-FAILED:
+FAILED:    /* with CMD UNLOCKED */
 	return FALSE;
 
-INTERRUPT:
+INTERRUPT: /* with CMD LOCKED */
 	return TRUE;
 }
 
@@ -9086,7 +9086,7 @@ void __mmplayer_sound_focus_watch_callback(int id, mm_sound_focus_type_e focus_t
 	if (!__mmplayer_can_do_interrupt(player))
 	{
 		LOGW("no need to interrupt, so leave");
-		goto EXIT;
+		goto EXIT_WITHOUT_UNLOCK;
 	}
 
 	if (player->sound_focus.session_flags & MM_SESSION_OPTION_UNINTERRUPTIBLE)
@@ -9169,9 +9169,13 @@ void __mmplayer_sound_focus_watch_callback(int id, mm_sound_focus_type_e focus_t
 DONE:
 	player->sound_focus.by_asm_cb = FALSE;
 	player->sound_focus.cb_pending = FALSE;
-	MMPLAYER_CMD_UNLOCK( player );
 
 EXIT:
+	MMPLAYER_CMD_UNLOCK( player );
+	LOGW("dispatched");
+	return;
+
+EXIT_WITHOUT_UNLOCK:
 	LOGW("dispatched");
 	return;
 }
@@ -9190,7 +9194,7 @@ __mmplayer_sound_focus_callback(int id, mm_sound_focus_type_e focus_type, mm_sou
 	if (!__mmplayer_can_do_interrupt(player))
 	{
 		LOGW("no need to interrupt, so leave");
-		goto EXIT;
+		goto EXIT_WITHOUT_UNLOCK;
 	}
 
 	if (player->sound_focus.session_flags & MM_SESSION_OPTION_UNINTERRUPTIBLE)
@@ -9323,9 +9327,13 @@ DONE:
 		player->sound_focus.by_asm_cb = FALSE;
 	}
 	player->sound_focus.cb_pending = FALSE;
-	MMPLAYER_CMD_UNLOCK( player );
 
 EXIT:
+	MMPLAYER_CMD_UNLOCK( player );
+	LOGW("dispatched");
+	return;
+
+EXIT_WITHOUT_UNLOCK:
 	LOGW("dispatched");
 	return;
 }
@@ -9982,7 +9990,7 @@ _mmplayer_unrealize(MMHandleType hplayer)
 		}
 
 		ret = _mmplayer_resource_manager_release(&player->resource_manager);
-		if ( ret == MM_ERROR_RESOURCE_INVALID_STATE )
+		if (ret == MM_ERROR_RESOURCE_INVALID_STATE)
 		{
 			LOGW("it could be in the middle of resource callback or there's no acquired resource\n");
 			ret = MM_ERROR_NONE;
@@ -9992,6 +10000,7 @@ _mmplayer_unrealize(MMHandleType hplayer)
 			LOGE("failed to release resource, ret(0x%x)\n", ret);
 		}
 		ret = _mmplayer_resource_manager_unprepare(&player->resource_manager);
+		if (ret != MM_ERROR_NONE)
 		{
 			LOGE("failed to unprepare resource, ret(0x%x)\n", ret);
 		}
