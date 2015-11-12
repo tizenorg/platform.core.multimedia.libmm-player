@@ -8153,7 +8153,7 @@ int __gst_pause(mm_player_t* player, gboolean async) // @
 
 			return ret;
 		}
-		else if ( (!player->pipeline->videobin) && (!player->pipeline->audiobin) )
+		else if ( !player->video_stream_cb && (!player->pipeline->videobin) && (!player->pipeline->audiobin) )
 		{
 			if (MMPLAYER_IS_RTSP_STREAMING(player))
 				return ret;
@@ -12960,9 +12960,10 @@ GstCaps* caps, GstElementFactory* factory, gpointer data)
 		/* don't make video because of not required */
 		if (stype == MM_DISPLAY_SURFACE_NULL)
 		{
-			LOGD ("no video because it's not required. -> return expose");
-			if (player->set_mode.media_packet_video_stream == FALSE)
+			if (player->set_mode.media_packet_video_stream == FALSE
+				|| !(player->profile.uri_type == MM_PLAYER_URI_TYPE_MS_BUFF))
 			{
+				LOGD ("no video because it's not required. -> return expose");
 				result = GST_AUTOPLUG_SELECT_EXPOSE;
 				goto DONE;
 			}
