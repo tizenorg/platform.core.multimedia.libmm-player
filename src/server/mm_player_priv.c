@@ -12961,7 +12961,7 @@ GstCaps* caps, GstElementFactory* factory, gpointer data)
 		if (stype == MM_DISPLAY_SURFACE_NULL)
 		{
 			if (player->set_mode.media_packet_video_stream == FALSE
-				|| !(player->profile.uri_type == MM_PLAYER_URI_TYPE_MS_BUFF))
+				&& !player->video_stream_cb)
 			{
 				LOGD ("no video because it's not required. -> return expose");
 				result = GST_AUTOPLUG_SELECT_EXPOSE;
