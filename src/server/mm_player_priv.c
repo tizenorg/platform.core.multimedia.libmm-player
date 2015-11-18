@@ -8706,7 +8706,7 @@ static int __mmfplayer_parse_profile(const char *uri, void *param, MMPlayerParse
 	{
 		if (strlen(path))
 		{
-			strcpy(data->uri, uri);
+			strncpy(data->uri, uri, MM_MAX_URL_LEN-1);
 			data->uri_type = MM_PLAYER_URI_TYPE_MS_BUFF;
 			ret = MM_ERROR_NONE;
 		}
@@ -12480,7 +12480,7 @@ __mmplayer_activate_next_source(mm_player_t *player, GstState target)
 ERROR:
 	MMPLAYER_PLAYBACK_UNLOCK(player);
 
-	if (!player->msg_posted)
+	if (player && !player->msg_posted)
 	{
 		MMPLAYER_POST_MSG(player, MM_MESSAGE_ERROR, &msg_param);
 		player->msg_posted = TRUE;
