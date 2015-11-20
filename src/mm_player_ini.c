@@ -50,11 +50,11 @@ do \
 		( strlen( str ) > 0 ) && \
 		( strlen( str ) < PLAYER_INI_MAX_STRLEN ) ) \
 	{ \
-		strcpy ( x_item, str ); \
+		strncpy ( x_item, str, PLAYER_INI_MAX_STRLEN-1 ); \
 	} \
 	else \
 	{ \
-		strcpy ( x_item, x_default ); \
+		strncpy ( x_item, x_default, PLAYER_INI_MAX_STRLEN-1 ); \
 	} \
 }while(0)
 
