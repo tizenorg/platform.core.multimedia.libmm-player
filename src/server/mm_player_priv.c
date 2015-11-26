@@ -7200,7 +7200,7 @@ __mmplayer_gst_create_pipeline(mm_player_t* player) // @
 				{
 					MMPLAYER_SIGNAL_CONNECT( player, elem_src_audio, MM_PLAYER_SIGNAL_TYPE_OTHERS, "need-data",
 														G_CALLBACK(__gst_appsrc_feed_audio_data), player);
-					MMPLAYER_SIGNAL_CONNECT( player, element, MM_PLAYER_SIGNAL_TYPE_OTHERS, "enough-data",
+					MMPLAYER_SIGNAL_CONNECT( player, elem_src_audio, MM_PLAYER_SIGNAL_TYPE_OTHERS, "enough-data",
 														G_CALLBACK(__gst_appsrc_enough_audio_data), player);
 				}
 			}
