@@ -2852,6 +2852,9 @@ __mmplayer_gst_decode_pad_added (GstElement *elem, GstPad *pad, gpointer data)
 
 			player->video_fakesink = fakesink;
 
+			/* store it as it's sink element */
+			__mmplayer_add_sink(player, player->video_fakesink);
+
 			gst_bin_add (GST_BIN(pipeline), fakesink);
 
 			// link
