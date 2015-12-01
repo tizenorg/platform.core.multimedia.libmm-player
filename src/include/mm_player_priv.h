@@ -57,11 +57,6 @@
 |    GLOBAL #defines:														|
 ---------------------------------------------------------------------------*/
 
-#ifdef LOG_TAG
-#undef LOG_TAG
-#endif
-#define LOG_TAG "MM_PLAYER"
-
 #define MM_PLAYER_IMGB_MPLANE_MAX	4
 #define MM_PLAYER_STREAM_COUNT_MAX	3
 

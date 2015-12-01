@@ -29,7 +29,6 @@
 #include "mm_player_utils.h"
 #include "mm_player_capture.h"
 #include "mm_player_priv.h"
-#include "mm_player_utils.h"
 
 #include <mm_util_imgp.h>
 #include <gst/video/video-info.h>

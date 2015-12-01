@@ -35,6 +35,11 @@
 	extern "C" {
 #endif
 
+#ifdef LOG_TAG
+#undef LOG_TAG
+#endif
+#define LOG_TAG "MM_PLAYER"
+
 /* general */
 #ifndef ARRAY_SIZE
 #define ARRAY_SIZE(arr)		(sizeof(arr) / sizeof((arr)[0]))
