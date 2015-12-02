@@ -812,7 +812,7 @@ streaming_handle_adaptive_buffering_mode(	mm_player_streaming_t* streamer,
 	{
 		/* if the buffer is filled under 50%, MSL use the original default buffering time.
 		   if not, MSL use just 2 sec as a default buffering time. (to reduce initial buffering time) */
-		default_buffering_time = streamer->default_val.buffering_time - (streamer->buffering_percent/50);
+		default_buffering_time = streamer->default_val.buffering_time - ((gdouble)streamer->buffering_percent/50);
 	}
 	else
 	{

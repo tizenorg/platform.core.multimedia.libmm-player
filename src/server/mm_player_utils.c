@@ -215,14 +215,17 @@ util_get_cookie_list ( const char *cookies )
 
 	for ( i = 0; i < g_strv_length(cookie_list); i++ )
 	{
-		if ( cookie_list[i] && strlen(cookie_list[i]) )
+		if (cookie_list[i])
 		{
-			g_strstrip(cookie_list[i]);
-			SECURE_LOGD("cookie_list[%d] : %d[bytes] - %s \n", i, strlen(cookie_list[i]), cookie_list[i]);
-		}
-		else
-		{
-			cookie_list[i][0]='\0';
+			if (strlen(cookie_list[i]))
+			{
+				g_strstrip(cookie_list[i]);
+				SECURE_LOGD("cookie_list[%d] : %d[bytes] - %s \n", i, strlen(cookie_list[i]), cookie_list[i]);
+			}
+			else
+			{
+				cookie_list[i][0]='\0';
+			}
 		}
 	}
 

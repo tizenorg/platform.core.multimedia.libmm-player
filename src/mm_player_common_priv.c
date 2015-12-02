@@ -864,7 +864,7 @@ __gst_transform_gsterror( mm_player_t* player, GstMessage * message, GError* err
 
 	//<-
 	{
-		if (player->selector) {
+		if (player->pipeline->mainbin[MMPLAYER_M_A_INPUT_SELECTOR].gst) {
 			int msg_src_pos = 0;
 			gint active_pad_index = player->selector[MM_PLAYER_TRACK_TYPE_AUDIO].active_pad_index;
 			LOGD ("current  active pad index  -%d", active_pad_index);
