@@ -1916,7 +1916,10 @@ __mmplayer_gst_callback(GstBus *bus, GstMessage *msg, gpointer data) // @
 					break;
 
 				structure_name = gst_structure_get_name(gst_message_get_structure(msg));
-				if(!strcmp(structure_name, "Language_list"))
+				if (!structure_name)
+					break;
+
+				if (!strcmp(structure_name, "Language_list"))
 				{
 					const GValue *lang_list = NULL;
 					lang_list = gst_structure_get_value (gst_message_get_structure(msg), "lang_list");
@@ -3293,6 +3296,7 @@ __mmplayer_gst_deinterleave_no_more_pads (GstElement *elem, gpointer data)
 
 				__mmplayer_set_audio_attrs (player, caps);
 			}
+			MMPLAYER_FREEIF(change_pad_name);
 		}
 
 		player->audio_mode.active_pad_index = audio_ch;
@@ -6499,8 +6503,8 @@ __gst_appsrc_feed_data_mem(GstElement *element, guint size, gpointer user_data) 
 	}
 
 	gst_buffer_insert_memory(buffer, -1, gst_memory_new_wrapped(0, (guint8 *)(buf->buf + buf->offset), len, 0, len, (guint8*)(buf->buf + buf->offset), g_free));
-	GST_BUFFER_OFFSET(buffer) = buf->offset;
-	GST_BUFFER_OFFSET_END(buffer) = buf->offset + len;
+	GST_BUFFER_OFFSET(buffer) = (guint64)buf->offset;
+	GST_BUFFER_OFFSET_END(buffer) = (guint64)(buf->offset + len);
 
 	//LOGD("feed buffer %p, offset %u-%u length %u\n", buffer, buf->offset, buf->len,len);
 	g_signal_emit_by_name (appsrc, "push-buffer", buffer, &ret);
@@ -6987,7 +6991,7 @@ __mmplayer_gst_create_pipeline(mm_player_t* player) // @
 					else
 					{
 						LOGE("can't find pd location so, it should be set \n");
-						return MM_ERROR_PLAYER_FILE_NOT_FOUND;
+						break;
 					}
 				}
 
@@ -7538,35 +7542,38 @@ INIT_ERROR:
 	__mmplayer_gst_destroy_pipeline(player);
 	g_list_free(element_bucket);
 
-	/* release element which are not added to bin */
-	for ( i = 1; i < MMPLAYER_M_NUM; i++ ) 	/* NOTE : skip pipeline */
+	if (mainbin)
 	{
-		if ( mainbin[i].gst )
+		/* release element which are not added to bin */
+		for ( i = 1; i < MMPLAYER_M_NUM; i++ ) 	/* NOTE : skip pipeline */
 		{
-			GstObject* parent = NULL;
-			parent = gst_element_get_parent( mainbin[i].gst );
+			if ( mainbin[i].gst )
+			{
+				GstObject* parent = NULL;
+				parent = gst_element_get_parent( mainbin[i].gst );
 
-			if ( !parent )
-			{
-				gst_object_unref(GST_OBJECT(mainbin[i].gst));
-				mainbin[i].gst = NULL;
-			}
-			else
-			{
-				gst_object_unref(GST_OBJECT(parent));
+				if ( !parent )
+				{
+					gst_object_unref(GST_OBJECT(mainbin[i].gst));
+					mainbin[i].gst = NULL;
+				}
+				else
+				{
+					gst_object_unref(GST_OBJECT(parent));
+				}
 			}
 		}
-	}
 
-	/* release pipeline with it's childs */
-	if ( mainbin[MMPLAYER_M_PIPE].gst )
-	{
-		gst_object_unref(GST_OBJECT(mainbin[MMPLAYER_M_PIPE].gst));
+		/* release pipeline with it's childs */
+		if ( mainbin[MMPLAYER_M_PIPE].gst )
+		{
+			gst_object_unref(GST_OBJECT(mainbin[MMPLAYER_M_PIPE].gst));
+		}
+
+		MMPLAYER_FREEIF( mainbin );
 	}
 
 	MMPLAYER_FREEIF( player->pipeline );
-	MMPLAYER_FREEIF( mainbin );
-
 	return MM_ERROR_PLAYER_INTERNAL;
 }
 
@@ -8723,13 +8730,13 @@ static int __mmfplayer_parse_profile(const char *uri, void *param, MMPlayerParse
 	{
 		if (strlen(path)) {
 			if((path = strstr(uri, "/wfd1.0/"))) {
-				strcpy(data->uri, uri);
+				strncpy(data->uri, uri, MM_MAX_URL_LEN-1);
 				data->uri_type = MM_PLAYER_URI_TYPE_URL_WFD;
 				ret = MM_ERROR_NONE;
 				LOGD("uri is actually a wfd client path. giving it to wfdrtspsrc\n");
 			}
 			else {
-				strcpy(data->uri, uri);
+				strncpy(data->uri, uri, MM_MAX_URL_LEN-1);
 				data->uri_type = MM_PLAYER_URI_TYPE_URL_RTSP;
 				ret = MM_ERROR_NONE;
 			}
@@ -8738,7 +8745,7 @@ static int __mmfplayer_parse_profile(const char *uri, void *param, MMPlayerParse
 	else if ((path = strstr(uri, "http://")))
 	{
 		if (strlen(path)) {
-			strcpy(data->uri, uri);
+			strncpy(data->uri, uri, MM_MAX_URL_LEN-1);
 
 			if (g_str_has_suffix (g_ascii_strdown(uri, strlen(uri)), ".ism/manifest") ||
 				g_str_has_suffix (g_ascii_strdown(uri, strlen(uri)), ".isml/manifest"))
@@ -8754,7 +8761,7 @@ static int __mmfplayer_parse_profile(const char *uri, void *param, MMPlayerParse
 	else if ((path = strstr(uri, "https://")))
 	{
 		if (strlen(path)) {
-			strcpy(data->uri, uri);
+			strncpy(data->uri, uri, MM_MAX_URL_LEN-1);
 
 		if (g_str_has_suffix (g_ascii_strdown(uri, strlen(uri)), ".ism/manifest") ||
 				g_str_has_suffix (g_ascii_strdown(uri, strlen(uri)), ".isml/manifest"))
@@ -8770,14 +8777,14 @@ static int __mmfplayer_parse_profile(const char *uri, void *param, MMPlayerParse
 	else if ((path = strstr(uri, "rtspu://")))
 	{
 		if (strlen(path)) {
-			strcpy(data->uri, uri);
+			strncpy(data->uri, uri, MM_MAX_URL_LEN-1);
 			data->uri_type = MM_PLAYER_URI_TYPE_URL_RTSP;
 			ret = MM_ERROR_NONE;
 		}
 	}
 	else if ((path = strstr(uri, "rtspr://")))
 	{
-		strcpy(data->uri, path);
+		strncpy(data->uri, path, MM_MAX_URL_LEN-1);
 		char *separater =strstr(path, "*");
 
 		if (separater) {
@@ -8786,7 +8793,7 @@ static int __mmfplayer_parse_profile(const char *uri, void *param, MMPlayerParse
 
 			if ((urgent_len = strlen(urgent))) {
 				data->uri[strlen(path) - urgent_len - strlen("*")] = '\0';
-				strcpy(data->urgent, urgent);
+				strncpy(data->urgent, urgent, MM_MAX_FILENAME_LEN-1);
 				data->uri_type = MM_PLAYER_URI_TYPE_URL_RTSP;
 				ret = MM_ERROR_NONE;
 			}
@@ -8795,7 +8802,7 @@ static int __mmfplayer_parse_profile(const char *uri, void *param, MMPlayerParse
 	else if ((path = strstr(uri, "mms://")))
 	{
 		if (strlen(path)) {
-			strcpy(data->uri, uri);
+			strncpy(data->uri, uri, MM_MAX_URL_LEN-1);
 			data->uri_type = MM_PLAYER_URI_TYPE_URL_MMS;
 			ret = MM_ERROR_NONE;
 		}
@@ -8813,7 +8820,7 @@ static int __mmfplayer_parse_profile(const char *uri, void *param, MMPlayerParse
 					buffer += strlen("ext=");
 
 					if (strlen(buffer)) {
-						strcpy(ext, buffer);
+						strncpy(ext, buffer, 99);
 
 						if ((seperator = strchr(ext, ','))
 							|| (seperator = strchr(ext, ' '))
@@ -8827,7 +8834,7 @@ static int __mmfplayer_parse_profile(const char *uri, void *param, MMPlayerParse
 					buffer += strlen("size=");
 
 					if (strlen(buffer) > 0) {
-						strcpy(size, buffer);
+						strncpy(size, buffer, 99);
 
 						if ((seperator = strchr(size, ','))
 							|| (seperator = strchr(size, ' '))
@@ -15017,7 +15024,7 @@ int _mmplayer_change_videosink(MMHandleType handle, MMDisplaySurfaceType surface
 
 	player = MM_PLAYER_CAST(handle);
 
-	if (surface_type < MM_DISPLAY_SURFACE_X && surface_type >= MM_DISPLAY_SURFACE_NUM)
+	if (surface_type < MM_DISPLAY_SURFACE_X || surface_type >= MM_DISPLAY_SURFACE_NUM)
 	{
 		LOGE("Not support this surface type(%d) for changing vidoesink", surface_type);
 		MMPLAYER_FLEAVE();
@@ -15234,6 +15241,12 @@ __mmplayer_do_change_videosink(mm_player_t* player, const int dec_index, const c
 
 	/* create a new videosink and add it to videobin */
 	player->pipeline->videobin[MMPLAYER_V_SINK].gst = gst_element_factory_make(videosink_element, videosink_element);
+	if (!player->pipeline->videobin[MMPLAYER_V_SINK].gst)
+	{
+		LOGE ( "failed to create videosink element\n" );
+		MMPLAYER_FLEAVE();
+		return MM_ERROR_PLAYER_INTERNAL;
+	}
 	gst_bin_add (GST_BIN(player->pipeline->videobin[MMPLAYER_V_BIN].gst), GST_ELEMENT(player->pipeline->videobin[MMPLAYER_V_SINK].gst));
 	__mmplayer_add_sink( player, player->pipeline->videobin[MMPLAYER_V_SINK].gst );
 	g_object_set (G_OBJECT (player->pipeline->videobin[MMPLAYER_V_SINK].gst), "qos", TRUE, NULL);
@@ -16391,7 +16404,7 @@ __mmplayer_add_dump_buffer_probe(mm_player_t *player, GstElement *element)
 			if (dump_s->dump_pad)
 			{
 				memset (dump_file_name, 0x00, PLAYER_INI_MAX_STRLEN*2);
-				sprintf (dump_file_name, "%s/%s_sink_pad.dump", player->ini.dump_element_path, player->ini.dump_element_keyword[idx]);
+				snprintf (dump_file_name, PLAYER_INI_MAX_STRLEN*2, "%s/%s_sink_pad.dump", player->ini.dump_element_path, player->ini.dump_element_keyword[idx]);
 				dump_s->dump_element_file = fopen(dump_file_name,"w+");
 				dump_s->probe_handle_id = gst_pad_add_probe (dump_s->dump_pad, GST_PAD_PROBE_TYPE_BUFFER, __mmplayer_dump_buffer_probe_cb, dump_s->dump_element_file, NULL);
 				/* add list for removed buffer probe and close FILE */
