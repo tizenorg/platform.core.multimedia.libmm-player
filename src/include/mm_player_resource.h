@@ -34,10 +34,20 @@ typedef enum {
 	RESOURCE_TYPE_VIDEO_OVERLAY,
 } MMPlayerResourceType;
 
+typedef enum {
+	RESOURCE_STATE_NONE,
+	RESOURCE_STATE_INITIALIZED,
+	RESOURCE_STATE_PREPARED,
+	RESOURCE_STATE_ACQUIRED,
+	RESOURCE_STATE_MAX,
+} MMPlayerResourceState;
+
+
 typedef struct {
 	mrp_mainloop_t *mloop;
 	mrp_res_context_t *context;
 	mrp_res_resource_set_t *rset;
+	MMPlayerResourceState state;
 	bool is_connected;
 	void *user_data;
 	bool by_rm_cb;
@@ -49,6 +59,8 @@ int _mmplayer_resource_manager_acquire(MMPlayerResourceManager *resource_manager
 int _mmplayer_resource_manager_release(MMPlayerResourceManager *resource_manager);
 int _mmplayer_resource_manager_unprepare(MMPlayerResourceManager *resource_manager);
 int _mmplayer_resource_manager_deinit(MMPlayerResourceManager *resource_manager);
+int _mmplayer_resource_manager_get_state(MMPlayerResourceManager *resource_manager, MMPlayerResourceState *state);
+
 
 #ifdef __cplusplus
 }

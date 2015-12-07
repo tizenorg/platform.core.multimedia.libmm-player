@@ -3747,6 +3747,7 @@ __mmplayer_gst_decode_callback(GstElement *elem, GstPad *pad, gpointer data) // 
 	GstElement* sinkbin = NULL;
 	gboolean reusing = FALSE;
 	GstElement *text_selector = NULL;
+	MMPlayerResourceState resource_state = RESOURCE_STATE_NONE;
 
 	/* check handles */
 	player = (mm_player_t*) data;
@@ -3843,22 +3844,38 @@ __mmplayer_gst_decode_callback(GstElement *elem, GstPad *pad, gpointer data) // 
 				LOGD("not make videobin because it dose not want\n");
 				goto ERROR;
 			}
+
 			if (surface_client_type == MM_DISPLAY_SURFACE_X)
 			{
-				/* prepare resource manager for video overlay */
-				if((_mmplayer_resource_manager_prepare(&player->resource_manager, RESOURCE_TYPE_VIDEO_OVERLAY)))
+				if (_mmplayer_resource_manager_get_state(&player->resource_manager, &resource_state) == MM_ERROR_NONE)
 				{
-					LOGE("could not prepare for video_overlay resource\n");
-					goto ERROR;
+					/* prepare resource manager for video overlay */
+					if (resource_state >= RESOURCE_STATE_INITIALIZED)
+					{
+						if (_mmplayer_resource_manager_prepare(&player->resource_manager, RESOURCE_TYPE_VIDEO_OVERLAY)
+							!= MM_ERROR_NONE)
+						{
+							LOGE("could not prepare for video_overlay resource\n");
+							goto ERROR;
+						}
+					}
 				}
 			}
 
-			/* acquire resources for video playing */
-			if((player->resource_manager.rset && _mmplayer_resource_manager_acquire(&player->resource_manager)))
+			if (_mmplayer_resource_manager_get_state(&player->resource_manager, &resource_state)
+				== MM_ERROR_NONE)
 			{
-				LOGE("could not acquire resources for video playing\n");
-				_mmplayer_resource_manager_unprepare(&player->resource_manager);
-				goto ERROR;
+				/* acquire resources for video playing */
+				if (resource_state >= RESOURCE_STATE_PREPARED)
+				{
+					if (_mmplayer_resource_manager_acquire(&player->resource_manager)
+						!= MM_ERROR_NONE)
+					{
+						LOGE("could not acquire resources for video playing\n");
+						_mmplayer_resource_manager_unprepare(&player->resource_manager);
+						goto ERROR;
+					}
+				}
 			}
 
 			if (MM_ERROR_NONE !=  __mmplayer_gst_create_video_pipeline(player, caps, surface_type) )
@@ -9976,6 +9993,7 @@ int
 _mmplayer_unrealize(MMHandleType hplayer)
 {
 	mm_player_t* player = (mm_player_t*)hplayer;
+	MMPlayerResourceState resource_state = RESOURCE_STATE_NONE;
 	int ret = MM_ERROR_NONE;
 
 	MMPLAYER_FENTER();
@@ -9999,20 +10017,28 @@ _mmplayer_unrealize(MMHandleType hplayer)
 			LOGE("failed to release sound focus, ret(0x%x)\n", ret);
 		}
 
-		ret = _mmplayer_resource_manager_release(&player->resource_manager);
-		if (ret == MM_ERROR_RESOURCE_INVALID_STATE)
+		if (_mmplayer_resource_manager_get_state(&player->resource_manager, &resource_state) == MM_ERROR_NONE)
 		{
-			LOGW("it could be in the middle of resource callback or there's no acquired resource\n");
-			ret = MM_ERROR_NONE;
+			if (resource_state >= RESOURCE_STATE_ACQUIRED)
+			{
+				ret = _mmplayer_resource_manager_release(&player->resource_manager);
+				if (ret != MM_ERROR_NONE)
+				{
+					LOGE("failed to release resource, ret(0x%x)\n", ret);
+				}
+			}
 		}
-		else if (ret != MM_ERROR_NONE)
+
+		if (_mmplayer_resource_manager_get_state(&player->resource_manager, &resource_state) == MM_ERROR_NONE)
 		{
-			LOGE("failed to release resource, ret(0x%x)\n", ret);
-		}
-		ret = _mmplayer_resource_manager_unprepare(&player->resource_manager);
-		if (ret != MM_ERROR_NONE)
-		{
-			LOGE("failed to unprepare resource, ret(0x%x)\n", ret);
+			if (resource_state == RESOURCE_STATE_PREPARED)
+			{
+				ret = _mmplayer_resource_manager_unprepare(&player->resource_manager);
+				if (ret != MM_ERROR_NONE)
+				{
+					LOGE("failed to unprepare resource, ret(0x%x)\n", ret);
+				}
+			}
 		}
 	}
 	else
@@ -12950,11 +12976,21 @@ GstCaps* caps, GstElementFactory* factory, gpointer data)
 			}
 
 			/* prepare resource manager for video decoder */
-			if((_mmplayer_resource_manager_prepare(&player->resource_manager, RESOURCE_TYPE_VIDEO_DECODER)))
+			MMPlayerResourceState resource_state = RESOURCE_STATE_NONE;
+
+			if (_mmplayer_resource_manager_get_state(&player->resource_manager, &resource_state) == MM_ERROR_NONE)
 			{
-				LOGW ("could not prepare for video_decoder resource, skip it.");
-				result = GST_AUTOPLUG_SELECT_SKIP;
-				goto DONE;
+				/* prepare resource manager for video overlay */
+				if (resource_state >= RESOURCE_STATE_INITIALIZED)
+				{
+					if (_mmplayer_resource_manager_prepare(&player->resource_manager, RESOURCE_TYPE_VIDEO_DECODER)
+						!= MM_ERROR_NONE)
+					{
+						LOGW ("could not prepare for video_decoder resource, skip it.");
+						result = GST_AUTOPLUG_SELECT_SKIP;
+						goto DONE;
+					}
+				}
 			}
 		}
 	}
