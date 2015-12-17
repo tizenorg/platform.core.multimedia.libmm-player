@@ -434,6 +434,11 @@ static int _mmplayer_mused_realize(mm_player_t *player, char *string_caps)
 	mainbin[MMPLAYER_M_V_SINK].id = MMPLAYER_M_V_SINK;
 	mainbin[MMPLAYER_M_V_SINK].gst = sink;
 
+	/* support using shard memory with S/W codec on HawkP */
+	if(strcmp(videosink_element, "waylandsink") == 0) {
+		g_object_set(mainbin[MMPLAYER_M_V_SINK].gst, "use-tbm", use_tbm, NULL);
+	}
+
 	/* now we have completed mainbin. take it */
 	player->pipeline->mainbin = mainbin;
 
@@ -471,14 +476,41 @@ static int _mmplayer_mused_realize(mm_player_t *player, char *string_caps)
 
 
 	} else {
-		gst_bin_add_many(GST_BIN(mainbin[MMPLAYER_M_PIPE].gst),
-				mainbin[MMPLAYER_M_SRC].gst,
-				mainbin[MMPLAYER_M_V_SINK].gst,
-				NULL);
+		if (!use_tbm) {
+			/* SHM need videoconvert, wayland support RGB SHM format only*/
+			conv = gst_element_factory_make(video_csc, video_csc);
+			if (!conv ) {
+				LOGE("faile to create %s", video_csc);
+				result = MM_ERROR_PLAYER_INTERNAL;
+				goto REALIZE_ERROR;
+			}
+			mainbin[MMPLAYER_M_V_CONV].id = MMPLAYER_M_V_CONV;
+			mainbin[MMPLAYER_M_V_CONV].gst = conv;
+			gst_bin_add_many(GST_BIN(mainbin[MMPLAYER_M_PIPE].gst),
+					mainbin[MMPLAYER_M_SRC].gst,
+					mainbin[MMPLAYER_M_V_CONV].gst,
+					mainbin[MMPLAYER_M_V_SINK].gst,
+					NULL);
 
-		link = gst_element_link_filtered(mainbin[MMPLAYER_M_SRC].gst,
-				mainbin[MMPLAYER_M_V_SINK].gst,
-				caps);
+			link = gst_element_link_filtered(mainbin[MMPLAYER_M_SRC].gst,
+					mainbin[MMPLAYER_M_V_CONV].gst,
+					caps);
+			if (link) {
+				link =  gst_element_link(mainbin[MMPLAYER_M_V_CONV].gst,
+					mainbin[MMPLAYER_M_V_SINK].gst);
+			} else {
+				LOGE("gst_element_link_filterd error");
+			}
+		}else {
+			gst_bin_add_many(GST_BIN(mainbin[MMPLAYER_M_PIPE].gst),
+					mainbin[MMPLAYER_M_SRC].gst,
+					mainbin[MMPLAYER_M_V_SINK].gst,
+					NULL);
+
+			link = gst_element_link_filtered(mainbin[MMPLAYER_M_SRC].gst,
+					mainbin[MMPLAYER_M_V_SINK].gst,
+					caps);
+		}
 	}
 
 	gst_caps_unref(caps);
