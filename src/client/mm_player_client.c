@@ -435,7 +435,7 @@ static int _mmplayer_mused_realize(mm_player_t *player, char *string_caps)
 	mainbin[MMPLAYER_M_V_SINK].gst = sink;
 
 	/* support using shard memory with S/W codec on HawkP */
-	if(strcmp(videosink_element, "waylandsink") == 0) {
+	if(strncmp(videosink_element, "waylandsink", strlen(videosink_element)) == 0) {
 		g_object_set(mainbin[MMPLAYER_M_V_SINK].gst, "use-tbm", use_tbm, NULL);
 	}
 

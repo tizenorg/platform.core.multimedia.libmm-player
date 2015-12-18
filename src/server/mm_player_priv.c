@@ -5658,7 +5658,7 @@ __mmplayer_gst_create_video_filters(mm_player_t* player, GList** bucket, gboolea
 		MMDisplaySurfaceType surface_type = MM_DISPLAY_SURFACE_NULL;
 		mm_attrs_get_int_by_name (player->attrs, "display_surface_type", (int *)&surface_type);
 
-		if (player->set_mode.video_zc)
+		if (player->set_mode.video_zc) /* ST12 or SN12 , if player use omx, evasimagesink doesn't use videoconvert */
 		{
 			if ( (surface_type == MM_DISPLAY_SURFACE_EVAS) && ( !strcmp(player->ini.videosink_element_evas, "evasimagesink")) )
 			{
@@ -5666,10 +5666,16 @@ __mmplayer_gst_create_video_filters(mm_player_t* player, GList** bucket, gboolea
 			}
 			else
 			{
-				video_csc = "";
+				video_csc = ""; /* Videosinks don't use videoconvert except evasimagesink which use  normal video formats */
 			}
 		}
-
+		else /* sw codec, if player use libav,  waylandsink need videoconvert  to render shm wl-buffer which support RGB only */
+		{
+			if ((surface_type == MM_DISPLAY_SURFACE_X) && (!strncmp(player->ini.videosink_element_x, "waylandsink", strlen(player->ini.videosink_element_x))))
+			{
+				video_csc = "videoconvert";
+			}
+		}
 		if (video_csc && (strcmp(video_csc, "")))
 		{
 			MMPLAYER_CREATE_ELEMENT(player->pipeline->videobin, MMPLAYER_V_CONV, video_csc, "video converter", TRUE, player);
@@ -5827,6 +5833,21 @@ __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps, MMDispl
 
 		/* additional setting for sink plug-in */
 		switch (surface_type) {
+			case MM_DISPLAY_SURFACE_X:
+			{
+				bool use_tbm = player->set_mode.video_zc;
+				if (!use_tbm)
+				{
+					LOGD("selected videosink name: %s", videosink_element);
+
+					/* support shard memory with S/W codec on HawkP */
+					if(strncmp(videosink_element, "waylandsink", strlen(videosink_element)) == 0)
+					{
+						g_object_set(player->pipeline->videobin[MMPLAYER_V_SINK].gst, "use-tbm", use_tbm, NULL);
+					}
+				}
+				break;
+            }
 			case MM_DISPLAY_SURFACE_X_EXT:
 				MMPLAYER_SIGNAL_CONNECT( player,
 										player->pipeline->videobin[MMPLAYER_V_SINK].gst,
@@ -5839,7 +5860,7 @@ __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps, MMDispl
 			case MM_DISPLAY_SURFACE_REMOTE:
 			{
 				char *stream_path = NULL;
-				/* viceo_zc is the result of check ST12/SN12 */
+				/* video_zc is the result of check ST12/SN12 */
 				bool use_tbm = player->set_mode.video_zc;
 				int attr_ret = mm_attrs_get_string_by_name (
 						attrs, "shm_stream_path", &stream_path );
