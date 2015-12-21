@@ -5544,9 +5544,10 @@ __mmplayer_video_stream_probe (GstPad *pad, GstPadProbeInfo *info, gpointer user
 		stream.internal_buffer = buffer;
 	} else {
 		tbm_bo_handle thandle;
-		int stride = ((stream.width + 3) & (~3));
+		int stride = GST_ROUND_UP_4 (stream.width);
 		int elevation = stream.height;
-		int size = stride * elevation * 3 / 2;
+		int size = 0;
+
 		gboolean gst_ret;
 		gst_ret = gst_memory_map(dataBlock, &mapinfo, GST_MAP_READWRITE);
 		if(!gst_ret) {
@@ -5557,7 +5558,7 @@ __mmplayer_video_stream_probe (GstPad *pad, GstPadProbeInfo *info, gpointer user
 		stream.stride[0] = stride;
 		stream.elevation[0] = elevation;
 		if(stream.format == MM_PIXEL_FORMAT_I420) {
-			stream.stride[1] = stream.stride[2] = stride / 2;
+			stream.stride[1] = stream.stride[2] = GST_ROUND_UP_4 (GST_ROUND_UP_2 (stream.width) / 2);
 			stream.elevation[1] = stream.elevation[2] = elevation / 2;
 		}
 		else {
@@ -5566,6 +5567,7 @@ __mmplayer_video_stream_probe (GstPad *pad, GstPadProbeInfo *info, gpointer user
 			return GST_PAD_PROBE_OK;
 		}
 
+		size = (stream.stride[0] + stream.stride[1]) * elevation;
 		stream.bo[0] = tbm_bo_alloc(player->bufmgr, size, TBM_BO_DEFAULT);
 		if(!stream.bo[0]) {
 			LOGE("Fail to tbm_bo_alloc!!");
