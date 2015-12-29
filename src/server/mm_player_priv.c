@@ -1951,8 +1951,11 @@ __mmplayer_gst_callback(GstBus *bus, GstMessage *msg, gpointer data) // @
 						while (count)
 						{
 							temp = g_list_nth_data (player->subtitle_language_list, count - 1);
-							LOGD ("value of lang_key is %s and lang_code is %s",
-										temp->language_key, temp->language_code);
+							if (temp)
+							{
+								LOGD ("value of lang_key is %s and lang_code is %s",
+											temp->language_key, temp->language_code);
+							}
 							count--;
 						}
 					}
@@ -12537,12 +12540,15 @@ __mmplayer_activate_next_source(mm_player_t *player, GstState target)
 	return;
 
 ERROR:
-	MMPLAYER_PLAYBACK_UNLOCK(player);
-
-	if (player && !player->msg_posted)
+	if (player)
 	{
-		MMPLAYER_POST_MSG(player, MM_MESSAGE_ERROR, &msg_param);
-		player->msg_posted = TRUE;
+		MMPLAYER_PLAYBACK_UNLOCK(player);
+
+		if (!player->msg_posted)
+		{
+			MMPLAYER_POST_MSG(player, MM_MESSAGE_ERROR, &msg_param);
+			player->msg_posted = TRUE;
+		}
 	}
 	return;
 }

@@ -268,8 +268,9 @@ __mmplayer_handle_orientation (mm_player_t* player, int orientation, int format)
 			dst_frame, &dst_width, &dst_height, rot_enum);
     if (ret != MM_ERROR_NONE)
     {
-      LOGE("failed to do rotate image");
-      return ret;
+		LOGE("failed to do rotate image");
+		free(dst_frame);
+		return ret;
     }
 
     LOGD ("after rotation same stride: dst_width = %d and dst_height = %d", dst_width, dst_height);
@@ -710,6 +711,7 @@ __mm_player_convert_colorspace(mm_player_t* player, unsigned char* src_data, mm_
 	if (!dst_data)
 	{
 		LOGE("no free space to capture\n");
+		g_free(dst_data);
 		return MM_ERROR_PLAYER_NO_FREE_SPACE;
 	}
 
@@ -718,6 +720,7 @@ __mm_player_convert_colorspace(mm_player_t* player, unsigned char* src_data, mm_
 	if (ret != MM_ERROR_NONE)
 	{
 		LOGE("failed to convert for capture, %d\n", ret);
+		g_free(dst_data);
 		return MM_ERROR_PLAYER_INTERNAL;
 	}
 

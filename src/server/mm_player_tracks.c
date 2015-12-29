@@ -115,7 +115,12 @@ int _mmplayer_select_track(MMHandleType hplayer, MMPlayerTrackType type, int ind
 
 		_mmplayer_get_position (hplayer, MM_PLAYER_POS_FORMAT_TIME, &cur_time);
 		temp = g_list_nth_data (player->subtitle_language_list, index);
-
+		if (!temp)
+		{
+			LOGE("fail to get lang from list");
+			ret = MM_ERROR_PLAYER_INTERNAL;
+			goto EXIT;
+		}
 		subparse = player->pipeline->mainbin[MMPLAYER_M_SUBPARSE].gst;
 		LOGD("setting to language %s", temp->language_code);
 		g_object_set (G_OBJECT (subparse), "current-language", temp->language_key, NULL);
@@ -153,6 +158,12 @@ int _mmplayer_track_add_subtitle_language(MMHandleType hplayer, int index)
 		MMPlayerLangStruct *temp = NULL;
 
 		temp = g_list_nth_data (player->subtitle_language_list, index);
+		if (!temp)
+		{
+			LOGE("fail to get lang from list");
+			ret = MM_ERROR_PLAYER_INTERNAL;
+			goto EXIT;
+		}
 		temp->active = TRUE;
 
 		subparse = player->pipeline->mainbin[MMPLAYER_M_T_SUBMUX_EXTERNAL].gst;
@@ -193,6 +204,12 @@ int _mmplayer_track_remove_subtitle_language(MMHandleType hplayer, int index)
 		MMPlayerLangStruct *temp = NULL;
 
 		temp = g_list_nth_data (player->subtitle_language_list, index);
+		if (!temp)
+		{
+			LOGE("fail to get lang from list");
+			ret = MM_ERROR_PLAYER_INTERNAL;
+			goto EXIT;
+		}
 		temp->active = FALSE;
 
 		subparse = player->pipeline->mainbin[MMPLAYER_M_T_SUBMUX_EXTERNAL].gst;
