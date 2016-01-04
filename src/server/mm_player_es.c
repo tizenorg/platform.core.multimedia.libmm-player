@@ -434,7 +434,7 @@ _mmplayer_submit_packet (MMHandleType hplayer, media_packet_h packet)
       ret = MM_ERROR_PLAYER_INTERNAL;
       goto ERROR;
     }
-    GST_BUFFER_PTS (_buffer) = (GstClockTime) (pts * 1000000);
+    GST_BUFFER_PTS (_buffer) = (GstClockTime)pts;
 
     if ((elemId < MMPLAYER_M_NUM) && (player->pipeline->mainbin[elemId].gst)) {
       gst_app_src_push_buffer (GST_APP_SRC (player->pipeline->mainbin[elemId].gst), _buffer);
