@@ -404,8 +404,8 @@ static int _mmplayer_mused_realize(mm_player_t *player, char *string_caps)
 	switch(surface_type)
 	{
 		case MM_DISPLAY_SURFACE_X:
-			if (strlen(player->ini.videosink_element_x) > 0)
-				videosink_element = player->ini.videosink_element_x;
+			if (strlen(player->ini.videosink_element_overlay) > 0)
+				videosink_element = player->ini.videosink_element_overlay;
 			else {
 				result = MM_ERROR_PLAYER_NOT_INITIALIZED;
 				goto REALIZE_ERROR;
