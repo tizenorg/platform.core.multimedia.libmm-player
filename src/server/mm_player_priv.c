@@ -1646,15 +1646,6 @@ __mmplayer_gst_callback(GstBus *bus, GstMessage *msg, gpointer data) // @
 
 				case GST_STATE_PLAYING:
 				{
-/* for audio tunning */
-#ifndef IS_SDK
-					if (player->can_support_codec == 0x03) {
-						gint volume_type;
-						mm_attrs_get_int_by_name(player->attrs, "sound_volume_type", &volume_type);
-						volume_type |= MM_SOUND_VOLUME_GAIN_VIDEO;
-						g_object_set(player->pipeline->audiobin[MMPLAYER_A_SINK].gst, "volumetype", volume_type, NULL);
-					}
-#endif
 					if ( MMPLAYER_IS_STREAMING(player) ) // managed prepare async case when buffering is completed
 					{
 						// pending state should be reset oyherwise, it's still playing even though it's resumed after bufferging.
@@ -4855,7 +4846,6 @@ ERROR:
 void __mmplayer_gst_set_audiosink_property(mm_player_t* player, MMHandleType attrs)
 {
 	#define MAX_PROPS_LEN 64
-	gint volume_type = 0;
 	gint latency_mode = 0;
 	gchar *stream_type = NULL;
 	gchar *latency = NULL;
@@ -4884,7 +4874,6 @@ void __mmplayer_gst_set_audiosink_property(mm_player_t* player, MMHandleType att
 	}
 
 	mm_attrs_get_int_by_name(attrs, "sound_latency_mode", &latency_mode);
-	mm_attrs_get_int_by_name(attrs, "sound_volume_type", &volume_type);
 
 	switch (latency_mode)
 	{
@@ -4899,12 +4888,6 @@ void __mmplayer_gst_set_audiosink_property(mm_player_t* player, MMHandleType att
 			break;
 	};
 
-	/* hook sound_type if emergency case */
-	if (player->sound_focus.focus_changed_msg == MM_PLAYER_FOCUS_CHANGED_BY_EMERGENCY)
-	{
-		LOGD ("emergency session, hook sound_type from [%d] to [%d]\n", volume_type, MM_SOUND_VOLUME_TYPE_EMERGENCY);
-		volume_type = MM_SOUND_VOLUME_TYPE_EMERGENCY;
-	}
 #if 0 //need to check
 	if (player->sound_focus.user_route_policy != 0)
 	{
@@ -4925,8 +4908,7 @@ void __mmplayer_gst_set_audiosink_property(mm_player_t* player, MMHandleType att
 			"latency", latency,
 			NULL);
 
-	LOGD("audiosink property - volume type=%d, latency=%s \n",
-		volume_type, latency);
+	LOGD("audiosink property - latency=%s \n", latency);
 
 	g_free(latency);
 

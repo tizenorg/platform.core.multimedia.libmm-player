@@ -859,7 +859,7 @@ _mmplayer_construct_attribute(MMHandleType handle)
 			MM_ATTRS_FLAG_RW,
 			0,
 			MM_ATTRS_VALID_TYPE_INT_RANGE,
-			0,
+			-1,
 			MMPLAYER_MAX_INT
 		},
 		{
