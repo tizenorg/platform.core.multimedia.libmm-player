@@ -422,16 +422,6 @@ typedef struct {
 	gulong event_probe_id;
 } mm_player_selector_t;
 
-/* Things needed to be done after output device has changed */
-typedef struct {
-	gboolean need_async;
-	gboolean need_seek;
-	gboolean need_pause_and_resume;
-	guint cb_score;
-	guint required_cb_score;
-	guint id;
-} mm_player_post_proc_t;
-
 typedef struct {
 	gboolean running;
 
@@ -727,10 +717,6 @@ typedef struct {
 
 	/* store dump pad list */
 	GList* dump_list;
-
-
-	/* audio/video deivce change handling */
-	mm_player_post_proc_t post_proc;
 
 	/* whether a video has closed caption or not */
 	gboolean has_closed_caption;

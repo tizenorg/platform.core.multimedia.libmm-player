@@ -43,6 +43,7 @@ do \
 void __mmplayer_sound_signal_callback (mm_sound_signal_name_t signal, int value, void *user_data)
 {
 	MMPlayerSoundFocus *sound_focus = (MMPlayerSoundFocus*)user_data;
+	int ret = MM_ERROR_NONE;
 
 	LOGD("sound signal callback %d / %d", signal, value);
 
@@ -50,17 +51,81 @@ void __mmplayer_sound_signal_callback (mm_sound_signal_name_t signal, int value,
 	{
 		if (value == 1)
 		{
+			/* unregister watch callback */
 			if (sound_focus->watch_id > 0)
 			{
-				LOGD("unset the focus watch cb");
+				LOGD("unset the focus watch cb %d", sound_focus->watch_id);
 
-				mm_sound_unset_focus_watch_callback(sound_focus->watch_id);
+				ret = mm_sound_unset_focus_watch_callback(sound_focus->watch_id);
 				sound_focus->watch_id = 0;
+				if (ret != MM_ERROR_NONE)
+					LOGE("failed to mm_sound_unset_focus_watch_callback()");
 				/*
 				if (sound_focus->subscribe_id > 0)
 					mm_sound_unsubscribe_signal(sound_focus->subscribe_id);
 				*/
 			}
+			/* unregister focus callback */
+			if (sound_focus->focus_id > 0)
+			{
+				ret = mm_sound_unregister_focus(sound_focus->focus_id);
+				sound_focus->focus_id = 0;
+				if (ret != MM_ERROR_NONE)
+					LOGE("failed to mm_sound_unregister_focus() %d", sound_focus->focus_id);
+			}
+			/* unregister device connected callback */
+			if (sound_focus->connected_id > 0)
+			{
+				LOGD("unset the device connected cb %d", sound_focus->connected_id);
+				ret = mm_sound_remove_device_connected_callback(sound_focus->connected_id);
+				sound_focus->connected_id = 0;
+				if (ret != MM_ERROR_NONE)
+					LOGE("failed to mm_sound_remove_device_connected_callback()");
+			}
+		}
+	}
+}
+
+static void
+__mmplayer_sound_device_connected_cb_func(MMSoundDevice_t device_h, bool is_connected, void *user_data)
+{
+	mm_player_t* player = (mm_player_t*) user_data;
+	MMPLAYER_RETURN_IF_FAIL( player );
+
+	mm_sound_device_type_e device_type;
+	int ret;
+	MMMessageParamType msg = {0, };
+
+	LOGW("device_connected_cb is called, device_h[0x%x], is_connected[%d]\n", device_h, is_connected);
+
+	/* get device type with device_h*/
+	ret = mm_sound_get_device_type(device_h, &device_type);
+
+	if (!is_connected && MMPLAYER_CURRENT_STATE(player) == MM_PLAYER_STATE_PLAYING
+		&& (player->sound_focus.focus_id > 0 || player->sound_focus.watch_id > 0))
+	{
+		switch (device_type)
+		{
+			case MM_SOUND_DEVICE_TYPE_AUDIOJACK:
+			case MM_SOUND_DEVICE_TYPE_BLUETOOTH:
+			case MM_SOUND_DEVICE_TYPE_HDMI:
+			case MM_SOUND_DEVICE_TYPE_USB_AUDIO:
+			{
+				ret = gst_element_set_state(player->pipeline->mainbin[MMPLAYER_M_PIPE].gst, GST_STATE_PAUSED);
+				if (ret != GST_STATE_CHANGE_SUCCESS)
+				{
+					LOGE("focus_id [%d], watch_id [%d], connected_id [%d], change_state result[%d]",
+						player->sound_focus.focus_id, player->sound_focus.watch_id,
+						player->sound_focus.connected_id, ret);
+				}
+				msg.union_type = MM_MSG_UNION_CODE;
+				msg.code = MM_MSG_CODE_INTERRUPTED_BY_EARJACK_UNPLUG;
+				MMPLAYER_POST_MSG( player, MM_MESSAGE_STATE_INTERRUPTED, &msg );
+			}
+			break;
+
+			default:
+				LOGD("do nothing");
 		}
 	}
 }
@@ -179,95 +244,120 @@ _mmplayer_sound_register(MMPlayerSoundFocus* sound_focus,
 	LOGD("sound register focus pid[%d]", pid);
 	/* read session information */
 	ret = _mm_session_util_read_information(pid, &sound_focus->session_type, &sound_focus->session_flags);
-	if (ret != MM_ERROR_NONE)
+	LOGW("Read Session Type -> ret:0x%X \n", ret);
+
+	/* case 1. if there is no session */
+	if (ret == MM_ERROR_INVALID_HANDLE)
 	{
-		LOGE("Read Session Type failed. ret:0x%X \n", ret);
+		int sig_value = 0;
 
-		if (ret == MM_ERROR_INVALID_HANDLE)
+		mm_sound_get_signal_value(MM_SOUND_SIGNAL_RELEASE_INTERNAL_FOCUS, &sig_value);
+		LOGW("internal focus signal value=%d, id=%d\n", sig_value, sound_focus->subscribe_id);
+
+		if ((sig_value == 0) && (sound_focus->subscribe_id == 0))
 		{
-			int sig_value = 0;
-
-			mm_sound_get_signal_value(MM_SOUND_SIGNAL_RELEASE_INTERNAL_FOCUS, &sig_value);
-			LOGW("internal focus signal value=%d, id=%d\n", sig_value, sound_focus->subscribe_id);
-
-			if ((sig_value == 0) && (sound_focus->subscribe_id == 0))
+			ret = mm_sound_subscribe_signal(MM_SOUND_SIGNAL_RELEASE_INTERNAL_FOCUS, &sound_focus->subscribe_id,
+									(mm_sound_signal_callback)__mmplayer_sound_signal_callback, (void*)sound_focus);
+			if (ret != MM_ERROR_NONE)
 			{
-				ret = mm_sound_subscribe_signal(MM_SOUND_SIGNAL_RELEASE_INTERNAL_FOCUS, &sound_focus->subscribe_id,
-										(mm_sound_signal_callback)__mmplayer_sound_signal_callback, (void*)sound_focus);
-				if (ret != MM_ERROR_NONE)
-				{
-					LOGE("mm_sound_subscribe_signal is failed\n");
-					return MM_ERROR_POLICY_BLOCKED;
-				}
-
-				LOGD("register focus watch callback for the value is 0, sub_cb id %d\n", sound_focus->subscribe_id);
-
-				ret = mm_sound_set_focus_watch_callback_for_session(pid ,
-						FOCUS_FOR_BOTH, watch_cb, (void*)param, &sound_focus->watch_id);
-				if (ret != MM_ERROR_NONE)
-				{
-					LOGE("mm_sound_set_focus_watch_callback is failed\n");
-					return MM_ERROR_POLICY_BLOCKED;
-				}
+				LOGE("mm_sound_subscribe_signal is failed\n");
+				return MM_ERROR_POLICY_BLOCKED;
 			}
 
-			return MM_ERROR_NONE;
+			LOGD("register focus watch callback for the value is 0, sub_cb id %d\n", sound_focus->subscribe_id);
+			/* register watch callback */
+			ret = mm_sound_set_focus_watch_callback_for_session(pid ,
+					FOCUS_FOR_BOTH, watch_cb, (void*)param, &sound_focus->watch_id);
+			if (ret != MM_ERROR_NONE)
+			{
+				LOGE("mm_sound_set_focus_watch_callback is failed\n");
+				return MM_ERROR_POLICY_BLOCKED;
+			}
+			/* register device connected callback */
+			ret = mm_sound_add_device_connected_callback(MM_SOUND_DEVICE_TYPE_EXTERNAL_FLAG,
+					(mm_sound_device_connected_cb)__mmplayer_sound_device_connected_cb_func, (void*)param, &sound_focus->connected_id);
+			if (ret != MM_ERROR_NONE)
+			{
+				LOGE("mm_sound_add_device_connected_callback is failed\n");
+				return MM_ERROR_POLICY_BLOCKED;
+			}
+			LOGD("register device connected callback for the value is 0, sub_cb id %d\n", sound_focus->connected_id);
 		}
-		else
-		{
-			return MM_ERROR_POLICY_BLOCKED;
-		}
+		ret = MM_ERROR_NONE;
 	}
-
-	/* interpret session information */
-	stream_type = __mmplayer_sound_get_stream_type(sound_focus->session_type);
-	LOGD("fid [%d] wid [%d] type[%s], flags[0x%02X]\n",
-		sound_focus->focus_id, sound_focus->watch_id, stream_type, sound_focus->session_flags);
-
-	if (sound_focus->focus_id == 0)
+	/* case 2. if sessoin exists */
+	else if (ret == MM_ERROR_NONE)
 	{
-		/* get unique id */
-		ret = mm_sound_focus_get_id(&sound_focus->focus_id);
-		if (ret != MM_ERROR_NONE)
+		/* interpret session information */
+		stream_type = __mmplayer_sound_get_stream_type(sound_focus->session_type);
+		LOGD("fid [%d] wid [%d] type[%s], flags[0x%02X]\n",
+			sound_focus->focus_id, sound_focus->watch_id, stream_type, sound_focus->session_flags);
+
+		if (sound_focus->focus_id == 0)
 		{
-			LOGE("failed to get unique focus id\n");
-			return MM_ERROR_POLICY_BLOCKED;
+			/* get unique id */
+			ret = mm_sound_focus_get_id(&sound_focus->focus_id);
+			if (ret != MM_ERROR_NONE)
+			{
+				LOGE("failed to get unique focus id\n");
+				return MM_ERROR_POLICY_BLOCKED;
+			}
+
+			/* register sound focus callback */
+			ret = mm_sound_register_focus_for_session(sound_focus->focus_id, pid,
+					stream_type, focus_cb, (void*)param);
+			if (ret != MM_ERROR_NONE)
+			{
+				LOGE("mm_sound_register_focus is failed\n");
+				return MM_ERROR_POLICY_BLOCKED;
+			}
 		}
 
-		/* register sound focus callback */
-		ret = mm_sound_register_focus_for_session(sound_focus->focus_id, pid,
-				stream_type, focus_cb, (void*)param);
-		if (ret != MM_ERROR_NONE)
+		if ((sound_focus->watch_id == 0) &&
+			(strstr(stream_type, "media")) &&
+			!(sound_focus->session_flags & MM_SESSION_OPTION_PAUSE_OTHERS) &&
+			!(sound_focus->session_flags & MM_SESSION_OPTION_UNINTERRUPTIBLE))
 		{
-			LOGE("mm_sound_register_focus is failed\n");
-			return MM_ERROR_POLICY_BLOCKED;
+			LOGD("register focus watch callback\n");
+			/* register watch callback */
+			ret = mm_sound_set_focus_watch_callback_for_session(pid,
+					FOCUS_FOR_BOTH, watch_cb, (void*)param, &sound_focus->watch_id);
+			if (ret != MM_ERROR_NONE)
+			{
+				LOGE("mm_sound_set_focus_watch_callback is failed\n");
+				return MM_ERROR_POLICY_BLOCKED;
+			}
 		}
+
+		if(sound_focus->connected_id == 0)
+		{
+			/* register device connected callback */
+			ret = mm_sound_add_device_connected_callback(MM_SOUND_DEVICE_TYPE_EXTERNAL_FLAG,
+					(mm_sound_device_connected_cb)__mmplayer_sound_device_connected_cb_func, (void*)param, &sound_focus->connected_id);
+			if (ret != MM_ERROR_NONE)
+			{
+				LOGE("mm_sound_add_device_connected_callback is failed\n");
+				return MM_ERROR_POLICY_BLOCKED;
+			}
+			LOGD("register device connected callback for the value is 0, sub_cb id %d\n", sound_focus->connected_id);
+		}
+		ret = MM_ERROR_NONE;
 	}
-
-	if ((sound_focus->watch_id == 0) &&
-		(strstr(stream_type, "media")) &&
-		!(sound_focus->session_flags & MM_SESSION_OPTION_PAUSE_OTHERS) &&
-		!(sound_focus->session_flags & MM_SESSION_OPTION_UNINTERRUPTIBLE))
+	else
 	{
-		LOGD("register focus watch callback\n");
-
-		ret = mm_sound_set_focus_watch_callback_for_session(pid,
-				FOCUS_FOR_BOTH, watch_cb, (void*)param, &sound_focus->watch_id);
-		if (ret != MM_ERROR_NONE)
-		{
-			LOGE("mm_sound_set_focus_watch_callback is failed\n");
-			return MM_ERROR_POLICY_BLOCKED;
-		}
+		LOGE("_mm_session_util_read_information is failed");
+		ret =  MM_ERROR_POLICY_BLOCKED;
 	}
 
 	MMPLAYER_FLEAVE();
-
-	return MM_ERROR_NONE;
+	return ret;
 }
 
 gint
 _mmplayer_sound_unregister(MMPlayerSoundFocus* sound_focus)
 {
+	int ret = MM_ERROR_NONE;
+
 	MMPLAYER_FENTER();
 
 	MMPLAYER_CHECK_SOUND_FOCUS_INSTANCE(sound_focus);
@@ -276,13 +366,17 @@ _mmplayer_sound_unregister(MMPlayerSoundFocus* sound_focus)
 
 	if (sound_focus->focus_id > 0)
 	{
-		mm_sound_unregister_focus(sound_focus->focus_id);
+		ret = mm_sound_unregister_focus(sound_focus->focus_id);
+		if(ret != MM_ERROR_NONE)
+			LOGE("failed to mm_sound_unregister_focus() %d", sound_focus->focus_id);
 		sound_focus->focus_id = 0;
 	}
 
 	if (sound_focus->watch_id > 0)
 	{
-		mm_sound_unset_focus_watch_callback(sound_focus->watch_id);
+		ret = mm_sound_unset_focus_watch_callback(sound_focus->watch_id);
+		if(ret != MM_ERROR_NONE)
+			LOGE("failed to mm_sound_unset_focus_watch_callback() %d", sound_focus->watch_id);
 		sound_focus->watch_id = 0;
 	}
 
@@ -290,6 +384,13 @@ _mmplayer_sound_unregister(MMPlayerSoundFocus* sound_focus)
 	{
 		mm_sound_unsubscribe_signal(sound_focus->subscribe_id);
 		sound_focus->subscribe_id = 0;
+	}
+	if( sound_focus->connected_id > 0 )
+	{
+		ret = mm_sound_remove_device_connected_callback(sound_focus->connected_id);
+		if(ret != MM_ERROR_NONE)
+			LOGE("failed to mm_sound_remove_device_connected_callback() %d", sound_focus->connected_id);
+		sound_focus->connected_id = 0;
 	}
 
 	MMPLAYER_FLEAVE();

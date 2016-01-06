@@ -40,6 +40,7 @@ typedef struct {
 	int focus_id;
 	int watch_id;
 	unsigned int subscribe_id;
+	unsigned int connected_id;
 	int pid;
 	bool by_asm_cb;
 	int antishock;

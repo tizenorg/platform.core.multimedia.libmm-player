@@ -251,12 +251,6 @@ static int __mmplayer_gst_switching_element(mm_player_t *player, GstElement *sea
 static void __mmplayer_update_buffer_setting(mm_player_t *player, GstMessage *buffering_msg);
 static GstElement *__mmplayer_element_create_and_link(mm_player_t *player, GstPad* pad, const char* name);
 
-/* device change post proc */
-void __mmplayer_device_change_post_process(gpointer user);
-void __mmplayer_set_required_cb_score(mm_player_t* player, guint score);
-void __mmplayer_inc_cb_score(mm_player_t* player);
-void __mmplayer_post_proc_reset(mm_player_t* player);
-void __mmplayer_device_change_trigger_post_process(mm_player_t* player);
 static int __mmplayer_gst_create_plain_text_elements(mm_player_t* player);
 static guint32 _mmplayer_convert_fourcc_string_to_value(const gchar* format_name);
 static void		__gst_appsrc_feed_audio_data(GstElement *element, guint size, gpointer user_data);
@@ -378,180 +372,6 @@ __mmplayer_videoframe_render_error_cb(GstElement *element, void *error_id, gpoin
 	MMPLAYER_FLEAVE();
 }
 
-void
-__mmplayer_device_change_post_process(gpointer user)
-{
-	mm_player_t* player = (mm_player_t*)user;
-	unsigned long position = 0;
-	MMPlayerStateType current_state = MM_PLAYER_STATE_NONE;
-	MMPlayerStateType pending_state = MM_PLAYER_STATE_NONE;
-
-	MMPLAYER_FENTER();
-
-	if (! player ||
-		! player->pipeline ||
-		! player->pipeline->mainbin ||
-		! player->pipeline->mainbin[MMPLAYER_M_PIPE].gst )
-	{
-		goto EXIT;
-	}
-
-	current_state = MMPLAYER_CURRENT_STATE(player);
-	pending_state = MMPLAYER_PENDING_STATE(player);
-
-	if (player->post_proc.need_pause_and_resume)
-	{
-		LOGD("pausing");
-		if ((pending_state == MM_PLAYER_STATE_PLAYING) ||
-			((pending_state == MM_PLAYER_STATE_NONE) && (current_state != MM_PLAYER_STATE_PAUSED)))
-			gst_element_set_state(player->pipeline->mainbin[MMPLAYER_M_PIPE].gst, GST_STATE_PAUSED);
-	}
-
-	/* seek should be done within pause and resume */
-	if (player->post_proc.need_seek)
-	{
-		LOGD("seeking");
-		__gst_get_position(player, MM_PLAYER_POS_FORMAT_TIME, &position);
-		LOGD(">> seek to current position = %ld ms", position);
-		__gst_set_position(player, MM_PLAYER_POS_FORMAT_TIME, position, TRUE);
-	}
-
-	if (player->post_proc.need_pause_and_resume)
-	{
-		LOGD("resuming");
-		if ((pending_state == MM_PLAYER_STATE_PLAYING) ||
-			((pending_state == MM_PLAYER_STATE_NONE) && (current_state != MM_PLAYER_STATE_PAUSED)))
-			gst_element_set_state(player->pipeline->mainbin[MMPLAYER_M_PIPE].gst, GST_STATE_PLAYING);
-	}
-
-	/* async */
-	if (player->post_proc.need_async)
-	{
-		LOGD("setting async");
-
-		/* TODO : need some comment here */
-		if (player->pipeline->textbin && player->pipeline->textbin[MMPLAYER_T_FAKE_SINK].gst)
-			g_object_set (G_OBJECT (player->pipeline->textbin[MMPLAYER_T_FAKE_SINK].gst), "async", TRUE, NULL);
-	}
-
-EXIT:
-	/* reset all */
-	__mmplayer_post_proc_reset(player);
-	return;
-}
-
-void __mmplayer_set_required_cb_score(mm_player_t* player, guint score)
-{
-	MMPLAYER_RETURN_IF_FAIL(player);
-	player->post_proc.required_cb_score = score;
-	LOGD("set required score to : %d", score);
-}
-
-void __mmplayer_inc_cb_score(mm_player_t* player)
-{
-	MMPLAYER_RETURN_IF_FAIL(player);
-	player->post_proc.cb_score++;
-	LOGD("post proc cb score increased to %d", player->post_proc.cb_score);
-}
-
-void __mmplayer_post_proc_reset(mm_player_t* player)
-{
-	MMPLAYER_RETURN_IF_FAIL(player);
-
-	/* check if already triggered */
-	if (player->post_proc.id)
-	{
-		/* TODO : need to consider multiple main context. !!!! */
-		if (FALSE == g_source_remove(player->post_proc.id) )
-		{
-			LOGE("failed to remove exist post_proc item");
-		}
-		player->post_proc.id = 0;
-	}
-
-	memset(&player->post_proc, 0, sizeof(mm_player_post_proc_t));
-
-	/* set default required cb score 1 as only audio device has changed in this case.
-	   if display status is changed with audio device, required cb score is set 2 in display status callback.
-	   this logic bases on the assumption which audio device callback is called after calling display status callback. */
-	player->post_proc.required_cb_score = 1;
-}
-
-void
-__mmplayer_device_change_trigger_post_process(mm_player_t* player)
-{
-	MMPLAYER_RETURN_IF_FAIL(player);
-
-	/* check score */
-	if ( player->post_proc.cb_score < player->post_proc.required_cb_score )
-	{
-		/* wait for next turn */
-		LOGD("wait for next turn. required cb score : %d   current score : %d\n",
-			player->post_proc.required_cb_score, player->post_proc.cb_score);
-		return;
-	}
-
-	/* check if already triggered */
-	if (player->post_proc.id)
-	{
-		/* TODO : need to consider multiple main context. !!!! */
-		if (FALSE == g_source_remove(player->post_proc.id) )
-		{
-			LOGE("failed to remove exist post_proc item");
-		}
-		player->post_proc.id = 0;
-	}
-
-	player->post_proc.id = g_idle_add((GSourceFunc)__mmplayer_device_change_post_process, (gpointer)player);
-}
-#if 0
-/* NOTE : Sound module has different latency according to output device So,
- * synchronization problem can be happened whenever device is changed.
- * To avoid this issue, we do reset avsystem or seek as workaroud.
- */
-static void
-__mmplayer_sound_device_info_changed_cb_func (MMSoundDevice_t device_h, int changed_info_type, void *user_data)
-{
-    int ret;
-    mm_sound_device_type_e device_type;
-	mm_player_t* player = (mm_player_t*) user_data;
-
-	MMPLAYER_RETURN_IF_FAIL( player );
-
-	LOGW("device_info_changed_cb is called, device_h[0x%x], changed_info_type[%d]\n", device_h, changed_info_type);
-
-	__mmplayer_inc_cb_score(player);
-
-	/* get device type with device_h*/
-	ret = mm_sound_get_device_type(device_h, &device_type);
-	if (ret) {
-		LOGE("failed to mm_sound_get_device_type()\n");
-	}
-
-	/* do pause and resume only if video is playing  */
-	if ( player->videodec_linked && MMPLAYER_CURRENT_STATE(player) == MM_PLAYER_STATE_PLAYING )
-	{
-		switch (device_type)
-		{
-			case MM_SOUND_DEVICE_TYPE_BLUETOOTH:
-			case MM_SOUND_DEVICE_TYPE_AUDIOJACK:
-			case MM_SOUND_DEVICE_TYPE_BUILTIN_SPEAKER:
-			case MM_SOUND_DEVICE_TYPE_HDMI:
-			case MM_SOUND_DEVICE_TYPE_MIRRORING:
-			{
-				player->post_proc.need_pause_and_resume = TRUE;
-			}
-			break;
-
-			default:
-				LOGD("do nothing");
-		}
-	}
-	LOGW("dispatched");
-
-	__mmplayer_device_change_trigger_post_process(player);
-}
-#endif
 /* This function should be called after the pipeline goes PAUSED or higher
 state. */
 gboolean
@@ -7673,7 +7493,6 @@ __mmplayer_gst_destroy_pipeline(mm_player_t* player) // @
 	player->video_share_clock_delta = 0;
 	player->video_hub_download_mode = 0;
 	__mmplayer_reset_gapless_state(player);
-	__mmplayer_post_proc_reset(player);
 
 	if (player->streamer)
 	{
@@ -7689,13 +7508,7 @@ __mmplayer_gst_destroy_pipeline(mm_player_t* player) // @
 
 	/* cleanup running stuffs */
 	__mmplayer_cancel_eos_timer( player );
-#if 0 //need to change and test
-	/* remove sound cb */
-	if ( MM_ERROR_NONE != mm_sound_remove_device_information_changed_callback())
-	{
-		LOGE("failed to mm_sound_remove_device_information_changed_callback()");
-	}
-#endif
+
 	/* cleanup gst stuffs */
 	if ( player->pipeline )
 	{
@@ -8969,20 +8782,8 @@ gboolean _asm_postmsg(gpointer *data)
 	msg.union_type = MM_MSG_UNION_CODE;
 	msg.code = player->sound_focus.focus_changed_msg;
 
-#if 0 // should remove
-	if (player->sm.event_src == ASM_EVENT_SOURCE_RESUMABLE_CANCELED)
-	{
-		/* fill the message with state of player */
-		msg.state.current = MMPLAYER_CURRENT_STATE(player);
-		MMPLAYER_POST_MSG( player, MM_MESSAGE_STATE_INTERRUPTED, &msg);
-		player->resumable_cancel_id = 0;
-	}
-	else
-#endif
-	{
-		MMPLAYER_POST_MSG( player, MM_MESSAGE_READY_TO_RESUME, &msg);
-		player->resume_event_id = 0;
-	}
+	MMPLAYER_POST_MSG( player, MM_MESSAGE_READY_TO_RESUME, &msg);
+	player->resume_event_id = 0;
 
 	LOGW("dispatched");
 	return FALSE;
@@ -9263,51 +9064,6 @@ __mmplayer_sound_focus_callback(int id, mm_sound_focus_type_e focus_type, mm_sou
 	player->sound_focus.by_asm_cb = TRUE;
 //	player->sound_focus.event_src = event_src;
 
-#if 0
-	/* first, check event source */
-	if(event_src == ASM_EVENT_SOURCE_EARJACK_UNPLUG)
-	{
-		int stop_by_asm = 0;
-		mm_attrs_get_int_by_name(player->attrs, "sound_stop_when_unplugged", &stop_by_asm);
-		if (!stop_by_asm)
-			goto DONE;
-	}
-	else if (event_src == ASM_EVENT_SOURCE_RESOURCE_CONFLICT)
-	{
-		/* can use video overlay simultaneously */
-		/* video resource conflict */
-		if(player->pipeline->videobin)
-		{
-			LOGD("video conflict but, can support multiple video");
-			result = _mmplayer_pause((MMHandleType)player);
-			cb_res = ASM_CB_RES_PAUSE;
-		}
-		else if (player->pipeline->audiobin)
-		{
-			LOGD("audio resource conflict");
-			result = _mmplayer_pause((MMHandleType)player);
-			if (result != MM_ERROR_NONE)
-			{
-				LOGW("fail to set pause by asm");
-			}
-			cb_res = ASM_CB_RES_PAUSE;
-		}
-		goto DONE;
-	}
-#if 0 // should remove
-	else if (event_src == ASM_EVENT_SOURCE_RESUMABLE_CANCELED)
-	{
-		LOGW("Got msg from asm for resumable canceled.\n");
-		player->sound_focus.antishock = TRUE;
-		player->sound_focus.by_asm_cb = FALSE;
-
-		player->resumable_cancel_id = g_idle_add((GSourceFunc)_asm_postmsg, (gpointer)player);
-		cb_res = ASM_CB_RES_IGNORE;
-		goto DONE;
-	}
-#endif
-#endif
-
 	if (focus_state == FOCUS_IS_RELEASED)
 	{
 		LOGW("FOCUS_IS_RELEASED");
@@ -9472,13 +9228,6 @@ _mmplayer_create_player(MMHandleType handle) // @
 		goto ERROR;
 	}
 
-#if 0 //need to change and test
-	/* to add active device callback */
-	if ( MM_ERROR_NONE != mm_sound_add_device_information_changed_callback(MM_SOUND_DEVICE_STATE_ACTIVATED_FLAG, __mmplayer_sound_device_info_changed_cb_func, (void*)player))
-	{
-		LOGE("failed mm_sound_add_device_information_changed_callback \n");
-	}
-#endif
 	if (MMPLAYER_IS_HTTP_PD(player))
 	{
 		player->pd_downloader = NULL;
@@ -9501,8 +9250,6 @@ _mmplayer_create_player(MMHandleType handle) // @
 	player->video_share_api_delta = 0;
 	player->video_share_clock_delta = 0;
 	player->has_closed_caption = FALSE;
-
-	__mmplayer_post_proc_reset(player);
 
 	if (player->ini.dump_element_keyword[0][0] == '\0')
 	{
