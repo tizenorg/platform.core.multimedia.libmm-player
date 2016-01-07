@@ -6392,13 +6392,14 @@ __gst_appsrc_feed_data(GstElement *element, guint size, gpointer user_data) // @
 {
 	mm_player_t *player  = (mm_player_t*)user_data;
 	MMPlayerStreamType type = MM_PLAYER_STREAM_TYPE_DEFAULT;
-
+	guint64 current_level_bytes=0;
 	MMPLAYER_RETURN_IF_FAIL ( player );
 
 	LOGI("app-src: feed data\n");
 
+	g_object_get(G_OBJECT(element), "current-level-bytes", &current_level_bytes, NULL);
 	if (player->media_stream_buffer_status_cb[type])
-		player->media_stream_buffer_status_cb[type](type, MM_PLAYER_MEDIA_STREAM_BUFFER_UNDERRUN, player->buffer_cb_user_param);
+		player->media_stream_buffer_status_cb[type](type, MM_PLAYER_MEDIA_STREAM_BUFFER_UNDERRUN, current_level_bytes, player->buffer_cb_user_param);
 }
 
 static gboolean
@@ -6423,13 +6424,16 @@ __gst_appsrc_enough_data(GstElement *element, gpointer user_data) // @
 {
 	mm_player_t *player  = (mm_player_t*)user_data;
 	MMPlayerStreamType type = MM_PLAYER_STREAM_TYPE_DEFAULT;
+	guint64 current_level_bytes=0;
 
 	MMPLAYER_RETURN_VAL_IF_FAIL ( player, FALSE );
 
 	LOGI("app-src: enough data:%p\n", player->media_stream_buffer_status_cb[type]);
 
+	g_object_get(G_OBJECT(element), "current-level-bytes", &current_level_bytes, NULL);
+
 	if (player->media_stream_buffer_status_cb[type])
-		player->media_stream_buffer_status_cb[type](type, MM_PLAYER_MEDIA_STREAM_BUFFER_OVERFLOW, player->buffer_cb_user_param);
+		player->media_stream_buffer_status_cb[type](type, MM_PLAYER_MEDIA_STREAM_BUFFER_OVERFLOW, current_level_bytes, player->buffer_cb_user_param);
 
 	return TRUE;
 }
@@ -7184,6 +7188,7 @@ __mmplayer_gst_create_pipeline(mm_player_t* player) // @
 				LOGE ("create es_video_queue for es player failed\n");
 				goto INIT_ERROR;
 			}
+			g_object_set(G_OBJECT(es_video_queue), "max-size-buffers", 2, NULL);
 			mainbin[MMPLAYER_M_V_BUFFER].id = MMPLAYER_M_V_BUFFER;
 			mainbin[MMPLAYER_M_V_BUFFER].gst = es_video_queue;
 			element_bucket = g_list_append(element_bucket, &mainbin[MMPLAYER_M_V_BUFFER]);
@@ -7201,6 +7206,8 @@ __mmplayer_gst_create_pipeline(mm_player_t* player) // @
 					LOGE ("create es_audio_queue for es player failed\n");
 					goto INIT_ERROR;
 				}
+				g_object_set(G_OBJECT(es_audio_queue), "max-size-buffers", 2, NULL);
+
 				mainbin[MMPLAYER_M_A_BUFFER].id = MMPLAYER_M_A_BUFFER;
 				mainbin[MMPLAYER_M_A_BUFFER].gst = es_audio_queue;
 				element_bucket = g_list_append(element_bucket, &mainbin[MMPLAYER_M_A_BUFFER]);
@@ -16352,14 +16359,17 @@ __gst_appsrc_feed_audio_data(GstElement *element, guint size, gpointer user_data
 {
 	mm_player_t *player  = (mm_player_t*)user_data;
 	MMPlayerStreamType type = MM_PLAYER_STREAM_TYPE_AUDIO;
+	guint64 current_level_bytes=0;
 
 	MMPLAYER_RETURN_IF_FAIL ( player );
 
-	LOGI("app-src: feed audio\n");
+	g_object_get(G_OBJECT(element), "current-level-bytes", &current_level_bytes, NULL);
+
+	LOGI("app-src: feed audio (%llu)\n", current_level_bytes);
 
 	if (player->media_stream_buffer_status_cb[type])
 	{
-		player->media_stream_buffer_status_cb[type](type, MM_PLAYER_MEDIA_STREAM_BUFFER_UNDERRUN, player->buffer_cb_user_param);
+		player->media_stream_buffer_status_cb[type](type, MM_PLAYER_MEDIA_STREAM_BUFFER_UNDERRUN, current_level_bytes, player->buffer_cb_user_param);
 	}
 }
 
@@ -16368,14 +16378,17 @@ __gst_appsrc_feed_video_data(GstElement *element, guint size, gpointer user_data
 {
 	mm_player_t *player  = (mm_player_t*)user_data;
 	MMPlayerStreamType type = MM_PLAYER_STREAM_TYPE_VIDEO;
+	guint64 current_level_bytes=0;
 
 	MMPLAYER_RETURN_IF_FAIL ( player );
 
-	LOGI("app-src: feed video\n");
+	g_object_get(G_OBJECT(element), "current-level-bytes", &current_level_bytes, NULL);
+
+	LOGI("app-src: feed video (%llu)\n", current_level_bytes);
 
 	if (player->media_stream_buffer_status_cb[type])
 	{
-		player->media_stream_buffer_status_cb[type](type, MM_PLAYER_MEDIA_STREAM_BUFFER_UNDERRUN, player->buffer_cb_user_param);
+		player->media_stream_buffer_status_cb[type](type, MM_PLAYER_MEDIA_STREAM_BUFFER_UNDERRUN, current_level_bytes, player->buffer_cb_user_param);
 	}
 }
 
@@ -16384,14 +16397,17 @@ __gst_appsrc_feed_subtitle_data(GstElement *element, guint size, gpointer user_d
 {
 	mm_player_t *player  = (mm_player_t*)user_data;
 	MMPlayerStreamType type = MM_PLAYER_STREAM_TYPE_TEXT;
+	guint64 current_level_bytes=0;
 
 	MMPLAYER_RETURN_IF_FAIL ( player );
 
 	LOGI("app-src: feed subtitle\n");
 
+	g_object_get(G_OBJECT(element), "current-level-bytes", &current_level_bytes, NULL);
+
 	if (player->media_stream_buffer_status_cb[type])
 	{
-		player->media_stream_buffer_status_cb[type](type, MM_PLAYER_MEDIA_STREAM_BUFFER_UNDERRUN, player->buffer_cb_user_param);
+		player->media_stream_buffer_status_cb[type](type, MM_PLAYER_MEDIA_STREAM_BUFFER_UNDERRUN, current_level_bytes, player->buffer_cb_user_param);
 	}
 }
 
@@ -16400,14 +16416,17 @@ __gst_appsrc_enough_audio_data(GstElement *element, gpointer user_data)
 {
 	mm_player_t *player  = (mm_player_t*)user_data;
 	MMPlayerStreamType type = MM_PLAYER_STREAM_TYPE_AUDIO;
+	guint64 current_level_bytes=0;
 
 	MMPLAYER_RETURN_IF_FAIL ( player );
 
 	LOGI("app-src: audio buffer is full.\n");
 
+	g_object_get(G_OBJECT(element), "current-level-bytes", &current_level_bytes, NULL);
+
 	if (player->media_stream_buffer_status_cb[type])
 	{
-		player->media_stream_buffer_status_cb[type](type, MM_PLAYER_MEDIA_STREAM_BUFFER_OVERFLOW, player->buffer_cb_user_param);
+		player->media_stream_buffer_status_cb[type](type, MM_PLAYER_MEDIA_STREAM_BUFFER_OVERFLOW, current_level_bytes, player->buffer_cb_user_param);
 	}
 }
 
@@ -16416,14 +16435,17 @@ __gst_appsrc_enough_video_data(GstElement *element, gpointer user_data)
 {
 	mm_player_t *player  = (mm_player_t*)user_data;
 	MMPlayerStreamType type = MM_PLAYER_STREAM_TYPE_VIDEO;
+	guint64 current_level_bytes=0;
 
 	MMPLAYER_RETURN_IF_FAIL ( player );
 
 	LOGI("app-src: video buffer is full.\n");
 
+	g_object_get(G_OBJECT(element), "current-level-bytes", &current_level_bytes, NULL);
+
 	if (player->media_stream_buffer_status_cb[type])
 	{
-		player->media_stream_buffer_status_cb[type](type, MM_PLAYER_MEDIA_STREAM_BUFFER_OVERFLOW, player->buffer_cb_user_param);
+		player->media_stream_buffer_status_cb[type](type, MM_PLAYER_MEDIA_STREAM_BUFFER_OVERFLOW, current_level_bytes, player->buffer_cb_user_param);
 	}
 }
 

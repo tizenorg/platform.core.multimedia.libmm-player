@@ -961,7 +961,7 @@ typedef bool		(*mm_player_track_selected_subtitle_language_callback)(int track_n
  *
  * @return	This callback function have to return MM_ERROR_NONE.
  */
-typedef bool	(*mm_player_media_stream_buffer_status_callback) (MMPlayerStreamType type, MMPlayerMediaStreamBufferStatus status, void *user_param);
+typedef bool	(*mm_player_media_stream_buffer_status_callback) (MMPlayerStreamType type, MMPlayerMediaStreamBufferStatus status, unsigned long long bytes, void *user_param);
 
 /**
  * Buffer seek data callback function type.
