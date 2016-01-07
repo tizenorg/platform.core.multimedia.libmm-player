@@ -256,7 +256,7 @@ _mmplayer_sound_register(MMPlayerSoundFocus* sound_focus,
 
 		if ((sig_value == 0) && (sound_focus->subscribe_id == 0))
 		{
-			ret = mm_sound_subscribe_signal(MM_SOUND_SIGNAL_RELEASE_INTERNAL_FOCUS, &sound_focus->subscribe_id,
+			ret = mm_sound_subscribe_signal_for_daemon(MM_SOUND_SIGNAL_RELEASE_INTERNAL_FOCUS, pid, &sound_focus->subscribe_id,
 									(mm_sound_signal_callback)__mmplayer_sound_signal_callback, (void*)sound_focus);
 			if (ret != MM_ERROR_NONE)
 			{
