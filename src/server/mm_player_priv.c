@@ -4238,7 +4238,7 @@ _mmplayer_update_video_param(mm_player_t* player) // @
 			}
 
 			/* if xvimagesink */
-			if (!strcmp(player->ini.videosink_element_x,"xvimagesink"))
+			if (!strcmp(player->ini.videosink_element_overlay,"xvimagesink"))
 			{
 				mm_attrs_get_int_by_name(attrs, "display_force_aspect_ration", &force_aspect_ratio);
 				mm_attrs_get_int_by_name(attrs, "display_method", &display_method);
@@ -4451,7 +4451,7 @@ _mmplayer_update_video_param(mm_player_t* player) // @
 			gboolean visible = TRUE;
 
 			/* if xvimagesink */
-			if (strcmp(player->ini.videosink_element_x,"xvimagesink"))
+			if (strcmp(player->ini.videosink_element_overlay,"xvimagesink"))
 			{
 				LOGE("videosink is not xvimagesink");
 				return MM_ERROR_PLAYER_INTERNAL;
@@ -5496,7 +5496,7 @@ __mmplayer_gst_create_video_filters(mm_player_t* player, GList** bucket, gboolea
 		}
 		else /* sw codec, if player use libav,  waylandsink need videoconvert  to render shm wl-buffer which support RGB only */
 		{
-			if ((surface_type == MM_DISPLAY_SURFACE_X) && (!strncmp(player->ini.videosink_element_x, "waylandsink", strlen(player->ini.videosink_element_x))))
+			if ((surface_type == MM_DISPLAY_SURFACE_X) && (!strncmp(player->ini.videosink_element_overlay, "waylandsink", strlen(player->ini.videosink_element_overlay))))
 			{
 				video_csc = "videoconvert";
 			}
@@ -5610,8 +5610,8 @@ __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps, MMDispl
 		switch (surface_type)
 		{
 			case MM_DISPLAY_SURFACE_X:
-				if (strlen(player->ini.videosink_element_x) > 0)
-					videosink_element = player->ini.videosink_element_x;
+				if (strlen(player->ini.videosink_element_overlay) > 0)
+					videosink_element = player->ini.videosink_element_overlay;
 				else
 					goto ERROR;
 				break;
@@ -5627,7 +5627,7 @@ __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps, MMDispl
 				mm_attrs_get_data_by_name(attrs, "display_overlay", &pixmap_id_cb);
 				if (pixmap_id_cb) /* this is used for the videoTextue(canvasTexture) overlay */
 				{
-					videosink_element = player->ini.videosink_element_x;
+					videosink_element = player->ini.videosink_element_overlay;
 				}
 				else
 				{
@@ -14930,7 +14930,7 @@ int _mmplayer_change_videosink(MMHandleType handle, MMDisplaySurfaceType surface
 					}
 					else if (!strncmp(cur_videosink_name, "evas", 4) && (surface_type == MM_DISPLAY_SURFACE_X) )
 					{
-						ret = __mmplayer_do_change_videosink(player, MMPLAYER_M_DEC1+i, player->ini.videosink_element_x, surface_type, display_overlay);
+						ret = __mmplayer_do_change_videosink(player, MMPLAYER_M_DEC1+i, player->ini.videosink_element_overlay, surface_type, display_overlay);
 						if (ret)
 						{
 							goto ERROR_CASE;

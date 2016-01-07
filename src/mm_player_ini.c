@@ -178,7 +178,7 @@ mm_player_ini_load(mm_player_ini_t* ini)
 
 		ini->delay_before_repeat = iniparser_getint(dict, "general:delay before repeat", DEFAULT_DELAY_BEFORE_REPEAT);
 
-		MMPLAYER_INI_GET_STRING(dict, ini->videosink_element_x, "general:videosink element x", DEFAULT_VIDEOSINK_X);
+		MMPLAYER_INI_GET_STRING(dict, ini->videosink_element_overlay, "general:videosink element x", DEFAULT_VIDEOSINK_OVERLAY);
 		MMPLAYER_INI_GET_STRING(dict, ini->videosink_element_evas, "general:videosink element evas", DEFAULT_VIDEOSINK_EVAS);
 		MMPLAYER_INI_GET_STRING(dict, ini->videosink_element_fake, "general:videosink element fake", DEFAULT_VIDEOSINK_FAKE);
 		MMPLAYER_INI_GET_STRING(dict, ini->videosink_element_remote, "general:videosink element remote", DEFAULT_VIDEOSINK_REMOTE);
@@ -217,9 +217,11 @@ mm_player_ini_load(mm_player_ini_t* ini)
 		/* general */
 		ini->disable_segtrap = DEFAULT_DISABLE_SEGTRAP;
 		ini->skip_rescan = DEFAULT_SKIP_RESCAN;
-		strncpy( ini->videosink_element_x, DEFAULT_VIDEOSINK_X, PLAYER_INI_MAX_STRLEN - 1 );
+		strncpy( ini->videosink_element_overlay, DEFAULT_VIDEOSINK_OVERLAY, PLAYER_INI_MAX_STRLEN - 1 );
 		strncpy( ini->videosink_element_evas, DEFAULT_VIDEOSINK_EVAS, PLAYER_INI_MAX_STRLEN - 1 );
 		strncpy( ini->videosink_element_fake, DEFAULT_VIDEOSINK_FAKE, PLAYER_INI_MAX_STRLEN - 1 );
+		strncpy( ini->videosink_element_remote, DEFAULT_VIDEOSINK_REMOTE, PLAYER_INI_MAX_STRLEN - 1 );
+		strncpy( ini->videosrc_element_remote, DEFAULT_VIDEOSRC_REMOTE, PLAYER_INI_MAX_STRLEN - 1 );
 		ini->generate_dot = DEFAULT_GENERATE_DOT;
 		ini->use_system_clock = DEFAULT_USE_SYSTEM_CLOCK;
 		ini->live_state_change_timeout = DEFAULT_LIVE_STATE_CHANGE_TIMEOUT;
@@ -262,9 +264,11 @@ mm_player_ini_load(mm_player_ini_t* ini)
 	/* general */
 	LOGD("disable segtrap : %d\n", ini->disable_segtrap);
 	LOGD("skip rescan : %d\n", ini->skip_rescan);
-	LOGD("videosink element x: %s\n", ini->videosink_element_x);
+	LOGD("videosink element x: %s\n", ini->videosink_element_overlay);
 	LOGD("videosink element evas: %s\n", ini->videosink_element_evas);
 	LOGD("videosink element fake: %s\n", ini->videosink_element_fake);
+	LOGD("videosink element remote: %s\n", ini->videosink_element_remote);
+	LOGD("videosrc element remote: %s\n", ini->videosrc_element_remote);
 	LOGD("video converter element : %s\n", ini->videoconverter_element);
 	LOGD("audio resampler element : %s\n", ini->audioresampler_element);
 	LOGD("audiosink element : %s\n", ini->audiosink_element);

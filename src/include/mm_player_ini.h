@@ -60,7 +60,7 @@ enum keyword_type
 typedef struct __mm_player_ini
 {
 	/* general */
-	gchar videosink_element_x[PLAYER_INI_MAX_STRLEN];
+	gchar videosink_element_overlay[PLAYER_INI_MAX_STRLEN];
 	gchar videosink_element_evas[PLAYER_INI_MAX_STRLEN];
 	gchar videosink_element_fake[PLAYER_INI_MAX_STRLEN];
 	gchar videosink_element_remote[PLAYER_INI_MAX_STRLEN];
@@ -135,9 +135,9 @@ typedef struct __mm_player_ini
 #define DEFAULT_GENERATE_DOT				FALSE
 #define DEFAULT_USE_SYSTEM_CLOCK		TRUE
 #define DEFAULT_DELAY_BEFORE_REPEAT	 		50 /* msec */
-#define DEFAULT_EOS_DELAY 				150 /* msec */
-#define DEFAULT_VIDEOSINK_X				"xvimagesink"
-#define DEFAULT_VIDEOSINK_EVAS				"evaspixmapsink"
+#define DEFAULT_EOS_DELAY 				0 /* msec */
+#define DEFAULT_VIDEOSINK_OVERLAY			"waylandsink"
+#define DEFAULT_VIDEOSINK_EVAS				"evasimagesink"
 #define DEFAULT_VIDEOSINK_FAKE				"fakesink"
 #define DEFAULT_VIDEOSINK_REMOTE			"shmsink"
 #define DEFAULT_VIDEOSRC_REMOTE				"shmsrc"
@@ -152,7 +152,7 @@ typedef struct __mm_player_ini
 #define DEFAULT_LOCALPLAYBACK_STATE_CHANGE_TIMEOUT 	10 /* sec */
 /* http streaming */
 #define DEFAULT_HTTPSRC				"souphttpsrc"
-#define DEFAULT_HTTP_FILE_BUFFER_PATH		"/opt/usr/media"
+#define DEFAULT_HTTP_FILE_BUFFER_PATH		"/home/owner/content"
 #define DEFAULT_HTTP_BUFFERING_LIMIT	99.0		/* percent */
 #define DEFAULT_HTTP_MAX_SIZE_BYTES		1048576		/* bytes : 1 MBytes  */
 #define DEFAULT_HTTP_BUFFERING_TIME		1.2			/* sec */
@@ -160,7 +160,7 @@ typedef struct __mm_player_ini
 
 /* dump buffer for debug */
 #define DEFAULT_DUMP_ELEMENT_KEYWORD				""
-#define DEFAULT_DUMP_ELEMENT_PATH				"/opt/usr/media/"
+#define DEFAULT_DUMP_ELEMENT_PATH				"/tmp/"
 
 /* NOTE : following content should be same with above default values */
 /* FIXIT : need smarter way to generate default ini file. */
