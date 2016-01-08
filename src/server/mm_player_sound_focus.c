@@ -249,12 +249,9 @@ _mmplayer_sound_register(MMPlayerSoundFocus* sound_focus,
 	/* case 1. if there is no session */
 	if (ret == MM_ERROR_INVALID_HANDLE)
 	{
-		int sig_value = 0;
+		LOGW("subscribe_id=%d\n", sound_focus->subscribe_id);
 
-		mm_sound_get_signal_value(MM_SOUND_SIGNAL_RELEASE_INTERNAL_FOCUS, &sig_value);
-		LOGW("internal focus signal value=%d, id=%d\n", sig_value, sound_focus->subscribe_id);
-
-		if ((sig_value == 0) && (sound_focus->subscribe_id == 0))
+		if (sound_focus->subscribe_id == 0)
 		{
 			ret = mm_sound_subscribe_signal_for_daemon(MM_SOUND_SIGNAL_RELEASE_INTERNAL_FOCUS, pid, &sound_focus->subscribe_id,
 									(mm_sound_signal_callback)__mmplayer_sound_signal_callback, (void*)sound_focus);
@@ -288,58 +285,67 @@ _mmplayer_sound_register(MMPlayerSoundFocus* sound_focus,
 	/* case 2. if sessoin exists */
 	else if (ret == MM_ERROR_NONE)
 	{
-		/* interpret session information */
-		stream_type = __mmplayer_sound_get_stream_type(sound_focus->session_type);
-		LOGD("fid [%d] wid [%d] type[%s], flags[0x%02X]\n",
-			sound_focus->focus_id, sound_focus->watch_id, stream_type, sound_focus->session_flags);
-
-		if (sound_focus->focus_id == 0)
+		/* in this case, this process is using stream info created by using sound-manager,
+		 * we're going to skip working on backward compatibility of session. */
+		if (sound_focus->session_type == MM_SESSION_TYPE_REPLACED_BY_STREAM)
 		{
-			/* get unique id */
-			ret = mm_sound_focus_get_id(&sound_focus->focus_id);
-			if (ret != MM_ERROR_NONE)
-			{
-				LOGE("failed to get unique focus id\n");
-				return MM_ERROR_POLICY_BLOCKED;
-			}
-
-			/* register sound focus callback */
-			ret = mm_sound_register_focus_for_session(sound_focus->focus_id, pid,
-					stream_type, focus_cb, (void*)param);
-			if (ret != MM_ERROR_NONE)
-			{
-				LOGE("mm_sound_register_focus is failed\n");
-				return MM_ERROR_POLICY_BLOCKED;
-			}
+			LOGW("this process is using stream info. skip it..");
 		}
-
-		if ((sound_focus->watch_id == 0) &&
-			(strstr(stream_type, "media")) &&
-			!(sound_focus->session_flags & MM_SESSION_OPTION_PAUSE_OTHERS) &&
-			!(sound_focus->session_flags & MM_SESSION_OPTION_UNINTERRUPTIBLE))
+		else
 		{
-			LOGD("register focus watch callback\n");
-			/* register watch callback */
-			ret = mm_sound_set_focus_watch_callback_for_session(pid,
-					FOCUS_FOR_BOTH, watch_cb, (void*)param, &sound_focus->watch_id);
-			if (ret != MM_ERROR_NONE)
-			{
-				LOGE("mm_sound_set_focus_watch_callback is failed\n");
-				return MM_ERROR_POLICY_BLOCKED;
-			}
-		}
+			/* interpret session information */
+			stream_type = __mmplayer_sound_get_stream_type(sound_focus->session_type);
+			LOGD("fid [%d] wid [%d] type[%s], flags[0x%02X]\n",
+				sound_focus->focus_id, sound_focus->watch_id, stream_type, sound_focus->session_flags);
 
-		if(sound_focus->connected_id == 0)
-		{
-			/* register device connected callback */
-			ret = mm_sound_add_device_connected_callback(MM_SOUND_DEVICE_TYPE_EXTERNAL_FLAG,
-					(mm_sound_device_connected_cb)__mmplayer_sound_device_connected_cb_func, (void*)param, &sound_focus->connected_id);
-			if (ret != MM_ERROR_NONE)
+			if (sound_focus->focus_id == 0)
 			{
-				LOGE("mm_sound_add_device_connected_callback is failed\n");
-				return MM_ERROR_POLICY_BLOCKED;
+				/* get unique id */
+				ret = mm_sound_focus_get_id(&sound_focus->focus_id);
+				if (ret != MM_ERROR_NONE)
+				{
+					LOGE("failed to get unique focus id\n");
+					return MM_ERROR_POLICY_BLOCKED;
+				}
+
+				/* register sound focus callback */
+				ret = mm_sound_register_focus_for_session(sound_focus->focus_id, pid,
+						stream_type, focus_cb, (void*)param);
+				if (ret != MM_ERROR_NONE)
+				{
+					LOGE("mm_sound_register_focus is failed\n");
+					return MM_ERROR_POLICY_BLOCKED;
+				}
 			}
-			LOGD("register device connected callback for the value is 0, sub_cb id %d\n", sound_focus->connected_id);
+
+			if ((sound_focus->watch_id == 0) &&
+				(strstr(stream_type, "media")) &&
+				!(sound_focus->session_flags & MM_SESSION_OPTION_PAUSE_OTHERS) &&
+				!(sound_focus->session_flags & MM_SESSION_OPTION_UNINTERRUPTIBLE))
+			{
+				LOGD("register focus watch callback\n");
+				/* register watch callback */
+				ret = mm_sound_set_focus_watch_callback_for_session(pid,
+						FOCUS_FOR_BOTH, watch_cb, (void*)param, &sound_focus->watch_id);
+				if (ret != MM_ERROR_NONE)
+				{
+					LOGE("mm_sound_set_focus_watch_callback is failed\n");
+					return MM_ERROR_POLICY_BLOCKED;
+				}
+			}
+
+			if(sound_focus->connected_id == 0)
+			{
+				/* register device connected callback */
+				ret = mm_sound_add_device_connected_callback(MM_SOUND_DEVICE_TYPE_EXTERNAL_FLAG,
+						(mm_sound_device_connected_cb)__mmplayer_sound_device_connected_cb_func, (void*)param, &sound_focus->connected_id);
+				if (ret != MM_ERROR_NONE)
+				{
+					LOGE("mm_sound_add_device_connected_callback is failed\n");
+					return MM_ERROR_POLICY_BLOCKED;
+				}
+				LOGD("register device connected callback for the value is 0, sub_cb id %d\n", sound_focus->connected_id);
+			}
 		}
 		ret = MM_ERROR_NONE;
 	}
