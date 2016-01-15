@@ -37,6 +37,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <tbm_bufmgr.h>
+#include <Evas.h>
 #include "mm_player.h"
 #include "mm_player_internal.h"
 #include "mm_player_audioeffect.h"
@@ -737,6 +738,9 @@ typedef struct {
 
 	int pcm_samplerate;
 	int pcm_channel;
+
+	Evas_Object * eo;
+	gboolean have_evas_callback;
 } mm_player_t;
 
 typedef struct

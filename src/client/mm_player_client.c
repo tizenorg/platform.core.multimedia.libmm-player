@@ -47,6 +47,8 @@
 #include "mm_player_attrs.h"
 #include "mm_player_utils.h"
 #include <sched.h>
+#include <Evas.h>
+
 
 /*===========================================================================================
 |																							|
@@ -102,6 +104,9 @@ static int _mmplayer_mused_gst_pause(mm_player_t *player);
 static gboolean __mmplayer_mused_gst_callback(GstBus *bus, GstMessage *msg, gpointer data);
 static GstBusSyncReply __mmplayer_mused_bus_sync_callback (GstBus * bus, GstMessage * message, gpointer data);
 static int __mmplayer_mused_set_state(mm_player_t* player, int state);
+static void __evas_resize_cb (void *data, Evas *e, Evas_Object *eo, void *event_info);
+static void __evas_del_cb (void *data, Evas *e, Evas_Object *eo, void *event_info);
+
 /*===========================================================================================
 |																							|
 |  FUNCTION DEFINITIONS																		|
@@ -1526,3 +1531,76 @@ int mm_player_get_state_timeout(MMHandleType player, int *timeout, bool is_strea
 
 	return MM_ERROR_NONE;
 }
+
+int mm_player_mused_set_evas_object_cb(MMHandleType player, Evas_Object * eo)
+{
+	mm_player_t* handle = (mm_player_t*) player;
+
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(eo, MM_ERROR_INVALID_ARGUMENT);
+
+	if(handle->have_evas_callback && handle->eo == eo) {
+		LOGW("evas object had callback already %p", handle->eo);
+		return MM_ERROR_INVALID_ARGUMENT;
+	}
+	handle->eo = eo;
+
+	evas_object_event_callback_add (eo, EVAS_CALLBACK_RESIZE, __evas_resize_cb, handle);
+	evas_object_event_callback_add (eo, EVAS_CALLBACK_DEL, __evas_del_cb, handle);
+	LOGD("evas callback add %p", handle->eo);
+	handle->have_evas_callback = TRUE;
+
+	return MM_ERROR_NONE;
+}
+
+int mm_player_mused_unset_evas_object_cb(MMHandleType player)
+{
+	mm_player_t* handle = (mm_player_t*) player;
+
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(handle->eo, MM_ERROR_INVALID_ARGUMENT);
+
+	evas_object_event_callback_del (handle->eo, EVAS_CALLBACK_RESIZE, __evas_resize_cb);
+	evas_object_event_callback_del (handle->eo, EVAS_CALLBACK_DEL, __evas_del_cb);
+	LOGD("evas callback del %p", handle->eo);
+	handle->eo = NULL;
+	handle->have_evas_callback = FALSE;
+
+	return MM_ERROR_NONE;
+}
+
+static void __evas_resize_cb (void *data, Evas *e, Evas_Object *eo, void *event_info)
+{
+	MMHandleType handle = data;
+
+	int wl_window_x = 0;
+	int wl_window_y = 0;
+	int wl_window_width = 0;
+	int wl_window_height = 0;
+
+	evas_object_geometry_get(eo, &wl_window_x, &wl_window_y, &wl_window_width, &wl_window_height);
+	LOGI("get window rectangle: x(%d) y(%d) width(%d) height(%d)", wl_window_x, wl_window_y, wl_window_width, wl_window_height);
+
+
+	int ret = mm_player_set_attribute(handle, NULL,
+				"wl_window_render_x", wl_window_x,
+				"wl_window_render_y", wl_window_y,
+				"wl_window_render_width", wl_window_width,
+				"wl_window_render_height", wl_window_height,
+				(char *)NULL);
+	if (ret != MM_ERROR_NONE)
+		LOGE("resizing is failed");
+}
+
+
+static void __evas_del_cb (void *data, Evas *e, Evas_Object *eo, void *event_info)
+{
+	mm_player_t* handle = (mm_player_t*) data;
+
+	evas_object_event_callback_del (eo, EVAS_CALLBACK_RESIZE, __evas_resize_cb);
+	evas_object_event_callback_del (eo, EVAS_CALLBACK_DEL, __evas_del_cb);
+
+	LOGD("evas callback del %p", eo);
+	handle->have_evas_callback = FALSE;
+}
+

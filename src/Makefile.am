@@ -42,6 +42,8 @@ libmmfplayer_la_CFLAGS =  -I$(srcdir)/include \
 			$(UTILX_CFLAGS) \
 			$(MEDIAPACKET_CFLAGS) \
 			$(DLOG_CFLAGS) \
+			$(EVAS_CFLAGS) \
+			$(ECORE_CFLAGS) \
 			-Werror -Wno-deprecated -Wno-deprecated-declarations -Wno-cpp
 
 libmmfplayerclient_la_CFLAGS =  -I$(srcdir)/include \
@@ -52,6 +54,8 @@ libmmfplayerclient_la_CFLAGS =  -I$(srcdir)/include \
 			$(GST_APP_CFLAGS) \
 			$(VCONF_CFLAGS) \
 			$(DLOG_CFLAGS) \
+			$(EVAS_CFLAGS) \
+			$(ECORE_CFLAGS) \
 			-Werror -Wno-deprecated -Wno-deprecated-declarations -Wno-cpp
 
 noinst_HEADERS = include/mm_player_utils.h \
@@ -80,7 +84,9 @@ libmmfplayer_la_LIBADD = $(GST_LIBS) \
 		$(ICU_LIBS) \
 		$(MEDIAPACKET_LIBS) \
 		$(DLOG_LIBS) \
-		$(UTILX_LIBS)
+		$(UTILX_LIBS) \
+		$(EVAS_LIBS) \
+		$(ECORE_LIBS)
 
 libmmfplayerclient_la_LIBADD = $(GST_LIBS) \
 	    	$(MMCOMMON_LIBS) \
@@ -90,7 +96,9 @@ libmmfplayerclient_la_LIBADD = $(GST_LIBS) \
 		$(GST_APP_LIBS) \
 		$(INIPARSER_LIBS) \
 		$(DLOG_LIBS) \
-		$(VCONF_LIBS)
+		$(VCONF_LIBS) \
+		$(EVAS_LIBS) \
+		$(ECORE_LIBS)
 
 if IS_SDK
 libmmfplayer_la_CFLAGS += -DIS_SDK
