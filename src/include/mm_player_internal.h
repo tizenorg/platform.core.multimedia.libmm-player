@@ -218,22 +218,6 @@ int mm_player_set_video_stream_callback(MMHandleType player, mm_player_video_str
 int mm_player_set_audio_stream_callback_ex(MMHandleType player, bool sync, mm_player_audio_stream_callback_ex callback, void *user_param);
 
 /**
- * This function set callback function for rendering error information of video render plug-in.
- *
- * @param	player		[in]	Handle of player.
- * @param	callback		[in]	Frame render error callback function.
- * @param	user_param	[in]	User parameter which is passed to callback function.
- *
- * @return	This function returns zero on success, or negative value with error code.
- * @see
- * @remark	None
- * @par Example
- * @code
- * @endcode
- */
-int mm_player_set_video_frame_render_error_callback(MMHandleType player, mm_player_video_frame_render_error_callback callback, void *user_param);
-
-/**
  * This function is to capture video frame.
  *
  * @param	player		[in]	Handle of player.

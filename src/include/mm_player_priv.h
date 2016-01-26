@@ -535,10 +535,6 @@ typedef struct {
 	/* video capture callback*/
 	gulong video_capture_cb_probe_id;
 
-	/* video frame render error callback */
-	mm_player_video_frame_render_error_callback video_frame_render_error_cb;
-	void* video_frame_render_error_cb_user_param;
-
 	/* sound info */
 	MMPlayerSoundInfo	sound;
 
@@ -802,7 +798,6 @@ int _mmplayer_set_videostream_changed_cb(MMHandleType hplayer, mm_player_stream_
 int _mmplayer_set_audiostream_changed_cb(MMHandleType hplayer, mm_player_stream_changed_callback callback, void *user_param);
 int _mmplayer_set_videostream_cb(MMHandleType hplayer,mm_player_video_stream_callback callback, void *user_param);
 int _mmplayer_set_audiostream_cb(MMHandleType hplayer,mm_player_audio_stream_callback callback, void *user_param);
-int _mmplayer_set_videoframe_render_error_cb(MMHandleType hplayer, mm_player_video_frame_render_error_callback callback, void *user_param);
 int _mmplayer_set_subtitle_silent (MMHandleType hplayer, int silent);
 int _mmplayer_get_subtitle_silent (MMHandleType hplayer, int* silent);
 int _mmplayer_set_external_subtitle_path(MMHandleType hplayer, const char* filepath);
