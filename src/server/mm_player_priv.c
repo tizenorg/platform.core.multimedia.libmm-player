@@ -333,45 +333,6 @@ int width, int height, gpointer user_data) // @
 	MMPLAYER_FLEAVE();
 }
 
-static void
-__mmplayer_videoframe_render_error_cb(GstElement *element, void *error_id, gpointer data)
-{
-	mm_player_t* player = (mm_player_t*)data;
-
-	MMPLAYER_RETURN_IF_FAIL ( player );
-
-	MMPLAYER_FENTER();
-
-	if (player->video_frame_render_error_cb )
-	{
-		if (player->attrs)
-		{
-			int surface_type = 0;
-			mm_attrs_get_int_by_name (player->attrs, "display_surface_type", &surface_type);
-			switch (surface_type)
-			{
-			case MM_DISPLAY_SURFACE_X_EXT:
-				player->video_frame_render_error_cb((unsigned int*)error_id, player->video_frame_render_error_cb_user_param);
-				LOGD("display surface type(X_EXT) : render error callback(%p) is finished", player->video_frame_render_error_cb);
-				break;
-			default:
-				LOGE("video_frame_render_error_cb was set, but this surface type(%d) is not supported", surface_type);
-				break;
-			}
-		}
-		else
-		{
-			LOGE("could not get surface type");
-		}
-	}
-	else
-	{
-		LOGW("video_frame_render_error_cb was not set");
-	}
-
-	MMPLAYER_FLEAVE();
-}
-
 /* This function should be called after the pipeline goes PAUSED or higher
 state. */
 gboolean
@@ -3659,7 +3620,7 @@ __mmplayer_gst_decode_callback(GstElement *elem, GstPad *pad, gpointer data) // 
 				goto ERROR;
 			}
 
-			if (surface_client_type == MM_DISPLAY_SURFACE_X)
+			if (surface_client_type == MM_DISPLAY_SURFACE_OVERLAY)
 			{
 				if (_mmplayer_resource_manager_get_state(&player->resource_manager, &resource_state) == MM_ERROR_NONE)
 				{
@@ -3994,7 +3955,7 @@ __mmplayer_get_property_value_for_rotation(mm_player_t* player, int rotation_ang
 		mm_attrs_get_int_by_name(player->attrs, "display_surface_type", &surface_type);
 		LOGD("check display surface type attribute: %d", surface_type);
 
-		if ((surface_type == MM_DISPLAY_SURFACE_X) ||
+		if ((surface_type == MM_DISPLAY_SURFACE_OVERLAY) ||
 			(surface_type == MM_DISPLAY_SURFACE_EVAS && !strcmp(player->ini.videosink_element_evas, "evaspixmapsink")))
 		{
 			rotation_type = ROTATION_USING_SINK;
@@ -4161,7 +4122,7 @@ _mmplayer_update_video_param(mm_player_t* player) // @
 	/* configuring display */
 	switch ( surface_type )
 	{
-		case MM_DISPLAY_SURFACE_X:
+		case MM_DISPLAY_SURFACE_OVERLAY:
 		{
 			/* ximagesink or xvimagesink */
 			void *surface = NULL;
@@ -4432,55 +4393,6 @@ _mmplayer_update_video_param(mm_player_t* player) // @
 								roi_x, roi_y, roi_w, roi_h );
 				LOGD("set video param : display_evas_do_scaling %d (origin-size %d)", scaling, origin_size);
 			}
-		}
-		break;
-		case MM_DISPLAY_SURFACE_X_EXT:	/* NOTE : this surface type is used for the videoTexture(canvasTexture) overlay */
-		{
-			void *pixmap_id_cb = NULL;
-			void *pixmap_id_cb_user_data = NULL;
-			int display_method = 0;
-			gboolean visible = TRUE;
-
-			/* if xvimagesink */
-			if (strcmp(player->ini.videosink_element_overlay,"xvimagesink"))
-			{
-				LOGE("videosink is not xvimagesink");
-				return MM_ERROR_PLAYER_INTERNAL;
-			}
-
-			/* get information from attributes */
-			mm_attrs_get_data_by_name(attrs, "display_overlay", &pixmap_id_cb);
-			mm_attrs_get_data_by_name(attrs, "display_overlay_user_data", &pixmap_id_cb_user_data);
-			mm_attrs_get_int_by_name(attrs, "display_method", &display_method);
-			mm_attrs_get_int_by_name(attrs, "display_visible", &visible);
-
-			if ( pixmap_id_cb )
-			{
-				LOGD("set video param : display_overlay(0x%x)", pixmap_id_cb);
-				if (pixmap_id_cb_user_data)
-				{
-					LOGD("set video param : display_overlay_user_data(0x%x)", pixmap_id_cb_user_data);
-				}
-			}
-			else
-			{
-				LOGE("failed to set pixmap-id-callback");
-				return MM_ERROR_PLAYER_INTERNAL;
-			}
-			/* get rotation value to set */
-			__mmplayer_get_property_value_for_rotation(player, org_angle+user_angle, &rotation_value);
-
-			LOGD("set video param : rotate %d, method %d, visible %d", rotation_value, display_method, visible);
-
-			/* set properties of videosink plugin */
-			g_object_set(player->pipeline->videobin[MMPLAYER_V_SINK].gst,
-				"display-geometry-method", display_method,
-				"draw-borders", FALSE,
-				"visible", visible,
-				"rotate", rotation_value,
-				"pixmap-id-callback", pixmap_id_cb,
-				"pixmap-id-callback-userdata", pixmap_id_cb_user_data,
-				NULL );
 		}
 		break;
 		case MM_DISPLAY_SURFACE_NULL:
@@ -5478,7 +5390,7 @@ __mmplayer_gst_create_video_filters(mm_player_t* player, GList** bucket, gboolea
 		}
 		else /* sw codec, if player use libav,  waylandsink need videoconvert  to render shm wl-buffer which support RGB only */
 		{
-			if ((surface_type == MM_DISPLAY_SURFACE_X) && (!strncmp(player->ini.videosink_element_overlay, "waylandsink", strlen(player->ini.videosink_element_overlay))))
+			if ((surface_type == MM_DISPLAY_SURFACE_OVERLAY) && (!strncmp(player->ini.videosink_element_overlay, "waylandsink", strlen(player->ini.videosink_element_overlay))))
 			{
 				video_csc = "videoconvert";
 			}
@@ -5591,7 +5503,7 @@ __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps, MMDispl
 		/* set video sink */
 		switch (surface_type)
 		{
-			case MM_DISPLAY_SURFACE_X:
+			case MM_DISPLAY_SURFACE_OVERLAY:
 				if (strlen(player->ini.videosink_element_overlay) > 0)
 					videosink_element = player->ini.videosink_element_overlay;
 				else
@@ -5603,21 +5515,6 @@ __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps, MMDispl
 				else
 					goto ERROR;
 				break;
-			case MM_DISPLAY_SURFACE_X_EXT:
-			{
-				void *pixmap_id_cb = NULL;
-				mm_attrs_get_data_by_name(attrs, "display_overlay", &pixmap_id_cb);
-				if (pixmap_id_cb) /* this is used for the videoTextue(canvasTexture) overlay */
-				{
-					videosink_element = player->ini.videosink_element_overlay;
-				}
-				else
-				{
-					LOGE("something wrong.. callback function for getting pixmap id is null");
-					goto ERROR;
-				}
-				break;
-			}
 			case MM_DISPLAY_SURFACE_NULL:
 				if (strlen(player->ini.videosink_element_fake) > 0)
 					videosink_element = player->ini.videosink_element_fake;
@@ -5640,7 +5537,7 @@ __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps, MMDispl
 
 		/* additional setting for sink plug-in */
 		switch (surface_type) {
-			case MM_DISPLAY_SURFACE_X:
+			case MM_DISPLAY_SURFACE_OVERLAY:
 			{
 				bool use_tbm = player->set_mode.video_zc;
 				if (!use_tbm)
@@ -5655,15 +5552,6 @@ __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps, MMDispl
 				}
 				break;
             }
-			case MM_DISPLAY_SURFACE_X_EXT:
-				MMPLAYER_SIGNAL_CONNECT( player,
-										player->pipeline->videobin[MMPLAYER_V_SINK].gst,
-										MM_PLAYER_SIGNAL_TYPE_VIDEOBIN,
-										"frame-render-error",
-										G_CALLBACK(__mmplayer_videoframe_render_error_cb),
-										player );
-				LOGD("videoTexture usage, connect a signal handler for pixmap rendering error");
-				break;
 			case MM_DISPLAY_SURFACE_REMOTE:
 			{
 				char *stream_path = NULL;
@@ -5952,11 +5840,10 @@ static int __mmplayer_gst_create_text_pipeline(mm_player_t* player)
 
 		switch(surface_type)
 		{
-			case MM_DISPLAY_SURFACE_X:
+			case MM_DISPLAY_SURFACE_OVERLAY:
 			case MM_DISPLAY_SURFACE_EVAS:
 			case MM_DISPLAY_SURFACE_GL:
 			case MM_DISPLAY_SURFACE_NULL:
-			case MM_DISPLAY_SURFACE_X_EXT:
 			case MM_DISPLAY_SURFACE_REMOTE:
 				if (__mmplayer_gst_create_plain_text_elements(player) != MM_ERROR_NONE)
 				{
@@ -10148,26 +10035,6 @@ _mmplayer_set_runtime_buffering_mode(MMHandleType hplayer, MMPlayerBufferingMode
 }
 
 int
-_mmplayer_set_videoframe_render_error_cb(MMHandleType hplayer, mm_player_video_frame_render_error_callback callback, void *user_param) // @
-{
-	mm_player_t* player = (mm_player_t*) hplayer;
-
-	MMPLAYER_FENTER();
-
-	MMPLAYER_RETURN_VAL_IF_FAIL ( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
-	MMPLAYER_RETURN_VAL_IF_FAIL ( callback, MM_ERROR_INVALID_ARGUMENT );
-
-	player->video_frame_render_error_cb = callback;
-	player->video_frame_render_error_cb_user_param = user_param;
-
-	LOGD("Video frame render error cb Handle value is %p : %p\n", player, player->video_frame_render_error_cb);
-
-	MMPLAYER_FLEAVE();
-
-	return MM_ERROR_NONE;
-}
-
-int
 __mmplayer_start_streaming_ext(mm_player_t *player)
 {
 	gint ret = MM_ERROR_NONE;
@@ -12957,15 +12824,6 @@ __mmplayer_gst_element_added (GstElement *bin, GstElement *element, gpointer dat
 		int surface_type = 0;
 
 		mm_attrs_get_int_by_name (player->attrs, "display_surface_type", &surface_type);
-
-#if 0	// this is for 0.10 plugin with downstream modification
-		/* playback protection if drm file */
-		if (player->use_video_stream || surface_type == MM_DISPLAY_SURFACE_EVAS || surface_type == MM_DISPLAY_SURFACE_X_EXT)
-		{
-			LOGD("playback can be protected if playready drm");
-			g_object_set (G_OBJECT(element), "playback-protection", TRUE, NULL);
-		}
-#endif
 	}
 
 	// to support trust-zone only
@@ -14825,7 +14683,7 @@ int _mmplayer_change_videosink(MMHandleType handle, MMDisplaySurfaceType surface
 
 	player = MM_PLAYER_CAST(handle);
 
-	if (surface_type < MM_DISPLAY_SURFACE_X || surface_type >= MM_DISPLAY_SURFACE_NUM)
+	if (surface_type < MM_DISPLAY_SURFACE_OVERLAY || surface_type >= MM_DISPLAY_SURFACE_NUM)
 	{
 		LOGE("Not support this surface type(%d) for changing vidoesink", surface_type);
 		MMPLAYER_FLEAVE();
@@ -14910,7 +14768,7 @@ int _mmplayer_change_videosink(MMHandleType handle, MMDisplaySurfaceType surface
 							return MM_ERROR_NONE;
 						}
 					}
-					else if (!strncmp(cur_videosink_name, "evas", 4) && (surface_type == MM_DISPLAY_SURFACE_X) )
+					else if (!strncmp(cur_videosink_name, "evas", 4) && (surface_type == MM_DISPLAY_SURFACE_OVERLAY) )
 					{
 						ret = __mmplayer_do_change_videosink(player, MMPLAYER_M_DEC1+i, player->ini.videosink_element_overlay, surface_type, display_overlay);
 						if (ret)
@@ -15060,7 +14918,7 @@ __mmplayer_do_change_videosink(mm_player_t* player, const int dec_index, const c
 		/* set a new diplay overlay */
 		switch (surface_type)
 		{
-			case MM_DISPLAY_SURFACE_X:
+			case MM_DISPLAY_SURFACE_OVERLAY:
 				LOGD("save attributes related to display surface to X : xid = %d", *(int*)display_overlay);
 				mm_attrs_set_data_by_name (player->attrs, "display_overlay", display_overlay, sizeof(display_overlay));
 				break;

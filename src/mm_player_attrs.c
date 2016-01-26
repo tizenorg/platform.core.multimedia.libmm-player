@@ -769,7 +769,7 @@ _mmplayer_construct_attribute(MMHandleType handle)
 			MM_ATTRS_FLAG_RW,
 			(void *) MM_DISPLAY_SURFACE_NULL,
 			MM_ATTRS_VALID_TYPE_INT_RANGE,
-			MM_DISPLAY_SURFACE_X,
+			MM_DISPLAY_SURFACE_OVERLAY,
 			MM_DISPLAY_SURFACE_NUM - 1
 		},
 		{
@@ -1075,7 +1075,7 @@ _mmplayer_construct_attribute(MMHandleType handle)
 			MM_ATTRS_FLAG_RW,
 			(void *) MM_DISPLAY_SURFACE_NULL,
 			MM_ATTRS_VALID_TYPE_INT_RANGE,
-			MM_DISPLAY_SURFACE_X,
+			MM_DISPLAY_SURFACE_OVERLAY,
 			MM_DISPLAY_SURFACE_NUM - 1
 		},
 		{

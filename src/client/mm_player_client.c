@@ -408,7 +408,7 @@ static int _mmplayer_mused_realize(mm_player_t *player, char *string_caps)
 	mm_attrs_get_int_by_name (player->attrs, "display_surface_type", &surface_type);
 	switch(surface_type)
 	{
-		case MM_DISPLAY_SURFACE_X:
+		case MM_DISPLAY_SURFACE_OVERLAY:
 			if (strlen(player->ini.videosink_element_overlay) > 0)
 				videosink_element = player->ini.videosink_element_overlay;
 			else {
@@ -605,7 +605,7 @@ __mmplayer_get_property_value_for_rotation(mm_player_t* player, int rotation_ang
 	mm_attrs_get_int_by_name(player->attrs, "display_surface_type", &surface_type);
 	LOGD("check display surface type attribute: %d", surface_type);
 
-	if ((surface_type == MM_DISPLAY_SURFACE_X) ||
+	if ((surface_type == MM_DISPLAY_SURFACE_OVERLAY) ||
 			(surface_type == MM_DISPLAY_SURFACE_EVAS &&
 			 !strcmp(player->ini.videosink_element_evas, "evaspixmapsink")))
 		rotation_type = ROTATION_USING_SINK;
@@ -668,7 +668,7 @@ int _mmplayer_update_video_param(mm_player_t *player)
 	/* configuring display */
 	switch ( surface_type )
 	{
-		case MM_DISPLAY_SURFACE_X:
+		case MM_DISPLAY_SURFACE_OVERLAY:
 		{
 			/* ximagesink or xvimagesink */
 			void *surface = NULL;
@@ -1041,8 +1041,8 @@ static MMHandleType _mmplayer_mused_construct_attribute(mm_player_t *player)
 			MM_ATTRS_FLAG_RW,
 			(void *) MM_DISPLAY_SURFACE_NULL,
 			MM_ATTRS_VALID_TYPE_INT_RANGE,
-			MM_DISPLAY_SURFACE_X,
-			MM_DISPLAY_SURFACE_X_EXT
+			MM_DISPLAY_SURFACE_OVERLAY,
+			MM_DISPLAY_SURFACE_NULL
 		},
 		{
 			"display_overlay",
