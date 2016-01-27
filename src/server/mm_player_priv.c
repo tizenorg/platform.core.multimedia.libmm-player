@@ -1860,7 +1860,7 @@ __mmplayer_gst_handle_duration(mm_player_t* player, GstMessage* msg)
 		if (gst_element_query_duration(GST_ELEMENT_CAST(msg->src), GST_FORMAT_BYTES, &bytes))
 		{
 			LOGD("data total size of http content: %lld", bytes);
-			player->http_content_size = bytes;
+			player->http_content_size = (bytes > 0)?(bytes):(0);
 		}
 	}
 	else
@@ -8185,8 +8185,17 @@ static int 	__gst_get_buffer_position(mm_player_t* player, int format, unsigned 
 {
 #define STREAMING_IS_FINISHED	0
 #define BUFFERING_MAX_PER	100
+#define DEFAULT_PER_VALUE	-1
+#define CHECK_PERCENT_VALUE(a,min,max) (((a)>(min))?(((a)<(max))?(a):(max)):(min))
 
-	GstQuery *query = NULL;
+	MMPlayerGstElement *mainbin = NULL;
+	gint start_per = DEFAULT_PER_VALUE, stop_per = DEFAULT_PER_VALUE;
+	gint64 buffered_total = 0;
+	unsigned long position = 0;
+	gint buffered_sec = -1;
+	GstBufferingMode mode = GST_BUFFERING_STREAM;
+	gint64 content_size_time = player->duration;
+	guint64 content_size_bytes = player->http_content_size;
 
 	MMPLAYER_RETURN_VAL_IF_FAIL( player &&
 						player->pipeline &&
@@ -8195,141 +8204,128 @@ static int 	__gst_get_buffer_position(mm_player_t* player, int format, unsigned 
 
 	MMPLAYER_RETURN_VAL_IF_FAIL( start_pos && stop_pos, MM_ERROR_INVALID_ARGUMENT );
 
-	if (!MMPLAYER_IS_HTTP_STREAMING ( player ))
-	{
-		/* and rtsp is not ready yet. */
-		LOGW ( "it's only used for http streaming case.\n" );
-		return MM_ERROR_NONE;
-	}
-
 	*start_pos = 0;
 	*stop_pos = 0;
 
-	switch ( format )
+	if (!MMPLAYER_IS_HTTP_STREAMING ( player ))
 	{
-		case MM_PLAYER_POS_FORMAT_PERCENT :
-		{
-			gint start_per = -1, stop_per = -1;
-			gint64 buffered_total = 0;
-
-			unsigned long position = 0;
-			guint curr_size_bytes = 0;
-			gint64 buffering_left = -1;
-			gint buffered_sec = -1;
-
-			gint64 content_duration = player->duration;
-			guint64 content_size = player->http_content_size;
-
-			if (content_duration > 0)
-			{
-				if (!__gst_get_position(player, MM_PLAYER_POS_FORMAT_TIME, &position))
-				{
-					LOGD ("[Time] pos %d ms / dur %d sec / %lld bytes", position, (guint)(content_duration/GST_SECOND), content_size);
-					start_per = 100 * (position*GST_MSECOND) / content_duration;
-
-					/* buffered size info from multiqueue */
-					if (player->pipeline->mainbin[MMPLAYER_M_DEMUXED_S_BUFFER].gst)
-					{
-						g_object_get(G_OBJECT(player->pipeline->mainbin[MMPLAYER_M_DEMUXED_S_BUFFER].gst), "curr-size-bytes", &curr_size_bytes, NULL);
-						LOGD ("[MQ] curr_size_bytes = %d", curr_size_bytes);
-
-						buffered_total += curr_size_bytes;
-					}
-
-					/* buffered size info from queue2 */
-					if (player->pipeline->mainbin[MMPLAYER_M_MUXED_S_BUFFER].gst)
-					{
-						query = gst_query_new_buffering ( GST_FORMAT_BYTES );
-						if (gst_element_query(player->pipeline->mainbin[MMPLAYER_M_MUXED_S_BUFFER].gst, query))
-						{
-							GstBufferingMode mode;
-							gint byte_in_rate = 0, byte_out_rate = 0;
-							gint64 start_byte = 0, stop_byte = 0;
-							guint num_of_ranges = 0;
-							guint idx = 0;
-
-							num_of_ranges = gst_query_get_n_buffering_ranges(query);
-							for ( idx=0 ; idx<num_of_ranges ; idx++ )
-							{
-								gst_query_parse_nth_buffering_range (query, idx, &start_byte, &stop_byte);
-								LOGD ("[Q2][range %d] %lld ~ %lld\n", idx, start_byte, stop_byte);
-
-								buffered_total += (stop_byte - start_byte);
-							}
-
-							gst_query_parse_buffering_stats(query, &mode, &byte_in_rate, &byte_out_rate, &buffering_left);
-							LOGD ("[Q2] in_rate %d, out_rate %d, left %lld\n", byte_in_rate, byte_out_rate, buffering_left);
-						}
-						gst_query_unref (query);
-					}
-
-					if (buffering_left == STREAMING_IS_FINISHED)
-					{
-						stop_per = BUFFERING_MAX_PER;
-					}
-					else
-					{
-						guint dur_sec = (guint)(content_duration/GST_SECOND);
-						guint avg_byterate = (dur_sec>0)?((guint)(content_size/dur_sec)):(0);
-
-						if (avg_byterate > 0)
-							buffered_sec = (gint)(buffered_total/avg_byterate);
-						else if (player->total_maximum_bitrate > 0)
-							buffered_sec = (gint)(GET_BIT_FROM_BYTE(buffered_total)/(gint64)player->total_maximum_bitrate);
-						else if (player->total_bitrate > 0)
-							buffered_sec = (gint)(GET_BIT_FROM_BYTE(buffered_total)/(gint64)player->total_bitrate);
-
-						if ((buffered_sec >= 0) && (dur_sec > 0))
-							stop_per = start_per + (100 * buffered_sec / dur_sec);
-					}
-
-					LOGD ("[Buffered Total] %lld bytes, %d sec, per %d~%d\n", buffered_total, buffered_sec, start_per, stop_per);
-				}
-			}
-
-			if (((buffered_total == 0) || (start_per < 0) || (stop_per < 0)) &&
-				(player->pipeline->mainbin[MMPLAYER_M_MUXED_S_BUFFER].gst))
-			{
-				query = gst_query_new_buffering ( GST_FORMAT_PERCENT );
-				if ( gst_element_query ( player->pipeline->mainbin[MMPLAYER_M_MUXED_S_BUFFER].gst, query ) )
-				{
-					GstFormat format;
-					gint64 range_start_per = -1, range_stop_per = -1;
-
-					gst_query_parse_buffering_range ( query, &format, &range_start_per, &range_stop_per, NULL );
-
-					LOGD ("[Q2] range start %" G_GINT64_FORMAT " ~ stop %" G_GINT64_FORMAT "\n",  range_start_per , range_stop_per);
-
-					if (range_start_per != -1)
-						start_per = (gint)(100 * range_start_per / GST_FORMAT_PERCENT_MAX);
-
-					if (range_stop_per != -1)
-						stop_per = (gint)(100 * range_stop_per / GST_FORMAT_PERCENT_MAX);
-				}
-				gst_query_unref (query);
-			}
-
-			if ( start_per > 0)
-				*start_pos = (start_per < 100)?(start_per):(100);
-			else
-				*start_pos = 0;
-
-			if ( stop_per > 0)
-				*stop_pos = (stop_per < 100)?(stop_per):(100);
-			else
-				*stop_pos = 0;
-
-			break;
-		}
-		case MM_PLAYER_POS_FORMAT_TIME :
-			LOGW ( "Time format is not supported yet.\n" );
-			break;
-
-		default :
-			break;
+		/* and rtsp is not ready yet. */
+		LOGW ("it's only used for http streaming case.\n");
+		return MM_ERROR_PLAYER_NO_OP;
 	}
 
-  	LOGD("current buffer position : %lu~%lu \n", *start_pos, *stop_pos );
+	if (format != MM_PLAYER_POS_FORMAT_PERCENT)
+	{
+		LOGW ("Time format is not supported yet.\n");
+		return MM_ERROR_INVALID_ARGUMENT;
+	}
+
+	if (content_size_time <= 0 || content_size_bytes <= 0)
+	{
+		LOGW ("there is no content size.");
+		return MM_ERROR_NONE;
+	}
+
+	if (__gst_get_position (player, MM_PLAYER_POS_FORMAT_TIME, &position) != MM_ERROR_NONE)
+	{
+		LOGW ("fail to get current position.");
+		return MM_ERROR_NONE;
+	}
+
+	LOGD ("pos %d ms, dur %d sec, len %"G_GUINT64_FORMAT" bytes",
+		position, (guint)(content_size_time/GST_SECOND), content_size_bytes);
+
+	mainbin = player->pipeline->mainbin;
+	start_per = ceil(100 * (position*GST_MSECOND) / content_size_time);
+
+	if (mainbin[MMPLAYER_M_MUXED_S_BUFFER].gst)
+	{
+		GstQuery *query = NULL;
+		gint byte_in_rate = 0, byte_out_rate = 0;
+		gint64 estimated_total = 0;
+
+		query = gst_query_new_buffering ( GST_FORMAT_BYTES );
+		if (!query || !gst_element_query(mainbin[MMPLAYER_M_MUXED_S_BUFFER].gst, query))
+		{
+			LOGW ("fail to get buffering query from queue2");
+			if (query)
+				gst_query_unref (query);
+			return MM_ERROR_NONE;
+		}
+
+		gst_query_parse_buffering_stats(query, &mode, &byte_in_rate, &byte_out_rate, NULL);
+		LOGD ("mode %d, in_rate %d, out_rate %d", mode, byte_in_rate, byte_out_rate);
+
+		if (mode == GST_BUFFERING_STREAM) /* using only queue in case of push mode (ts / mp3) */
+		{
+			if (gst_element_query_position(mainbin[MMPLAYER_M_SRC].gst,
+				GST_FORMAT_BYTES, &buffered_total))
+			{
+				LOGD ("buffered_total %"G_GINT64_FORMAT, buffered_total);
+				stop_per = 100 * buffered_total / content_size_bytes;
+			}
+		}
+		else /* GST_BUFFERING_TIMESHIFT or GST_BUFFERING_DOWNLOAD */
+		{
+			guint idx = 0;
+			guint num_of_ranges = 0;
+			gint64 start_byte = 0, stop_byte = 0;
+
+			gst_query_parse_buffering_range(query, NULL, NULL, NULL, &estimated_total);
+			if (estimated_total != STREAMING_IS_FINISHED)
+			{
+				/* buffered size info from queue2 */
+				num_of_ranges = gst_query_get_n_buffering_ranges(query);
+				for ( idx=0 ; idx<num_of_ranges ; idx++ )
+				{
+					gst_query_parse_nth_buffering_range (query, idx, &start_byte, &stop_byte);
+					LOGD ("range %d, %"G_GINT64_FORMAT" ~ %"G_GUINT64_FORMAT, idx, start_byte, stop_byte);
+
+					buffered_total += (stop_byte - start_byte);
+				}
+			}
+			else
+			{
+				stop_per = BUFFERING_MAX_PER;
+			}
+		}
+		gst_query_unref (query);
+	}
+
+	if (stop_per == DEFAULT_PER_VALUE)
+	{
+		guint dur_sec = (guint)(content_size_time/GST_SECOND);
+		if (dur_sec > 0)
+		{
+			guint avg_byterate = (guint)(content_size_bytes/dur_sec);
+
+			/* buffered size info from multiqueue */
+			if (mainbin[MMPLAYER_M_DEMUXED_S_BUFFER].gst)
+			{
+				guint curr_size_bytes = 0;
+				g_object_get(G_OBJECT(mainbin[MMPLAYER_M_DEMUXED_S_BUFFER].gst),
+					"curr-size-bytes", &curr_size_bytes, NULL);
+				LOGD ("curr_size_bytes of multiqueue = %d", curr_size_bytes);
+				buffered_total += curr_size_bytes;
+			}
+
+			if (avg_byterate > 0)
+				buffered_sec = (gint)(ceil((gdouble)buffered_total/(gdouble)avg_byterate));
+			else if (player->total_maximum_bitrate > 0)
+				buffered_sec = (gint)(ceil((gdouble)GET_BIT_FROM_BYTE(buffered_total)/(gdouble)player->total_maximum_bitrate));
+			else if (player->total_bitrate > 0)
+				buffered_sec = (gint)(ceil((gdouble)GET_BIT_FROM_BYTE(buffered_total)/(gdouble)player->total_bitrate));
+
+			if (buffered_sec >= 0)
+				stop_per = start_per + (gint)(ceil)(100*(gdouble)buffered_sec/(gdouble)dur_sec);
+		}
+	}
+
+	*start_pos = CHECK_PERCENT_VALUE(start_per, 0, 100);
+	*stop_pos = CHECK_PERCENT_VALUE(stop_per, *start_pos, 100);
+
+	LOGD ("buffered info: %"G_GINT64_FORMAT" bytes, %d sec, per %lu~%lu\n",
+		buffered_total, buffered_sec, *start_pos, *stop_pos);
 
 	return MM_ERROR_NONE;
 }
