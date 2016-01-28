@@ -734,9 +734,6 @@ typedef struct {
 
 	int pcm_samplerate;
 	int pcm_channel;
-
-	Evas_Object * eo;
-	gboolean have_evas_callback;
 } mm_player_t;
 
 typedef struct

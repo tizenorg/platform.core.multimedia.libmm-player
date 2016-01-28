@@ -50,8 +50,6 @@ int mm_player_mused_realize(MMHandleType player, char *caps);
 int mm_player_mused_unrealize(MMHandleType player);
 int mm_player_mused_pre_unrealize(MMHandleType player);
 int mm_player_get_state_timeout(MMHandleType player, int *timeout, bool is_streaming);
-int mm_player_mused_set_evas_object_cb(MMHandleType player, Evas_Object * eo);
-int mm_player_mused_unset_evas_object_cb(MMHandleType player);
 
 
 /**

@@ -4125,7 +4125,7 @@ _mmplayer_update_video_param(mm_player_t* player) // @
 		case MM_DISPLAY_SURFACE_OVERLAY:
 		{
 			/* ximagesink or xvimagesink */
-			void *surface = NULL;
+			void *handle = NULL;
 			int display_method = 0;
 			int roi_x = 0;
 			int roi_y = 0;
@@ -4140,18 +4140,10 @@ _mmplayer_update_video_param(mm_player_t* player) // @
 
 #ifdef HAVE_WAYLAND
 			/*set wl_display*/
-			void* wl_display = NULL;
-			GstContext *context = NULL;
 			int wl_window_x = 0;
 			int wl_window_y = 0;
 			int wl_window_width = 0;
 			int wl_window_height = 0;
-
-			mm_attrs_get_data_by_name(attrs, "wl_display", &wl_display);
-			if (wl_display)
-				context = gst_wayland_display_handle_context_new(wl_display);
-			if (context)
-				gst_element_set_context(GST_ELEMENT(player->pipeline->videobin[MMPLAYER_V_SINK].gst), context);
 
 			/*It should be set after setting window*/
 			mm_attrs_get_int_by_name(attrs, "wl_window_render_x", &wl_window_x);
@@ -4160,26 +4152,27 @@ _mmplayer_update_video_param(mm_player_t* player) // @
 			mm_attrs_get_int_by_name(attrs, "wl_window_render_height", &wl_window_height);
 #endif
 			/* common case if using x surface */
-			mm_attrs_get_data_by_name(attrs, "display_overlay", &surface);
-			if ( surface )
+			mm_attrs_get_data_by_name(attrs, "display_overlay", &handle);
+			if ( handle )
 			{
 #ifdef HAVE_WAYLAND
-				guintptr wl_surface = (guintptr)surface;
-				LOGD("set video param : wayland surface %p", surface);
+				unsigned int parent_id  = 0;
+				parent_id = *(int*)handle;
+				LOGD("set video param : parent_id %d %p",parent_id, *(int*)handle);
 				gst_video_overlay_set_window_handle(
 						GST_VIDEO_OVERLAY( player->pipeline->videobin[MMPLAYER_V_SINK].gst ),
-						wl_surface );
+						*(int*)handle );
 				/* After setting window handle, set render	rectangle */
 				gst_video_overlay_set_render_rectangle(
 					 GST_VIDEO_OVERLAY( player->pipeline->videobin[MMPLAYER_V_SINK].gst ),
 					 wl_window_x,wl_window_y,wl_window_width,wl_window_height);
 #else // HAVE_X11
 				int xwin_id = 0;
-				xwin_id = *(int*)surface;
-				LOGD("set video param : xid %p", *(int*)surface);
+				xwin_id = *(int*)handle;
+				LOGD("set video param : xid %p", *(int*)handle);
 				if (xwin_id)
 				{
-					gst_video_overlay_set_window_handle( GST_VIDEO_OVERLAY( player->pipeline->videobin[MMPLAYER_V_SINK].gst ), *(int*)surface );
+					gst_video_overlay_set_window_handle( GST_VIDEO_OVERLAY( player->pipeline->videobin[MMPLAYER_V_SINK].gst ), *(int*)handle );
 				}
 #endif
 			}
@@ -4396,11 +4389,6 @@ _mmplayer_update_video_param(mm_player_t* player) // @
 		}
 		break;
 		case MM_DISPLAY_SURFACE_NULL:
-		{
-			/* do nothing */
-		}
-		break;
-		case MM_DISPLAY_SURFACE_REMOTE:
 		{
 			/* do nothing */
 		}
@@ -5521,12 +5509,6 @@ __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps, MMDispl
 				else
 					goto ERROR;
 				break;
-			case MM_DISPLAY_SURFACE_REMOTE:
-				if (strlen(player->ini.videosink_element_remote) > 0)
-					videosink_element = player->ini.videosink_element_remote;
-				else
-					goto ERROR;
-				break;
 			default:
 				LOGE("unidentified surface type");
 				goto ERROR;
@@ -5552,28 +5534,6 @@ __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps, MMDispl
 				}
 				break;
             }
-			case MM_DISPLAY_SURFACE_REMOTE:
-			{
-				char *stream_path = NULL;
-				/* video_zc is the result of check ST12/SN12 */
-				bool use_tbm = player->set_mode.video_zc;
-				int attr_ret = mm_attrs_get_string_by_name (
-						attrs, "shm_stream_path", &stream_path );
-				if(attr_ret == MM_ERROR_NONE && stream_path) {
-					g_object_set(G_OBJECT(player->pipeline->videobin[MMPLAYER_V_SINK].gst),
-							"socket-path", stream_path,
-							"wait-for-connection", FALSE,
-							"sync", TRUE,
-							"perms", 0777,
-							"use-tbm", use_tbm,
-							NULL);
-					LOGD("set path \"%s\" for shmsink", stream_path);
-				} else {
-					LOGE("Not set attribute of shm_stream_path");
-					goto ERROR;
-				}
-				break;
-			}
 			default:
 				break;
 		}
@@ -5646,14 +5606,6 @@ __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps, MMDispl
 	g_list_free(element_bucket);
 
 	mm_attrs_set_int_by_name(attrs, "content_video_found", TRUE);
-
-	if(surface_type == MM_DISPLAY_SURFACE_REMOTE &&
-			MMPLAYER_IS_HTTP_PD(player) )
-	{
-		MMMessageParamType msg = {0, };
-		msg.data = gst_caps_to_string(caps);
-		MMPLAYER_POST_MSG ( player, MM_MESSAGE_VIDEO_BIN_CREATED, &msg );
-	}
 
 	MMPLAYER_FLEAVE();
 
@@ -5844,7 +5796,6 @@ static int __mmplayer_gst_create_text_pipeline(mm_player_t* player)
 			case MM_DISPLAY_SURFACE_EVAS:
 			case MM_DISPLAY_SURFACE_GL:
 			case MM_DISPLAY_SURFACE_NULL:
-			case MM_DISPLAY_SURFACE_REMOTE:
 				if (__mmplayer_gst_create_plain_text_elements(player) != MM_ERROR_NONE)
 				{
 					LOGE("failed to make plain text elements\n");
