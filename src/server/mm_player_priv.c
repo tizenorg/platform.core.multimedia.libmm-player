@@ -2628,6 +2628,9 @@ __mmplayer_gst_decode_pad_added (GstElement *elem, GstPad *pad, gpointer data)
 				goto ERROR;
 			}
 
+			if (player->ini.set_dump_element_flag)
+				__mmplayer_add_dump_buffer_probe(player, fakesink);
+
 			player->video_fakesink = fakesink;
 
 			/* store it as it's sink element */

@@ -363,6 +363,7 @@ __mmplayer_check_buffer_level(mm_player_t *player, GstElement* element, MMPlayer
 
 	if (max_bytes <= current_level_bytes) {
 		LOGE ("no available buffer space. type %d, max %lld, curr %lld", type, max_bytes, current_level_bytes);
+		return MM_ERROR_PLAYER_BUFFER_SPACE;
 	}
 
 	if (MMPLAYER_CURRENT_STATE(player) != MM_PLAYER_STATE_PLAYING) {
