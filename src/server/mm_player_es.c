@@ -253,27 +253,12 @@ _mmplayer_set_media_stream_seek_data_cb(MMHandleType hplayer,
 	return MM_ERROR_NONE;
 }
 
-int
-_mmplayer_set_media_stream_max_size(MMHandleType hplayer, MMPlayerStreamType type, guint64 max_size)
+GstElement*
+__mmplayer_get_source_element (mm_player_t *player, MMPlayerStreamType type)
 {
-	mm_player_t *player = (mm_player_t *) hplayer;
 	enum MainElementID elemId = MMPLAYER_M_NUM;
-	int ret = MM_ERROR_NONE;
 
-	MMPLAYER_FENTER ();
-	MMPLAYER_RETURN_VAL_IF_FAIL (player, MM_ERROR_PLAYER_NOT_INITIALIZED);
-
-	if ((type < MM_PLAYER_STREAM_TYPE_AUDIO) ||
-		(type > MM_PLAYER_STREAM_TYPE_TEXT) ||
-		(max_size == 0)) {
-		LOGE ("Invalid param type:%d, max_size:%d", type, max_size);
-		ret = MM_ERROR_INVALID_ARGUMENT;
-		goto ERROR;
-	}
-
-	LOGD ("type %d, max_size %llu\n", type, max_size);
-
-	if (player->pipeline && player->pipeline->mainbin) {
+	if (player && player->pipeline && player->pipeline->mainbin) {
 
 		/* get elem according to the stream type */
 		if (type == MM_PLAYER_STREAM_TYPE_AUDIO) {
@@ -281,10 +266,6 @@ _mmplayer_set_media_stream_max_size(MMHandleType hplayer, MMPlayerStreamType typ
 				elemId = MMPLAYER_M_2ND_SRC;
 			} else if (g_strrstr (GST_ELEMENT_NAME (player->pipeline->mainbin[MMPLAYER_M_SRC].gst), "audio_appsrc")) {
 				elemId = MMPLAYER_M_SRC;
-			} else {
-				LOGE ("there is no audio source");
-				ret = MM_ERROR_PLAYER_INTERNAL;
-				goto ERROR;
 			}
 		}
 		else if (type == MM_PLAYER_STREAM_TYPE_VIDEO) {
@@ -294,16 +275,40 @@ _mmplayer_set_media_stream_max_size(MMHandleType hplayer, MMPlayerStreamType typ
 			elemId = MMPLAYER_M_SUBSRC;
 		}
 
-		LOGD ("update max_size of %s\n", GST_ELEMENT_NAME(player->pipeline->mainbin[elemId].gst));
-		g_object_set(G_OBJECT(player->pipeline->mainbin[elemId].gst), "max-bytes", max_size, NULL);
+		if (elemId != MMPLAYER_M_NUM)
+			return player->pipeline->mainbin[elemId].gst;
+	}
+
+	return NULL;
+}
+
+int
+_mmplayer_set_media_stream_max_size(MMHandleType hplayer, MMPlayerStreamType type, guint64 max_size)
+{
+	mm_player_t *player = (mm_player_t *) hplayer;
+	GstElement *element = NULL;
+
+	MMPLAYER_FENTER ();
+	MMPLAYER_RETURN_VAL_IF_FAIL (player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+
+	if ((type < MM_PLAYER_STREAM_TYPE_AUDIO) ||
+		(type > MM_PLAYER_STREAM_TYPE_TEXT) ||
+		(max_size == 0)) {
+		LOGE ("Invalid param type:%d, max_size:%d", type, max_size);
+		return MM_ERROR_INVALID_ARGUMENT;
+	}
+
+	LOGD ("type %d, max_size %llu\n", type, max_size);
+
+	if ((element = __mmplayer_get_source_element(player, type))) {
+		LOGD ("update max_size of %s\n", GST_ELEMENT_NAME(element));
+		g_object_set(G_OBJECT(element), "max-bytes", max_size, NULL);
 	}
 
 	player->media_stream_buffer_max_size[type] = max_size;
 
-ERROR:
-
 	MMPLAYER_FLEAVE ();
-	return ret;
+	return MM_ERROR_NONE;
 }
 
 int
@@ -330,21 +335,27 @@ int
 _mmplayer_set_media_stream_min_percent(MMHandleType hplayer, MMPlayerStreamType type, guint min_percent)
 {
 	mm_player_t *player = (mm_player_t *) hplayer;
+	GstElement *element = NULL;
 
 	MMPLAYER_FENTER ();
 
 	MMPLAYER_RETURN_VAL_IF_FAIL (player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
-	if ((type < MM_PLAYER_STREAM_TYPE_DEFAULT) || (type > MM_PLAYER_STREAM_TYPE_TEXT))
+	if ((type < MM_PLAYER_STREAM_TYPE_AUDIO) || (type > MM_PLAYER_STREAM_TYPE_TEXT)) {
+		LOGE ("Invalid param type:%d", type);
 		return MM_ERROR_INVALID_ARGUMENT;
+	}
+
+	LOGD ("type %d, min_per %u\n", type, min_percent);
+
+	if ((element = __mmplayer_get_source_element(player, type))) {
+		LOGD ("update min_per of %s\n", GST_ELEMENT_NAME(element));
+		g_object_set(G_OBJECT(element), "min-percent", min_percent, NULL);
+	}
 
 	player->media_stream_buffer_min_percent[type] = min_percent;
 
-	LOGD ("type %d, min_per %u\n",
-					type, player->media_stream_buffer_min_percent[type]);
-
 	MMPLAYER_FLEAVE ();
-
 	return MM_ERROR_NONE;
 }
 
@@ -425,7 +436,7 @@ _mmplayer_submit_packet (MMHandleType hplayer, media_packet_h packet)
   mm_player_t *player = (mm_player_t *) hplayer;
   guint8 *buf = NULL;
   uint64_t size = 0;
-  enum MainElementID elemId = MMPLAYER_M_NUM;
+  GstElement* element = NULL;
   MMPlayerStreamType streamtype = MM_PLAYER_STREAM_TYPE_AUDIO;
   media_format_h fmt = NULL;
   bool flag = FALSE;
@@ -442,28 +453,23 @@ _mmplayer_submit_packet (MMHandleType hplayer, media_packet_h packet)
   media_packet_is_audio (packet, &flag);
   if (flag) {
     streamtype = MM_PLAYER_STREAM_TYPE_AUDIO;
-    if (player->pipeline->mainbin[MMPLAYER_M_2ND_SRC].gst) {
-      elemId = MMPLAYER_M_2ND_SRC;
-    } else if (g_strrstr (GST_ELEMENT_NAME (player->pipeline->mainbin[MMPLAYER_M_SRC].gst), "audio_appsrc")) {
-      elemId = MMPLAYER_M_SRC;
-    } else {
-      LOGE ("there is no audio appsrc");
-      ret = MM_ERROR_PLAYER_INTERNAL;
-      goto ERROR;
-    }
   } else {
     media_packet_is_video (packet, &flag);
-    if (flag) {
+    if (flag)
       streamtype = MM_PLAYER_STREAM_TYPE_VIDEO;
-      elemId = MMPLAYER_M_SRC;
-    } else {
+	else
       streamtype = MM_PLAYER_STREAM_TYPE_TEXT;
-      elemId = MMPLAYER_M_SUBSRC;
-    }
+  }
+
+  element = __mmplayer_get_source_element(player, streamtype);
+  if (!element) {
+      LOGE ("there is no source element of type %d", streamtype);
+      ret = MM_ERROR_PLAYER_INTERNAL;
+      goto ERROR;
   }
 
   /* check buffer level */
-  ret = __mmplayer_check_buffer_level (player, player->pipeline->mainbin[elemId].gst, streamtype);
+  ret = __mmplayer_check_buffer_level (player, element, streamtype);
   if (ret != MM_ERROR_NONE)
     return ret;
 
@@ -520,14 +526,7 @@ _mmplayer_submit_packet (MMHandleType hplayer, media_packet_h packet)
       goto ERROR;
     }
     GST_BUFFER_PTS (_buffer) = (GstClockTime)pts;
-
-    if ((elemId < MMPLAYER_M_NUM) && (player->pipeline->mainbin[elemId].gst)) {
-      gst_app_src_push_buffer (GST_APP_SRC (player->pipeline->mainbin[elemId].gst), _buffer);
-    } else {
-      LOGE ("elem(%d) does not exist.", elemId);
-      ret = MM_ERROR_PLAYER_INTERNAL;
-      goto ERROR;
-    }
+	gst_app_src_push_buffer (GST_APP_SRC (element), _buffer);
   }
 
   /* check eos */
@@ -539,13 +538,7 @@ _mmplayer_submit_packet (MMHandleType hplayer, media_packet_h packet)
 
   if (is_eos) {
     LOGW ("we got eos of stream type(%d)", streamtype);
-    if ((elemId < MMPLAYER_M_NUM) && (player->pipeline->mainbin[elemId].gst)) {
-      g_signal_emit_by_name (player->pipeline->
-          mainbin[elemId].gst, "end-of-stream", &ret);
-    } else {
-      LOGE ("elem(%d) does not exist.", elemId);
-      ret = MM_ERROR_PLAYER_INTERNAL;
-    }
+	g_signal_emit_by_name (element, "end-of-stream", &ret);
   }
 
 ERROR:
