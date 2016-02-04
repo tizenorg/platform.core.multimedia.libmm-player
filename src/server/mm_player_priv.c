@@ -4130,14 +4130,6 @@ _mmplayer_update_video_param(mm_player_t* player) // @
 			/* ximagesink or xvimagesink */
 			void *handle = NULL;
 			int display_method = 0;
-			int roi_x = 0;
-			int roi_y = 0;
-			int roi_w = 0;
-			int roi_h = 0;
-			int src_crop_x = 0;
-			int src_crop_y = 0;
-			int src_crop_w = 0;
-			int src_crop_h = 0;
 			int force_aspect_ratio = 0;
 			gboolean visible = TRUE;
 
@@ -4159,10 +4151,10 @@ _mmplayer_update_video_param(mm_player_t* player) // @
 			if ( handle )
 			{
 #ifdef HAVE_WAYLAND
-				unsigned int parent_id  = 0;
-				parent_id = *(int*)handle;
-				LOGD("set video param : parent_id %d %p",parent_id, *(int*)handle);
-				gst_video_overlay_set_window_handle(
+				unsigned int wl_surface_id  = 0;
+				wl_surface_id = *(int*)handle;
+				LOGD("set video param : wl_surface_id %d %p",wl_surface_id, *(int*)handle);
+				gst_video_overlay_set_wl_window_wl_surface_id(
 						GST_VIDEO_OVERLAY( player->pipeline->videobin[MMPLAYER_V_SINK].gst ),
 						*(int*)handle );
 				/* After setting window handle, set render	rectangle */
@@ -4185,55 +4177,17 @@ _mmplayer_update_video_param(mm_player_t* player) // @
 				LOGW("still we don't have xid on player attribute. create it's own surface.");
 			}
 
-			/* if xvimagesink */
+			mm_attrs_get_int_by_name(attrs, "display_force_aspect_ration", &force_aspect_ratio);
+			mm_attrs_get_int_by_name(attrs, "display_method", &display_method);
+			mm_attrs_get_int_by_name(attrs, "display_visible", &visible);
+			#define DEFAULT_DISPLAY_MODE	0	// TV only, PRI_VIDEO_OFF_AND_SEC_VIDEO_FULL_SCREEN
+
+			/* get rotation value to set */
+			__mmplayer_get_property_value_for_rotation(player, org_angle+user_angle, &rotation_value);
+
+			/* xvimagesink */
 			if (!strcmp(player->ini.videosink_element_overlay,"xvimagesink"))
 			{
-				mm_attrs_get_int_by_name(attrs, "display_force_aspect_ration", &force_aspect_ratio);
-				mm_attrs_get_int_by_name(attrs, "display_method", &display_method);
-				mm_attrs_get_int_by_name(attrs, "display_src_crop_x", &src_crop_x);
-				mm_attrs_get_int_by_name(attrs, "display_src_crop_y", &src_crop_y);
-				mm_attrs_get_int_by_name(attrs, "display_src_crop_width", &src_crop_w);
-				mm_attrs_get_int_by_name(attrs, "display_src_crop_height", &src_crop_h);
-				mm_attrs_get_int_by_name(attrs, "display_roi_x", &roi_x);
-				mm_attrs_get_int_by_name(attrs, "display_roi_y", &roi_y);
-				mm_attrs_get_int_by_name(attrs, "display_roi_width", &roi_w);
-				mm_attrs_get_int_by_name(attrs, "display_roi_height", &roi_h);
-				mm_attrs_get_int_by_name(attrs, "display_visible", &visible);
-				#define DEFAULT_DISPLAY_MODE	2	// TV only, PRI_VIDEO_OFF_AND_SEC_VIDEO_FULL_SCREEN
-
-				/* setting for cropping media source */
-				if (src_crop_w && src_crop_h)
-				{
-					g_object_set(player->pipeline->videobin[MMPLAYER_V_SINK].gst,
-						"src-crop-x", src_crop_x,
-						"src-crop-y", src_crop_y,
-						"src-crop-w", src_crop_w,
-						"src-crop-h", src_crop_h,
-						NULL );
-				}
-
-				/* setting for ROI mode */
-				if (display_method == 5)	// 5 for ROI mode
-				{
-					int roi_mode = 0;
-					mm_attrs_get_int_by_name(attrs, "display_roi_mode", &roi_mode);
-					g_object_set(player->pipeline->videobin[MMPLAYER_V_SINK].gst,
-						"dst-roi-mode", roi_mode,
-						"dst-roi-x", roi_x,
-						"dst-roi-y", roi_y,
-						"dst-roi-w", roi_w,
-						"dst-roi-h", roi_h,
-						NULL );
-					/* get rotation value to set,
-					   do not use org_angle because ROI mode in xvimagesink needs both a rotation value and an orientation value */
-					__mmplayer_get_property_value_for_rotation(player, user_angle, &rotation_value);
-				}
-				else
-				{
-					/* get rotation value to set */
-					__mmplayer_get_property_value_for_rotation(player, org_angle+user_angle, &rotation_value);
-				}
-
 				g_object_set(player->pipeline->videobin[MMPLAYER_V_SINK].gst,
 					"force-aspect-ratio", force_aspect_ratio,
 					"orientation", org_angle/90, // setting for orientation of media, it is used for ROI/ZOOM feature in xvimagesink
@@ -4245,11 +4199,21 @@ _mmplayer_update_video_param(mm_player_t* player) // @
 					"visible", visible,
 					"display-mode", DEFAULT_DISPLAY_MODE,
 					NULL );
-
-				LOGD("set video param : rotate %d, method %d visible %d", rotation_value, display_method, visible);
-				LOGD("set video param : dst-roi-x: %d, dst-roi-y: %d, dst-roi-w: %d, dst-roi-h: %d", roi_x, roi_y, roi_w, roi_h );
 				LOGD("set video param : force aspect ratio %d, display mode %d", force_aspect_ratio, DEFAULT_DISPLAY_MODE);
 			}
+#ifdef HAVE_WAYLAND
+			/* waylandsink */
+			else if (!strcmp(player->ini.videosink_element_overlay,"waylandsink"))
+			{
+				g_object_set(player->pipeline->videobin[MMPLAYER_V_SINK].gst,
+					"rotate", rotation_value,
+					"display-geometry-method", display_method,
+					"display-mode", DEFAULT_DISPLAY_MODE,
+					"visible", visible,
+					NULL );
+			}
+#endif
+			LOGD("set video param : rotate %d, method %d visible %d", rotation_value, display_method, visible);
 		}
 		break;
 		case MM_DISPLAY_SURFACE_EVAS:
