@@ -3,7 +3,7 @@
 
 Name:       libmm-player
 Summary:    Multimedia Framework Player Library
-Version:    0.5.75
+Version:    0.5.76
 Release:    0
 Group:      Multimedia/Libraries
 License:    Apache-2.0
@@ -71,8 +71,6 @@ CFLAGS=$CFLAGS LDFLAGS=$LDFLAGS ./configure --enable-sdk --prefix=%{_prefix} --d
 make %{?jobs:-j%jobs}
 
 %install
-mkdir -p %{buildroot}%{_datadir}/license
-cp -rf LICENSE.APLv2 %{buildroot}%{_datadir}/license/%{name}
 %make_install
 
 %post -p /sbin/ldconfig
@@ -81,9 +79,10 @@ cp -rf LICENSE.APLv2 %{buildroot}%{_datadir}/license/%{name}
 
 %files
 %manifest %{name}.manifest
+%license LICENSE.APLv2
 %defattr(-,root,root,-)
 %{_libdir}/*.so.*
-%{_datadir}/license/%{name}
+
 
 %files devel
 %manifest %{name}.manifest

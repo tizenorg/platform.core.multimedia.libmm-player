@@ -1068,18 +1068,3 @@ __mmplayer_get_video_angle(mm_player_t* player, int *user_angle, int *org_angle)
 	return MM_ERROR_NONE;
 }
 
-int _mmplayer_set_shm_stream_path(MMHandleType hplayer, const char *path)
-{
-	mm_player_t* player = (mm_player_t*) hplayer;
-	int result;
-
-	MMPLAYER_FENTER();
-
-	MMPLAYER_RETURN_VAL_IF_FAIL ( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
-	MMPLAYER_RETURN_VAL_IF_FAIL(path, MM_ERROR_INVALID_ARGUMENT);
-
-	result = mm_attrs_set_string_by_name(player->attrs, "shm_stream_path", path)
-
-	MMPLAYER_FLEAVE();
-	return result;
-}

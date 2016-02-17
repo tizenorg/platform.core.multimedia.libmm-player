@@ -1,28 +1,22 @@
-lib_LTLIBRARIES = libmmfplayer.la libmmfplayerclient.la
+lib_LTLIBRARIES = libmmfplayer.la
 
 includelibmmfplayerdir = $(includedir)/mmf
 
 includelibmmfplayer_HEADERS = include/mm_player.h \
 			      include/mm_player_internal.h \
-			      include/mm_player_audioeffect.h \
-			      include/mm_player_mused.h
+			      include/mm_player_audioeffect.h
 
-libmmfplayer_la_SOURCES = server/mm_player.c \
-			  server/mm_player_priv.c \
-			  server/mm_player_utils.c \
-			  server/mm_player_resource.c \
-			  server/mm_player_sound_focus.c \
-			  server/mm_player_capture.c \
-			  server/mm_player_pd.c \
-			  server/mm_player_streaming.c \
-			  server/mm_player_tracks.c \
-			  server/mm_player_audioeffect.c \
-			  server/mm_player_es.c \
-			  mm_player_common_priv.c \
-			  mm_player_attrs.c \
-			  mm_player_ini.c
-
-libmmfplayerclient_la_SOURCES = client/mm_player_client.c \
+libmmfplayer_la_SOURCES = mm_player.c \
+			  mm_player_priv.c \
+			  mm_player_utils.c \
+			  mm_player_resource.c \
+			  mm_player_sound_focus.c \
+			  mm_player_capture.c \
+			  mm_player_pd.c \
+			  mm_player_streaming.c \
+			  mm_player_tracks.c \
+			  mm_player_audioeffect.c \
+			  mm_player_es.c \
 			  mm_player_common_priv.c \
 			  mm_player_attrs.c \
 			  mm_player_ini.c
@@ -41,18 +35,6 @@ libmmfplayer_la_CFLAGS =  -I$(srcdir)/include \
 			$(ICU_CFLAGS) \
 			$(UTILX_CFLAGS) \
 			$(MEDIAPACKET_CFLAGS) \
-			$(DLOG_CFLAGS) \
-			$(EVAS_CFLAGS) \
-			$(ECORE_CFLAGS) \
-			-Werror -Wno-deprecated -Wno-deprecated-declarations -Wno-cpp
-
-libmmfplayerclient_la_CFLAGS =  -I$(srcdir)/include \
-			$(MMCOMMON_CFLAGS) \
-			$(MMUTIL_CFLAGS) \
-			$(GST_CFLAGS) \
-			$(GST_VIDEO_CFLAGS) \
-			$(GST_APP_CFLAGS) \
-			$(VCONF_CFLAGS) \
 			$(DLOG_CFLAGS) \
 			$(EVAS_CFLAGS) \
 			$(ECORE_CFLAGS) \
@@ -88,17 +70,6 @@ libmmfplayer_la_LIBADD = $(GST_LIBS) \
 		$(EVAS_LIBS) \
 		$(ECORE_LIBS)
 
-libmmfplayerclient_la_LIBADD = $(GST_LIBS) \
-	    	$(MMCOMMON_LIBS) \
-	    	$(MMUTIL_LIBS) \
-		$(GST_INTERFACE_LIBS) \
-		$(GST_VIDEO_LIBS) \
-		$(GST_APP_LIBS) \
-		$(INIPARSER_LIBS) \
-		$(DLOG_LIBS) \
-		$(VCONF_LIBS) \
-		$(EVAS_LIBS) \
-		$(ECORE_LIBS)
 
 if IS_SDK
 libmmfplayer_la_CFLAGS += -DIS_SDK
@@ -107,6 +78,4 @@ endif
 if WAYLAND_SUPPORT
 libmmfplayer_la_CFLAGS += $(GST_WAYLAND_CFLAGS)
 libmmfplayer_la_LIBADD += $(GST_WAYLAND_LIBS)
-libmmfplayerclient_la_CFLAGS += $(GST_WAYLAND_CFLAGS)
-libmmfplayerclient_la_LIBADD += $(GST_WAYLAND_LIBS)
 endif

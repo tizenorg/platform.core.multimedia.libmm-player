@@ -147,6 +147,5 @@ AM_CONDITIONAL([IS_SDK], [test "x$IS_SDK" = "xyes"])
 AC_CONFIG_FILES([Makefile
 		 src/Makefile
 		 mm-player.pc
-		 mm-playerclient.pc
 ])
 AC_OUTPUT

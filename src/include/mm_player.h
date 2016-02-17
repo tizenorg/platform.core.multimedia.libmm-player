@@ -2245,19 +2245,6 @@ int mm_player_set_audio_stream_changed_callback(MMHandleType player, mm_player_s
 int mm_player_set_video_stream_changed_callback(MMHandleType player, mm_player_stream_changed_callback callback, void *user_param);
 
 /**
- * This function check the content is streaming or not\n
- * It's only supported when video stream is included in file. \n
- *
- * @param	player   [in] Handle of player.
- * @param	is_streaming [out] flag of content type.
- *
- * @return	This function returns zero on success, or negative value with error
- *			code.
- * @since 3.0
- */
-int mm_player_is_streaming(MMHandleType player, bool *is_streaming);
-
-/**
 	@}
  */
 

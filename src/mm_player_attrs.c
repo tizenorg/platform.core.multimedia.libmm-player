@@ -1061,15 +1061,6 @@ _mmplayer_construct_attribute(MMHandleType handle)
 			0
 		},
 		{
-			"shm_stream_path",
-			MM_ATTRS_TYPE_STRING,
-			MM_ATTRS_FLAG_RW,
-			(void *) NULL,
-			MM_ATTRS_VALID_TYPE_NONE,
-			0,
-			0
-		},
-		{
 			"display_surface_client_type",
 			MM_ATTRS_TYPE_INT,
 			MM_ATTRS_FLAG_RW,

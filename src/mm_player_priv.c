@@ -4153,7 +4153,7 @@ _mmplayer_update_video_param(mm_player_t* player) // @
 #ifdef HAVE_WAYLAND
 				unsigned int wl_surface_id  = 0;
 				wl_surface_id = *(int*)handle;
-				LOGD("set video param : wl_surface_id %d %p",wl_surface_id, *(int*)handle);
+				LOGD("set video param : wl_surface_id %d %p", wl_surface_id, *(int*)handle);
 				gst_video_overlay_set_wl_window_wl_surface_id(
 						GST_VIDEO_OVERLAY( player->pipeline->videobin[MMPLAYER_V_SINK].gst ),
 						*(int*)handle );
@@ -16273,51 +16273,3 @@ _mmplayer_set_pcm_spec(MMHandleType hplayer, int samplerate, int channel)
 	return MM_ERROR_NONE;
 }
 
-int _mmplayer_get_raw_video_caps(mm_player_t *player, char **caps)
-{
-	GstCaps *v_caps = NULL;
-	GstPad *pad = NULL;
-	GstElement *gst;
-	gint stype = 0;
-
-	if(!player->videosink_linked) {
-		LOGD("No video sink");
-		return MM_ERROR_NONE;
-	}
-	mm_attrs_get_int_by_name (player->attrs, "display_surface_type", &stype);
-
-	if (stype == MM_DISPLAY_SURFACE_NULL) {
-		LOGD("Display type is NULL");
-		if(!player->video_fakesink) {
-			LOGE("No fakesink");
-			return MM_ERROR_PLAYER_INVALID_STATE;
-		}
-		gst = player->video_fakesink;
-	}
-	else {
-		if ( !player->pipeline || !player->pipeline->videobin ||
-				!player->pipeline->videobin[MMPLAYER_V_SINK].gst ) {
-			LOGE("No video pipeline");
-			return MM_ERROR_PLAYER_INVALID_STATE;
-		}
-		gst = player->pipeline->videobin[MMPLAYER_V_SINK].gst;
-	}
-	pad = gst_element_get_static_pad(gst, "sink");
-	if(!pad) {
-		LOGE("static pad is NULL");
-		return MM_ERROR_PLAYER_INVALID_STATE;
-	}
-	v_caps = gst_pad_get_current_caps(pad);
-	gst_object_unref( pad );
-
-	if(!v_caps) {
-		LOGE("fail to get caps");
-		return MM_ERROR_PLAYER_INVALID_STATE;
-	}
-
-	*caps = gst_caps_to_string(v_caps);
-
-	gst_caps_unref(v_caps);
-
-	return MM_ERROR_NONE;
-}
