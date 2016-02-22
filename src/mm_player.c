@@ -1251,3 +1251,19 @@ int mm_player_set_pcm_spec(MMHandleType player, int samplerate, int channel)
 	return result;
 }
 
+int mm_player_get_timeout(MMHandleType player, int *timeout)
+{
+	int result = MM_ERROR_NONE;
+
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(timeout, MM_ERROR_COMMON_INVALID_ARGUMENT);
+
+	MMPLAYER_CMD_LOCK( player );
+
+	result = _mmplayer_get_timeout(player, timeout);
+
+	MMPLAYER_CMD_UNLOCK( player );
+
+	return result;
+}
+

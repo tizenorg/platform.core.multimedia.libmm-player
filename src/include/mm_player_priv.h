@@ -833,6 +833,7 @@ int _mmplayer_enable_media_packet_video_stream(MMHandleType hplayer, bool enable
 void * _mm_player_media_packet_video_stream_internal_buffer_ref(void *buffer);
 void _mm_player_media_packet_video_stream_internal_buffer_unref(void *buffer);
 int _mmplayer_set_pcm_spec(MMHandleType hplayer, int samplerate, int channel);
+int _mmplayer_get_timeout(MMHandleType hplayer, int *timeout);
 int __mmplayer_gst_set_state (mm_player_t* player, GstElement * pipeline,  GstState state, gboolean async, gint timeout );
 int __mmplayer_set_state(mm_player_t* player, int state);
 int __mmplayer_check_state(mm_player_t* player, enum PlayerCommandState command);

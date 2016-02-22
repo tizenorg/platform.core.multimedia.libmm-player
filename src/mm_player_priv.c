@@ -16273,3 +16273,23 @@ _mmplayer_set_pcm_spec(MMHandleType hplayer, int samplerate, int channel)
 	return MM_ERROR_NONE;
 }
 
+int _mmplayer_get_timeout(MMHandleType hplayer, int *timeout)
+{
+	mm_player_t* player = (mm_player_t*) hplayer;
+
+	MMPLAYER_FENTER();
+
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(timeout, MM_ERROR_COMMON_INVALID_ARGUMENT);
+
+	if (MMPLAYER_IS_STREAMING(player))
+		*timeout = player->ini.live_state_change_timeout;
+	else
+		*timeout = player->ini.localplayback_state_change_timeout;
+
+	LOGD("timeout = %d\n", *timeout);
+
+	MMPLAYER_FLEAVE();
+	return MM_ERROR_NONE;
+}
+
