@@ -6880,6 +6880,10 @@ __mmplayer_gst_create_pipeline(mm_player_t* player) // @
 			}
 
 			need_state_holder = FALSE;
+
+			mm_attrs_set_int_by_name ( attrs, "profile_prepare_async", TRUE );
+			if ( mmf_attrs_commit ( attrs ) ) /* return -1 if error */
+				LOGE("failed to commit\n");
 		}
 		break;
 		/* appsrc */
