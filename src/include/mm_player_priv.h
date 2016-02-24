@@ -602,7 +602,7 @@ typedef struct {
 	/* missing plugin during autoplugging */
 	MissingCodec not_supported_codec;
 
-	/*unlinked audio/video mime type */
+	/* unlinked audio/video mime type */
 	gchar *unlinked_video_mime;
 	gchar *unlinked_audio_mime;
 	gchar *unlinked_demuxer_mime;
@@ -726,7 +726,7 @@ typedef struct {
 	/* subtitle stream caps parsed by demuxer or set by external demuxer */
 	GstCaps* s_stream_caps;
 
-	/*es player using feed-data callback or calling app_src_push_buffer directly*/
+	/* es player using feed-data callback or calling app_src_push_buffer directly*/
 	gboolean es_player_push_mode;
 
 	/* tmb buffer manager for s/w codec tmb_bo */

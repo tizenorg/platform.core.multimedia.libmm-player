@@ -123,12 +123,19 @@ _mmplayer_do_video_capture(MMHandleType hplayer)
 		LOGW("capturing... we can't do any more");
 		return MM_ERROR_PLAYER_INVALID_STATE;
 	}
+	gint surface_type = 0;
+	mm_attrs_get_int_by_name (player->attrs, "display_surface_type", &surface_type);
 
 	/* check if video pipeline is linked or not */
 	if (!player->pipeline->videobin)
 	{
-		LOGW("not ready to capture");
-		return MM_ERROR_PLAYER_INVALID_STATE;
+		if (surface_type == MM_DISPLAY_SURFACE_REMOTE && player->video_fakesink)
+			LOGD("it is evas surface type.");
+		else
+		{
+			LOGW("not ready to capture");
+			return MM_ERROR_PLAYER_INVALID_STATE;
+		}
 	}
 
 	/* check if drm file */
@@ -138,7 +145,10 @@ _mmplayer_do_video_capture(MMHandleType hplayer)
 		return MM_ERROR_PLAYER_DRM_OUTPUT_PROTECTION;
 	}
 
-	pad = gst_element_get_static_pad(player->pipeline->videobin[MMPLAYER_V_SINK].gst, "sink" );
+	if (player->pipeline->videobin)
+		pad = gst_element_get_static_pad(player->pipeline->videobin[MMPLAYER_V_SINK].gst, "sink" );
+	else // evas surface
+		pad = gst_element_get_static_pad (player->video_fakesink, "sink");
 
 	if (player->state != MM_PLAYER_STATE_PLAYING)
 	{
@@ -148,7 +158,10 @@ _mmplayer_do_video_capture(MMHandleType hplayer)
 
 			gst_element_get_state(player->pipeline->mainbin[MMPLAYER_M_PIPE].gst, NULL, NULL, 5 * GST_SECOND); //5 seconds
 
-			g_object_get(player->pipeline->videobin[MMPLAYER_V_SINK].gst, "last-sample", &sample, NULL);
+			if (player->pipeline->videobin)
+				g_object_get(player->pipeline->videobin[MMPLAYER_V_SINK].gst, "last-sample", &sample, NULL);
+			else // evas surface
+				g_object_get(player->video_fakesink, "last-sample", &sample, NULL);
 
 			if (sample)
 			{

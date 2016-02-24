@@ -2237,7 +2237,7 @@ __mmplayer_gst_rtp_dynamic_pad (GstElement *element, GstPad *pad, gpointer data)
 		gint stype = 0;
 		mm_attrs_get_int_by_name (player->attrs, "display_surface_type", &stype);
 
-		if (stype == MM_DISPLAY_SURFACE_NULL)
+		if (stype == MM_DISPLAY_SURFACE_NULL || stype == MM_DISPLAY_SURFACE_REMOTE)
 		{
 			if (player->v_stream_caps)
 			{
@@ -2602,7 +2602,7 @@ __mmplayer_gst_decode_pad_added (GstElement *elem, GstPad *pad, gpointer data)
 		mm_attrs_get_int_by_name (player->attrs, "display_surface_type", &stype);
 
 		/* don't make video because of not required, and not support multiple track */
-		if (stype == MM_DISPLAY_SURFACE_NULL)
+		if (stype == MM_DISPLAY_SURFACE_NULL || stype == MM_DISPLAY_SURFACE_REMOTE)
 		{
 			LOGD ("no video sink by null surface or multiple track");
 			gchar *caps_str = gst_caps_to_string(caps);
@@ -3617,7 +3617,7 @@ __mmplayer_gst_decode_callback(GstElement *elem, GstPad *pad, gpointer data) // 
 			mm_attrs_get_int_by_name(player->attrs, "display_surface_client_type", &surface_client_type);
 			LOGD("display_surface_type : server(%d), client(%d)\n", surface_type, surface_client_type);
 
-			if (surface_type == MM_DISPLAY_SURFACE_NULL)
+			if (surface_type == MM_DISPLAY_SURFACE_NULL || surface_type == MM_DISPLAY_SURFACE_REMOTE)
 			{
 				LOGD("not make videobin because it dose not want\n");
 				goto ERROR;
@@ -4356,6 +4356,11 @@ _mmplayer_update_video_param(mm_player_t* player) // @
 		}
 		break;
 		case MM_DISPLAY_SURFACE_NULL:
+		{
+			/* do nothing */
+		}
+		break;
+		case MM_DISPLAY_SURFACE_REMOTE:
 		{
 			/* do nothing */
 		}
@@ -5476,6 +5481,12 @@ __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps, MMDispl
 				else
 					goto ERROR;
 				break;
+			case MM_DISPLAY_SURFACE_REMOTE:
+				if (strlen(player->ini.videosink_element_fake) > 0)
+					videosink_element = player->ini.videosink_element_fake;
+				else
+					goto ERROR;
+				break;
 			default:
 				LOGE("unidentified surface type");
 				goto ERROR;
@@ -5501,6 +5512,10 @@ __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps, MMDispl
 				}
 				break;
             }
+			case MM_DISPLAY_SURFACE_REMOTE:
+			{
+				break;
+			}
 			default:
 				break;
 		}
@@ -5763,6 +5778,7 @@ static int __mmplayer_gst_create_text_pipeline(mm_player_t* player)
 			case MM_DISPLAY_SURFACE_EVAS:
 			case MM_DISPLAY_SURFACE_GL:
 			case MM_DISPLAY_SURFACE_NULL:
+			case MM_DISPLAY_SURFACE_REMOTE:
 				if (__mmplayer_gst_create_plain_text_elements(player) != MM_ERROR_NONE)
 				{
 					LOGE("failed to make plain text elements\n");
@@ -12550,7 +12566,7 @@ GstCaps* caps, GstElementFactory* factory, gpointer data)
 		mm_attrs_get_int_by_name (player->attrs, "display_surface_type", &stype);
 
 		/* don't make video because of not required */
-		if (stype == MM_DISPLAY_SURFACE_NULL)
+		if (stype == MM_DISPLAY_SURFACE_NULL || stype == MM_DISPLAY_SURFACE_REMOTE)
 		{
 			if (player->set_mode.media_packet_video_stream == FALSE
 				&& !player->video_stream_cb)
@@ -13870,7 +13886,7 @@ static void __mmplayer_add_new_pad(GstElement *element, GstPad *pad, gpointer da
 		mm_attrs_get_int_by_name (player->attrs, "display_surface_type", &stype);
 
 		/* don't make video because of not required */
-		if (stype == MM_DISPLAY_SURFACE_NULL)
+		if (stype == MM_DISPLAY_SURFACE_NULL || stype == MM_DISPLAY_SURFACE_REMOTE)
 		{
 			LOGD("no video because it's not required");
 			return;
