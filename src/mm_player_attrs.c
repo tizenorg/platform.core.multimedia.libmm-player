@@ -753,6 +753,16 @@ _mmplayer_construct_attribute(MMHandleType handle)
 			0,
 			MMPLAYER_MAX_INT
 		},
+		{
+			"use_wl_surface",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) FALSE,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			FALSE,
+			TRUE
+		},
+
 #endif
 		{
 			"display_overlay_user_data",

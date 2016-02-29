@@ -4140,23 +4140,51 @@ _mmplayer_update_video_param(mm_player_t* player) // @
 			int wl_window_width = 0;
 			int wl_window_height = 0;
 
+			/*use wl_surface*/
+			gboolean use_wl_surface = 0;
+			void * wl_display = NULL;
+			GstContext *context = NULL;
+
+			mm_attrs_get_int_by_name(attrs, "use_wl_surface", &use_wl_surface);
+			if (use_wl_surface)
+			{
+				mm_attrs_get_data_by_name(attrs, "wl_display", &wl_display);
+				if (wl_display)
+					context = gst_wayland_display_handle_context_new(wl_display);
+				if (context)
+					gst_element_set_context(GST_ELEMENT(player->pipeline->videobin[MMPLAYER_V_SINK].gst), context);
+			}
+
 			/*It should be set after setting window*/
 			mm_attrs_get_int_by_name(attrs, "wl_window_render_x", &wl_window_x);
 			mm_attrs_get_int_by_name(attrs, "wl_window_render_y", &wl_window_y);
 			mm_attrs_get_int_by_name(attrs, "wl_window_render_width", &wl_window_width);
 			mm_attrs_get_int_by_name(attrs, "wl_window_render_height", &wl_window_height);
+
 #endif
 			/* common case if using x surface */
 			mm_attrs_get_data_by_name(attrs, "display_overlay", &handle);
 			if ( handle )
 			{
 #ifdef HAVE_WAYLAND
-				unsigned int wl_surface_id  = 0;
-				wl_surface_id = *(int*)handle;
-				LOGD("set video param : wl_surface_id %d %p", wl_surface_id, *(int*)handle);
-				gst_video_overlay_set_wl_window_wl_surface_id(
-						GST_VIDEO_OVERLAY( player->pipeline->videobin[MMPLAYER_V_SINK].gst ),
-						*(int*)handle );
+				if (use_wl_surface) //use wl_surface for legacy_player_test
+				{
+					guintptr wl_surface = (guintptr)handle;
+					LOGD("[use wl_surface for legacy_player_test] set video param : wayland surface %p", handle);
+					gst_video_overlay_set_window_handle(
+							GST_VIDEO_OVERLAY( player->pipeline->videobin[MMPLAYER_V_SINK].gst ),
+							wl_surface );
+				}
+				else /*default is using wl_surface_id*/
+				{
+					unsigned int wl_surface_id  = 0;
+					wl_surface_id = *(int*)handle;
+					LOGD("set video param : wl_surface_id %d %p", wl_surface_id, *(int*)handle);
+					gst_video_overlay_set_wl_window_wl_surface_id(
+							GST_VIDEO_OVERLAY( player->pipeline->videobin[MMPLAYER_V_SINK].gst ),
+							*(int*)handle );
+				}
+
 				/* After setting window handle, set render	rectangle */
 				gst_video_overlay_set_render_rectangle(
 					 GST_VIDEO_OVERLAY( player->pipeline->videobin[MMPLAYER_V_SINK].gst ),
