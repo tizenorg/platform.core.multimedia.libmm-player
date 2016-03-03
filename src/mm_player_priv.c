@@ -261,6 +261,8 @@ static void		__gst_appsrc_enough_video_data(GstElement *element, gpointer user_d
 static gboolean	__gst_seek_audio_data (GstElement * appsrc, guint64 position, gpointer user_data);
 static gboolean	__gst_seek_video_data (GstElement * appsrc, guint64 position, gpointer user_data);
 static gboolean	__gst_seek_subtitle_data (GstElement * appsrc, guint64 position, gpointer user_data);
+static void 	__mmplayer_gst_caps_notify_cb (GstPad * pad, GParamSpec * unused, gpointer data);
+
 /*===========================================================================================
 |																							|
 |  FUNCTION DEFINITIONS																		|
@@ -2646,6 +2648,11 @@ __mmplayer_gst_decode_pad_added (GstElement *elem, GstPad *pad, gpointer data)
 				LOGW ("failed to link fakesink\n");
 				gst_object_unref (GST_OBJECT(fakesink));
 				goto ERROR;
+			}
+
+			if (stype == MM_DISPLAY_SURFACE_REMOTE) {
+				MMPLAYER_SIGNAL_CONNECT (player, sinkpad, MM_PLAYER_SIGNAL_TYPE_VIDEOBIN,
+						"notify::caps", G_CALLBACK(__mmplayer_gst_caps_notify_cb), player);
 			}
 
 			if (player->set_mode.media_packet_video_stream)
