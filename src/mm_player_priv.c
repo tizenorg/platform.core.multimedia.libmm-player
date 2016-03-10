@@ -12432,6 +12432,13 @@ GstCaps * caps,  gpointer data)
 			mm_attrs_set_string_by_name(player->attrs, "content_audio_codec", "mobile-xmf");
 		}
 		MMPLAYER_FREEIF (caps_str);
+	} else if (g_str_has_prefix(mime, "video") && !player->ini.video_playback_supported) {
+		MMMessageParamType msg_param;
+		memset (&msg_param, 0, sizeof(MMMessageParamType));
+		msg_param.code = MM_ERROR_NOT_SUPPORT_API;
+		MMPLAYER_POST_MSG( player, MM_MESSAGE_ERROR, &msg_param );
+		LOGD("video file is not supported on this device");
+		ret = FALSE;
 	} else if (g_str_has_prefix(mime, "video") && player->videodec_linked) {
 		LOGD("already video linked");
 		ret = FALSE;

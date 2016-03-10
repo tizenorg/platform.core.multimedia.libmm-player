@@ -75,6 +75,7 @@ typedef struct __mm_player_ini
 	gint localplayback_state_change_timeout;
 	gint delay_before_repeat;
 	gint eos_delay;
+	gboolean video_playback_supported;
 
 	gchar gst_param[5][PLAYER_INI_MAX_PARAM_STRLEN];
 	gchar exclude_element_keyword[PLAYER_INI_MAX_ELEMENT][PLAYER_INI_MAX_STRLEN];
@@ -148,6 +149,7 @@ typedef struct __mm_player_ini
 #define DEFAULT_ASYNC_START				TRUE
 #define DEFAULT_DISABLE_SEGTRAP				TRUE
 #define DEFAULT_VIDEO_CONVERTER				""
+#define DEFAULT_VIDEO_PLAYBACK_SUPPORTED				TRUE
 #define DEFAULT_LIVE_STATE_CHANGE_TIMEOUT 		30 /* sec */
 #define DEFAULT_LOCALPLAYBACK_STATE_CHANGE_TIMEOUT 	10 /* sec */
 /* http streaming */
