@@ -8383,37 +8383,7 @@ static int __mmfplayer_parse_profile(const char *uri, void *param, MMPlayerParse
 
 	memset(data, 0, sizeof(MMPlayerParseProfile));
 
-	if ((path = strstr(uri, "file://")))
-	{
-		int file_stat = MM_ERROR_NONE;
-
-		file_stat = util_exist_file_path(path + 7);
-
-		if (file_stat == MM_ERROR_NONE)
-		{
-			strncpy(data->uri, path, MM_MAX_URL_LEN-1);
-
-			if ( util_is_sdp_file ( path ) )
-			{
-				LOGD("uri is actually a file but it's sdp file. giving it to rtspsrc\n");
-				data->uri_type = MM_PLAYER_URI_TYPE_URL_RTSP;
-			}
-			else
-			{
-				data->uri_type = MM_PLAYER_URI_TYPE_FILE;
-			}
-			ret = MM_ERROR_NONE;
-		}
-		else if (file_stat == MM_ERROR_PLAYER_PERMISSION_DENIED)
-		{
-			data->uri_type = MM_PLAYER_URI_TYPE_NO_PERMISSION;
-		}
-		else
-		{
-			LOGW("could  access %s.\n", path);
-		}
-	}
-	else if ((path = strstr(uri, "es_buff://")))
+	if ((path = strstr(uri, "es_buff://")))
 	{
 		if (strlen(path))
 		{
@@ -8560,16 +8530,38 @@ static int __mmfplayer_parse_profile(const char *uri, void *param, MMPlayerParse
 	}
 	else
 	{
+		gchar *location = NULL;
+		GError *err = NULL;
+
+		if ((path = strstr(uri, "file://"))) {
+
+			location = g_filename_from_uri (uri, NULL, &err);
+
+			if (!location || (err != NULL)) {
+			  LOGE ("Invalid URI '%s' for filesrc: %s", path,
+				  (err != NULL) ? err->message : "unknown error");
+
+			  if (err) g_error_free (err);
+			  if (location) g_free (location);
+
+			  data->uri_type = MM_PLAYER_URI_TYPE_NONE;
+			  goto exit;
+			}
+
+			LOGD ("path from uri: %s", location);
+		}
+
+		path = (location != NULL)?(location):((char*)uri);
 		int file_stat = MM_ERROR_NONE;
 
-		file_stat = util_exist_file_path(uri);
+		file_stat = util_exist_file_path(path);
 
 		/* if no protocol prefix exist. check file existence and then give file:// as it's prefix */
 		if (file_stat == MM_ERROR_NONE)
 		{
-			g_snprintf(data->uri,  MM_MAX_URL_LEN, "file://%s", uri);
+			g_snprintf(data->uri,  MM_MAX_URL_LEN, "file://%s", path);
 
-			if ( util_is_sdp_file( (char*)uri ) )
+			if (util_is_sdp_file(path))
 			{
 				LOGD("uri is actually a file but it's sdp file. giving it to rtspsrc\n");
 				data->uri_type = MM_PLAYER_URI_TYPE_URL_RTSP;
@@ -8589,8 +8581,11 @@ static int __mmfplayer_parse_profile(const char *uri, void *param, MMPlayerParse
 			LOGE ("invalid uri, could not play..\n");
 			data->uri_type = MM_PLAYER_URI_TYPE_NONE;
 		}
+
+		if (location) g_free (location);
 	}
 
+exit:
 	if (data->uri_type == MM_PLAYER_URI_TYPE_NONE) {
 		ret = MM_ERROR_PLAYER_FILE_NOT_FOUND;
 	} else if (data->uri_type == MM_PLAYER_URI_TYPE_NO_PERMISSION){
