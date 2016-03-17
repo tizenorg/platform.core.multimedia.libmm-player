@@ -36,8 +36,8 @@
 #endif
 #define LOG_TAG "MM_PLAYER"
 
-#define MM_PLAYER_INI_DEFAULT_PATH	"/usr/etc/mmfw_player.ini"
-#define MM_PLAYER_INI_DEFAULT_AUDIOEFFECT_PATH	"/usr/etc/mmfw_player_audio_effect.ini"
+#define MM_PLAYER_INI_DEFAULT_PATH	SYSCONFDIR"/multimedia/mmfw_player.ini" /* SYSCONFDIR is defined at .spec */
+#define MM_PLAYER_INI_DEFAULT_AUDIOEFFECT_PATH	SYSCONFDIR"/multimedia/mmfw_player_audio_effect.ini" /* SYSCONFDIR is defined at .spec */
 
 #define PLAYER_INI_MAX_STRLEN	100
 #define PLAYER_INI_MAX_PARAM_STRLEN	256
