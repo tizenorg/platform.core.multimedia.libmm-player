@@ -45,7 +45,9 @@ int util_exist_file_path(const char *file_path)
 
 	if (fd < 0)
 	{
-		LOGE("failed to open file by %s (%d)", strerror(errno), errno);
+		char str_error[256];
+		strerror_r(errno, str_error, sizeof(str_error));
+		LOGE("failed to open file by %s (%d)", str_error, errno);
 
 		if (EACCES == errno)
 			return MM_ERROR_PLAYER_PERMISSION_DENIED;
