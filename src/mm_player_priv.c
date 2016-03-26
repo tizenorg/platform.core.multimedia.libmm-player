@@ -1072,13 +1072,11 @@ __mmplayer_handle_buffering_message ( mm_player_t* player )
 	MMPlayerStateType target_state = MM_PLAYER_STATE_NONE;
 	MMPlayerStateType pending_state = MM_PLAYER_STATE_NONE;
 
-	MMPLAYER_CMD_LOCK( player );
-
 	if( !player || !player->streamer || (MMPLAYER_IS_LIVE_STREAMING(player) && MMPLAYER_IS_RTSP_STREAMING(player)))
 	{
 		LOGW("do nothing for buffering msg\n");
 		ret = MM_ERROR_PLAYER_INVALID_STATE;
-		goto unlock_exit;
+		goto exit;
 	}
 
 	prev_state = MMPLAYER_PREV_STATE(player);
@@ -1233,8 +1231,7 @@ __mmplayer_handle_buffering_message ( mm_player_t* player )
 		}
 	}
 
-unlock_exit:
-	MMPLAYER_CMD_UNLOCK( player );
+exit:
 	return ret;
 }
 
@@ -1491,6 +1488,7 @@ __mmplayer_gst_callback(GstBus *bus, GstMessage *msg, gpointer data) // @
 				break;
 			}
 
+			MMPLAYER_CMD_LOCK( player );
 			__mmplayer_update_buffer_setting(player, msg);
 
 			if(__mmplayer_handle_buffering_message ( player ) == MM_ERROR_NONE) {
@@ -1514,6 +1512,7 @@ __mmplayer_gst_callback(GstBus *bus, GstMessage *msg, gpointer data) // @
 					}
 				}
 			}
+			MMPLAYER_CMD_UNLOCK( player );
 		}
 		break;
 
@@ -7424,6 +7423,7 @@ __mmplayer_gst_destroy_pipeline(mm_player_t* player) // @
 		gst_caps_unref(player->a_stream_caps);
 		player->a_stream_caps = NULL;
 	}
+
 	if (player->s_stream_caps)
 	{
 		gst_caps_unref(player->s_stream_caps);
