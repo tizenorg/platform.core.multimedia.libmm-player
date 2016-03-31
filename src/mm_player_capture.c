@@ -315,11 +315,10 @@ __mmplayer_capture_thread(gpointer data)
 
 	MMPLAYER_RETURN_VAL_IF_FAIL(player, NULL);
 
+	g_mutex_lock(&player->capture_thread_mutex);
 	while (!player->capture_thread_exit)
 	{
 		LOGD("capture thread started. waiting for signal");
-
-		g_mutex_lock(&player->capture_thread_mutex);
 		g_cond_wait(&player->capture_thread_cond, &player->capture_thread_mutex );
 
 		if ( player->capture_thread_exit )
@@ -327,7 +326,7 @@ __mmplayer_capture_thread(gpointer data)
 			LOGD("exiting capture thread");
 			goto EXIT;
 		}
-		LOGD("capture thread is recieved signal");
+		LOGD("capture thread is received signal");
 
 		/* NOTE: Don't use MMPLAYER_CMD_LOCK() here.
 		 * Because deadlock can be happened if other player api is used in message callback.
@@ -480,8 +479,6 @@ __mmplayer_capture_thread(gpointer data)
 			LOGD("returned from capture message callback");
 		}
 
-		g_mutex_unlock(&player->capture_thread_mutex);
-
 		//MMPLAYER_FREEIF(player->capture.data);
 		continue;
 ERROR:
@@ -499,10 +496,9 @@ ERROR:
 
 		msg.union_type = MM_MSG_UNION_CODE;
 
-		g_mutex_unlock(&player->capture_thread_mutex);
 		MMPLAYER_POST_MSG( player, MM_MESSAGE_VIDEO_NOT_CAPTURED, &msg );
 	}
-	return NULL;
+
 EXIT:
 	g_mutex_unlock(&player->capture_thread_mutex);
 	return NULL;
