@@ -516,6 +516,7 @@ _mmplayer_submit_packet (MMHandleType hplayer, media_packet_h packet)
           g_object_set(G_OBJECT(player->pipeline->mainbin[MMPLAYER_M_SRC].gst),
                                     "caps", player->v_stream_caps, NULL);
         }
+		media_format_unref(fmt);
       }
     }
 
