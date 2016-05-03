@@ -93,6 +93,7 @@
 #define PLAYBACK_RATE_EX_AUDIO_MAX		2.0
 #define PLAYBACK_RATE_EX_VIDEO_MIN		0.5
 #define PLAYBACK_RATE_EX_VIDEO_MAX		1.5
+#define DEFAULT_NUM_OF_V_OUT_BUFFER		3
 
 #define GST_QUEUE_DEFAULT_TIME			4
 #define GST_QUEUE_HLS_TIME				8
@@ -1691,6 +1692,23 @@ __mmplayer_gst_callback(GstBus *bus, GstMessage *msg, gpointer data) // @
 				structure_name = gst_structure_get_name(gst_message_get_structure(msg));
 				if (!structure_name)
 					break;
+
+				if (!strcmp(structure_name, "prepare-decode-buffers"))
+				{
+					gint num_buffers = 0;
+					gint extra_num_buffers = 0;
+
+					if (gst_structure_get_int (gst_message_get_structure(msg), "num_buffers", &num_buffers)) {
+						player->video_num_buffers = num_buffers;
+						LOGD("video_num_buffers : %d", player->video_num_buffers);
+					}
+
+					if (gst_structure_get_int (gst_message_get_structure(msg), "extra_num_buffers", &extra_num_buffers)) {
+						player->video_extra_num_buffers = extra_num_buffers;
+						LOGD("num_of_vout_extra num buffers : %d", extra_num_buffers);
+					}
+					break;
+				}
 
 				if (!strcmp(structure_name, "Language_list"))
 				{
@@ -6247,7 +6265,7 @@ __gst_appsrc_seek_data(GstElement *element, guint64 offset, gpointer user_data) 
 
 	MMPLAYER_RETURN_VAL_IF_FAIL ( player, FALSE );
 
-	LOGI("app-src: seek data\n");
+	LOGI("app-src: seek data, offset: %llu\n", offset);
 
 	if(player->media_stream_seek_data_cb[type])
 		player->media_stream_seek_data_cb[type](type, offset, player->buffer_cb_user_param);
@@ -9090,7 +9108,8 @@ _mmplayer_create_player(MMHandleType handle) // @
 	player->video_share_api_delta = 0;
 	player->video_share_clock_delta = 0;
 	player->has_closed_caption = FALSE;
-
+	player->video_num_buffers = DEFAULT_NUM_OF_V_OUT_BUFFER;
+	player->video_extra_num_buffers = 0;
 	if (player->ini.dump_element_keyword[0][0] == '\0')
 	{
 		player->ini.set_dump_element_flag= FALSE;
@@ -16126,9 +16145,8 @@ _mmplayer_enable_media_packet_video_stream(MMHandleType hplayer, bool enable)
 	mm_player_t* player = (mm_player_t*) hplayer;
 
 	MMPLAYER_FENTER();
-
 	MMPLAYER_RETURN_VAL_IF_FAIL (player, MM_ERROR_PLAYER_NOT_INITIALIZED);
-	MMPLAYER_RETURN_VAL_IF_FAIL (enable == TRUE || enable == FALSE, MM_ERROR_INVALID_ARGUMENT);
+
 	if(enable)
 		player->bufmgr = tbm_bufmgr_init(-1);
 	else {
@@ -16268,7 +16286,7 @@ __gst_seek_audio_data (GstElement * appsrc, guint64 position, gpointer user_data
 
 	MMPLAYER_RETURN_VAL_IF_FAIL( player, FALSE );
 
-	LOGD("app-src: seek audio data\n");
+	LOGD("app-src: seek audio data %llu\n", position);
 
 	if (player->media_stream_seek_data_cb[type])
 	{
@@ -16286,7 +16304,7 @@ __gst_seek_video_data (GstElement * appsrc, guint64 position, gpointer user_data
 
 	MMPLAYER_RETURN_VAL_IF_FAIL( player, FALSE );
 
-	LOGD("app-src: seek video data\n");
+	LOGD("app-src: seek video data %llu\n", position);
 
 	if (player->media_stream_seek_data_cb[type])
 	{
@@ -16345,6 +16363,24 @@ int _mmplayer_get_timeout(MMHandleType hplayer, int *timeout)
 		*timeout = player->ini.localplayback_state_change_timeout;
 
 	LOGD("timeout = %d\n", *timeout);
+
+	MMPLAYER_FLEAVE();
+	return MM_ERROR_NONE;
+}
+
+int _mmplayer_get_num_of_video_out_buffers(MMHandleType hplayer, int *num, int *extra_num)
+{
+	mm_player_t* player = (mm_player_t*) hplayer;
+
+	MMPLAYER_FENTER();
+
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(num && extra_num, MM_ERROR_COMMON_INVALID_ARGUMENT);
+
+	*num = player->video_num_buffers;
+	*extra_num = player->video_extra_num_buffers;
+
+	LOGD("state %d, num %d(%d)\n", MMPLAYER_CURRENT_STATE(player), *num, *extra_num);
 
 	MMPLAYER_FLEAVE();
 	return MM_ERROR_NONE;

@@ -115,10 +115,13 @@ _parse_media_format (MMPlayerVideoStreamInfo * video,
   }
 
   if (video) {
+#define DEFAULT_FRAMERATE_NUM 30
+#define DEFAULT_FRAMERATE_DEN 1
     media_format_mimetype_e mime;
-    int width;
-    int height;
-    int avg_bps;
+    int width = 0;
+    int height = 0;
+    int avg_bps = 0;
+    int frame_rate = 0;
 
     if (media_format_get_video_info (format, &mime, &width, &height, &avg_bps,
             NULL) != MEDIA_FORMAT_ERROR_NONE) {
@@ -126,9 +129,17 @@ _parse_media_format (MMPlayerVideoStreamInfo * video,
 	  return MM_ERROR_PLAYER_INTERNAL;
     }
 
+    if (media_format_get_video_frame_rate(format, &frame_rate)) {
+        LOGW ("failed to get video frame rate, will be set 30.");
+    }
+    LOGD ("frame_rate %d", frame_rate);
+
     _convert_media_format_video_mime_to_str (video, mime);
+
     video->width = width;
     video->height = height;
+    video->framerate_num = (frame_rate>0)?(frame_rate):(DEFAULT_FRAMERATE_NUM);
+    video->framerate_den = DEFAULT_FRAMERATE_DEN;
   }
 
   return MM_ERROR_NONE;

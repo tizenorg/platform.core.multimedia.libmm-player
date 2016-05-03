@@ -2258,6 +2258,20 @@ int mm_player_set_video_stream_changed_callback(MMHandleType player, mm_player_s
 int mm_player_get_timeout(MMHandleType player, int *timeout);
 
 /**
+ * This function is to get the number of video output buffers.
+ * It's only supported when video stream is included in file. \n
+ *
+ * @param	player  [in] Handle of player.
+ * @param	num     [out] num of buffers.
+ * @param	extra_num [out] extra num of buffers.
+ *
+ * @return	This function returns zero on success, or negative value with error
+ *			code.
+ * @since 3.0
+ */
+int mm_player_get_num_of_video_out_buffers(MMHandleType player, int *num, int *extra_num);
+
+/**
 	@}
  */
 

@@ -508,6 +508,8 @@ typedef struct {
 	guint media_stream_buffer_min_percent[MM_PLAYER_STREAM_TYPE_MAX];
 	mm_player_media_stream_buffer_status_callback media_stream_buffer_status_cb[MM_PLAYER_STREAM_TYPE_MAX];
 	mm_player_media_stream_seek_data_callback media_stream_seek_data_cb[MM_PLAYER_STREAM_TYPE_MAX];
+	int video_num_buffers;	/* total num of buffers in vcodec */
+	int video_extra_num_buffers; /* extra num of buffers in vcodec */
 
 	void* buffer_cb_user_param;
 
@@ -834,6 +836,7 @@ void * _mm_player_media_packet_video_stream_internal_buffer_ref(void *buffer);
 void _mm_player_media_packet_video_stream_internal_buffer_unref(void *buffer);
 int _mmplayer_set_pcm_spec(MMHandleType hplayer, int samplerate, int channel);
 int _mmplayer_get_timeout(MMHandleType hplayer, int *timeout);
+int _mmplayer_get_num_of_video_out_buffers(MMHandleType hplayer, int *num, int *extra_num);
 int __mmplayer_gst_set_state (mm_player_t* player, GstElement * pipeline,  GstState state, gboolean async, gint timeout );
 int __mmplayer_set_state(mm_player_t* player, int state);
 int __mmplayer_check_state(mm_player_t* player, enum PlayerCommandState command);

@@ -1267,3 +1267,19 @@ int mm_player_get_timeout(MMHandleType player, int *timeout)
 	return result;
 }
 
+int mm_player_get_num_of_video_out_buffers(MMHandleType player, int *num, int *extra_num)
+{
+	int result = MM_ERROR_NONE;
+
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(num && extra_num, MM_ERROR_COMMON_INVALID_ARGUMENT);
+
+	MMPLAYER_CMD_LOCK( player );
+
+	result = _mmplayer_get_num_of_video_out_buffers(player, num, extra_num);
+
+	MMPLAYER_CMD_UNLOCK( player );
+
+	return result;
+}
+
