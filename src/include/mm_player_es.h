@@ -70,6 +70,7 @@ int _mmplayer_set_media_stream_min_percent(MMHandleType hplayer,
 int _mmplayer_get_media_stream_min_percent(MMHandleType hplayer,
                                            MMPlayerStreamType type,
                                            guint *min_percent);
+int _mmplayer_set_media_stream_dynamic_resolution(MMHandleType hplayer, bool drc);
 
 #ifdef __cplusplus
 }

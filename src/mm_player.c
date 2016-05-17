@@ -1283,3 +1283,18 @@ int mm_player_get_num_of_video_out_buffers(MMHandleType player, int *num, int *e
 	return result;
 }
 
+int mm_player_set_media_stream_dynamic_resolution(MMHandleType player, bool drc)
+{
+	int result = MM_ERROR_NONE;
+
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+
+	MMPLAYER_CMD_LOCK( player );
+
+	result = _mmplayer_set_media_stream_dynamic_resolution(player, drc);
+
+	MMPLAYER_CMD_UNLOCK( player );
+
+	return result;
+}
+

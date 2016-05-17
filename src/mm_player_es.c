@@ -39,9 +39,9 @@
 /*---------------------------------------------------------------------------
 |    LOCAL FUNCTION PROTOTYPES:												|
 ---------------------------------------------------------------------------*/
-static int _parse_media_format (MMPlayerVideoStreamInfo * video, MMPlayerAudioStreamInfo * audio, media_format_h format);
-static int _convert_media_format_video_mime_to_str (MMPlayerVideoStreamInfo * video, media_format_mimetype_e mime);
-static int _convert_media_format_audio_mime_to_str (MMPlayerAudioStreamInfo * audio, media_format_mimetype_e mime);
+static int __parse_media_format (MMPlayerVideoStreamInfo * video, MMPlayerAudioStreamInfo * audio, media_format_h format);
+static int __convert_media_format_video_mime_to_str (MMPlayerVideoStreamInfo * video, media_format_mimetype_e mime);
+static int __convert_media_format_audio_mime_to_str (MMPlayerAudioStreamInfo * audio, media_format_mimetype_e mime);
 
 /*===========================================================================================
 |																							|
@@ -50,7 +50,7 @@ static int _convert_media_format_audio_mime_to_str (MMPlayerAudioStreamInfo * au
 ========================================================================================== */
 
 static int
-_convert_media_format_video_mime_to_str (MMPlayerVideoStreamInfo * video,
+__convert_media_format_video_mime_to_str (MMPlayerVideoStreamInfo * video,
     media_format_mimetype_e mime)
 {
   MMPLAYER_RETURN_VAL_IF_FAIL (video, MM_ERROR_INVALID_ARGUMENT);
@@ -74,7 +74,7 @@ _convert_media_format_video_mime_to_str (MMPlayerVideoStreamInfo * video,
 }
 
 static int
-_convert_media_format_audio_mime_to_str (MMPlayerAudioStreamInfo * audio,
+__convert_media_format_audio_mime_to_str (MMPlayerAudioStreamInfo * audio,
     media_format_mimetype_e mime)
 {
   MMPLAYER_RETURN_VAL_IF_FAIL (audio, MM_ERROR_INVALID_ARGUMENT);
@@ -93,7 +93,7 @@ _convert_media_format_audio_mime_to_str (MMPlayerAudioStreamInfo * audio,
 }
 
 static int
-_parse_media_format (MMPlayerVideoStreamInfo * video,
+__parse_media_format (MMPlayerVideoStreamInfo * video,
     MMPlayerAudioStreamInfo * audio, media_format_h format)
 {
   if (audio) {
@@ -108,7 +108,7 @@ _parse_media_format (MMPlayerVideoStreamInfo * video,
 	  return MM_ERROR_PLAYER_INTERNAL;
     }
 
-    _convert_media_format_audio_mime_to_str (audio, mime);
+    __convert_media_format_audio_mime_to_str (audio, mime);
     audio->sample_rate = samplerate;
     audio->channels = channel;
 //video->user_info = ;
@@ -134,7 +134,7 @@ _parse_media_format (MMPlayerVideoStreamInfo * video,
     }
     LOGD ("frame_rate %d", frame_rate);
 
-    _convert_media_format_video_mime_to_str (video, mime);
+    __convert_media_format_video_mime_to_str (video, mime);
 
     video->width = width;
     video->height = height;
@@ -146,7 +146,7 @@ _parse_media_format (MMPlayerVideoStreamInfo * video,
 }
 
 static gboolean
-_mmplayer_update_video_info(MMHandleType hplayer, media_format_h fmt)
+__mmplayer_update_video_info(MMHandleType hplayer, media_format_h fmt)
 {
   mm_player_t *player = (mm_player_t *) hplayer;
   gboolean ret = FALSE;
@@ -264,7 +264,7 @@ _mmplayer_set_media_stream_seek_data_cb(MMHandleType hplayer,
 	return MM_ERROR_NONE;
 }
 
-GstElement*
+static GstElement*
 __mmplayer_get_source_element (mm_player_t *player, MMPlayerStreamType type)
 {
 	enum MainElementID elemId = MMPLAYER_M_NUM;
@@ -522,7 +522,7 @@ _mmplayer_submit_packet (MMHandleType hplayer, media_packet_h packet)
       /* get format to check video format */
       media_packet_get_format (packet, &fmt);
       if (fmt) {
-        if (_mmplayer_update_video_info(hplayer, fmt)) {
+        if (__mmplayer_update_video_info(hplayer, fmt)) {
           LOGD("update video caps");
           g_object_set(G_OBJECT(player->pipeline->mainbin[MMPLAYER_M_SRC].gst),
                                     "caps", player->v_stream_caps, NULL);
@@ -557,8 +557,8 @@ ERROR:
   return ret;
 }
 
-int
-_mmplayer_video_caps_new (MMHandleType hplayer, MMPlayerVideoStreamInfo * video,
+static int
+__mmplayer_video_caps_new (MMHandleType hplayer, MMPlayerVideoStreamInfo * video,
     const char *fieldname, ...)
 {
   int cap_size;
@@ -620,7 +620,7 @@ _mmplayer_video_caps_new (MMHandleType hplayer, MMPlayerVideoStreamInfo * video,
 }
 
 static void
-_mmplayer_set_uri_type(mm_player_t *player)
+__mmplayer_set_uri_type(mm_player_t *player)
 {
 	MMPLAYER_FENTER ();
 
@@ -637,53 +637,58 @@ _mmplayer_set_video_info (MMHandleType hplayer, media_format_h format)
   mm_player_t *player = MM_PLAYER_CAST (hplayer);
   MMPlayerVideoStreamInfo video = { 0, };
   int ret = MM_ERROR_NONE;
+  gboolean drc = FALSE;
 
   MMPLAYER_FENTER ();
 
   MMPLAYER_RETURN_VAL_IF_FAIL (player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
-  _mmplayer_set_uri_type(player);
+  __mmplayer_set_uri_type(player);
 
-  ret = _parse_media_format (&video, NULL, format);
+  ret = __parse_media_format (&video, NULL, format);
   if(ret != MM_ERROR_NONE)
     return ret;
 
+  mm_attrs_get_int_by_name(player->attrs, MM_PLAYER_DRC_MODE, &drc);
+
   if (strstr (video.mime, "video/mpeg")) {
-    _mmplayer_video_caps_new (hplayer, &video,
+    __mmplayer_video_caps_new (hplayer, &video,
         "mpegversion", G_TYPE_INT, video.version,
-        "systemstream", G_TYPE_BOOLEAN, FALSE, NULL);
+        "systemstream", G_TYPE_BOOLEAN, FALSE,
+        "adaptive-streaming", G_TYPE_BOOLEAN, drc, NULL);
   } else if (strstr (video.mime, "video/x-h264")) {
     //if (info.colordepth)
     {
-      //      _mmplayer_video_caps_new(hplayer, &info,
+      //      __mmplayer_video_caps_new(hplayer, &info,
       //              "colordepth", G_TYPE_INT, info.colordepth, NULL);
     }
     //else
     {
-      _mmplayer_video_caps_new (hplayer, &video,
+      __mmplayer_video_caps_new (hplayer, &video,
           "stream-format", G_TYPE_STRING, "byte-stream",
-          "alignment", G_TYPE_STRING, "au", NULL);
+          "alignment", G_TYPE_STRING, "au",
+          "adaptive-streaming", G_TYPE_BOOLEAN, drc, NULL);
     }
   }
 #if 0
   else if (strstr (info->mime, "video/x-wmv")) {
-    _mmplayer_video_caps_new (hplayer, &info,
+    __mmplayer_video_caps_new (hplayer, &info,
         "wmvversion", G_TYPE_INT, info.version, NULL);
   } else if (strstr (info.mime, "video/x-pn-realvideo")) {
-    _mmplayer_video_caps_new (hplayer, &info,
+    __mmplayer_video_caps_new (hplayer, &info,
         "rmversion", G_TYPE_INT, info.version, NULL);
   } else if (strstr (info.mime, "video/x-msmpeg")) {
-    _mmplayer_video_caps_new (hplayer, &info,
+    __mmplayer_video_caps_new (hplayer, &info,
         "msmpegversion", G_TYPE_INT, info.version, NULL);
   } else if (strstr (info.mime, "video/x-h265")) {
     if (info.colordepth) {
-      _mmplayer_video_caps_new (hplayer, &info,
+      __mmplayer_video_caps_new (hplayer, &info,
           "colordepth", G_TYPE_INT, info.colordepth, NULL);
     } else {
-      _mmplayer_video_caps_new (hplayer, &info, NULL);
+      __mmplayer_video_caps_new (hplayer, &info, NULL);
     }
   } else {
-    _mmplayer_video_caps_new (hplayer, &info, NULL);
+    __mmplayer_video_caps_new (hplayer, &info, NULL);
   }
 #endif
   g_free ((char *) video.mime);
@@ -705,9 +710,9 @@ _mmplayer_set_audio_info (MMHandleType hplayer, media_format_h format)
 
   MMPLAYER_RETURN_VAL_IF_FAIL (hplayer, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
-  _mmplayer_set_uri_type(player);
+  __mmplayer_set_uri_type(player);
 
-  ret = _parse_media_format (NULL, &audio, format);
+  ret = __parse_media_format (NULL, &audio, format);
   if(ret != MM_ERROR_NONE)
     return ret;
 
@@ -822,4 +827,28 @@ _mmplayer_set_subtitle_info (MMHandleType hplayer,
   MMPLAYER_FLEAVE ();
 
   return MM_ERROR_NONE;
+}
+
+int
+_mmplayer_set_media_stream_dynamic_resolution(MMHandleType hplayer, bool drc)
+{
+	mm_player_t *player = MM_PLAYER_CAST (hplayer);
+	int ret = MM_ERROR_NONE;
+
+	MMPLAYER_FENTER ();
+
+	MMPLAYER_RETURN_VAL_IF_FAIL (player, FALSE);
+
+	mm_attrs_set_int_by_name (player->attrs, MM_PLAYER_DRC_MODE, (int)drc);
+	if (player->v_stream_caps)
+	{
+		LOGD("update video caps with drc information.");
+		gst_caps_set_simple (player->v_stream_caps,
+			"adaptive-streaming", G_TYPE_BOOLEAN, drc, NULL);
+	}
+
+	MMPLAYER_FLEAVE ();
+	return ret;
+
+
 }

@@ -9109,7 +9109,7 @@ _mmplayer_create_player(MMHandleType handle) // @
 	player->video_share_clock_delta = 0;
 	player->has_closed_caption = FALSE;
 	player->video_num_buffers = DEFAULT_NUM_OF_V_OUT_BUFFER;
-	player->video_extra_num_buffers = 0;
+	player->video_extra_num_buffers = DEFAULT_NUM_OF_V_OUT_BUFFER;
 	if (player->ini.dump_element_keyword[0][0] == '\0')
 	{
 		player->ini.set_dump_element_flag= FALSE;

@@ -1087,6 +1087,15 @@ _mmplayer_construct_attribute(MMHandleType handle)
 			MM_ATTRS_VALID_TYPE_INT_RANGE,
 			MM_PLAYER_PIPELINE_LEGACY,
 			MM_PLAYER_PIPELINE_MAX - 1
+		},
+		{
+			"drc_mode",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) FALSE,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			FALSE,
+			TRUE
 		}
 	};
 

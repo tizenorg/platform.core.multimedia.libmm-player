@@ -652,6 +652,13 @@
  */
 #define MM_PLAYER_PD_MODE						"pd_mode"
 
+/**
+ * MM_PLAYER_DRC_MODE
+ *
+ * dynamic resolution change mode (int)
+ */
+#define MM_PLAYER_DRC_MODE						"drc_mode"
+
 #define BUFFER_MAX_PLANE_NUM (4)
 
 typedef struct {
@@ -2245,7 +2252,7 @@ int mm_player_set_audio_stream_changed_callback(MMHandleType player, mm_player_s
 int mm_player_set_video_stream_changed_callback(MMHandleType player, mm_player_stream_changed_callback callback, void *user_param);
 
 /**
- * This function is to get timeout value according to the content type for muse.
+ * This function is to get timeout value according to the content type for muse. \n
  * It's only supported when video stream is included in file. \n
  *
  * @param	player  [in] Handle of player.
@@ -2258,7 +2265,7 @@ int mm_player_set_video_stream_changed_callback(MMHandleType player, mm_player_s
 int mm_player_get_timeout(MMHandleType player, int *timeout);
 
 /**
- * This function is to get the number of video output buffers.
+ * This function is to get the number of video output buffers. \n
  * It's only supported when video stream is included in file. \n
  *
  * @param	player  [in] Handle of player.
@@ -2270,6 +2277,19 @@ int mm_player_get_timeout(MMHandleType player, int *timeout);
  * @since 3.0
  */
 int mm_player_get_num_of_video_out_buffers(MMHandleType player, int *num, int *extra_num);
+
+/**
+ * This function is to set the dynamic resolution information. \n
+ * It's only supported when video stream is included in file. \n
+ *
+ * @param	player  [in] Handle of player.
+ * @param	drc     [in] dynamic resolution info of media stream data
+ *
+ * @return	This function returns zero on success, or negative value with error
+ *			code.
+ * @since 3.0
+ */
+int mm_player_set_media_stream_dynamic_resolution(MMHandleType player, bool drc);
 
 /**
 	@}
