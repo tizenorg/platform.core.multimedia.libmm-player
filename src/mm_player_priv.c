@@ -1306,7 +1306,8 @@ __mmplayer_gst_callback(GstBus *bus, GstMessage *msg, gpointer data) // @
 				break;
 			}
 
-			__mmplayer_drop_subtitle(player, TRUE);
+			if ( player->pipeline && player->pipeline->textbin)
+				__mmplayer_drop_subtitle(player, TRUE);
 
 			if ( (player->audio_stream_cb) && (player->set_mode.pcm_extraction) && (!player->audio_stream_render_cb_ex))
 			{
@@ -14579,7 +14580,8 @@ __gst_seek(mm_player_t* player, GstElement * element, gdouble rate,
 
 	MMPLAYER_RETURN_VAL_IF_FAIL( player, FALSE );
 
-	__mmplayer_drop_subtitle(player, FALSE);
+	if ( player->pipeline && player->pipeline->textbin)
+		__mmplayer_drop_subtitle(player, FALSE);
 
 	event = gst_event_new_seek (rate, format, flags, cur_type,
 		cur, stop_type, stop);
