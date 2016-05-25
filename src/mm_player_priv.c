@@ -4261,7 +4261,6 @@ _mmplayer_update_video_param(mm_player_t* player) // @
 				g_object_set(player->pipeline->videobin[MMPLAYER_V_SINK].gst,
 					"rotate", rotation_value,
 					"display-geometry-method", display_method,
-					"display-mode", DEFAULT_DISPLAY_MODE,
 					"visible", visible,
 					NULL );
 			}
