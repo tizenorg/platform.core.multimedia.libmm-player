@@ -659,6 +659,13 @@
  */
 #define MM_PLAYER_DRC_MODE						"drc_mode"
 
+/**
+ * MM_PLAYER_GAPLESS
+ *
+ * gapless playback mode (int)
+ */
+#define MM_PLAYER_GAPLESS_MODE					"gapless_mode"
+
 #define BUFFER_MAX_PLANE_NUM (4)
 
 typedef struct {

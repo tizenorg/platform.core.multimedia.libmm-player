@@ -1096,6 +1096,15 @@ _mmplayer_construct_attribute(MMHandleType handle)
 			MM_ATTRS_VALID_TYPE_INT_RANGE,
 			FALSE,
 			TRUE
+		},
+		{
+			"gapless_mode",
+			MM_ATTRS_TYPE_INT,
+			MM_ATTRS_FLAG_RW,
+			(void *) FALSE,
+			MM_ATTRS_VALID_TYPE_INT_RANGE,
+			FALSE,
+			TRUE
 		}
 	};
 
