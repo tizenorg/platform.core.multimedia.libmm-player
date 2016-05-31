@@ -806,7 +806,7 @@ int _mmplayer_get_buffer_position(MMHandleType hplayer, int format, unsigned lon
  * deprecated before the day of final release
  */
 int _mmplayer_set_volume_tune(MMHandleType hplayer, MMPlayerVolumeType volume);
-int _mmplayer_update_video_param(mm_player_t* player);
+int _mmplayer_update_video_param(mm_player_t* player, char *param_name);
 int _mmplayer_set_audiobuffer_cb(MMHandleType hplayer, mm_player_audio_stream_callback callback, void *user_param);
 int _mmplayer_change_videosink(MMHandleType handle, MMDisplaySurfaceType surface_type, void *display_overlay);
 int _mmplayer_audio_effect_custom_apply(mm_player_t *player);

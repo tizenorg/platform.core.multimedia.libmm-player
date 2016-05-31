@@ -173,7 +173,7 @@ __mmplayer_apply_attribute(MMHandleType handle, const char *attribute_name)
 
 	player = MM_PLAYER_CAST(handle);
 
-	if ( g_strrstr(attribute_name, "display") )
+	if ( g_strrstr(attribute_name, "display") || g_strrstr(attribute_name, "wl_window_render_x"))
 	{
 		int pipeline_type = 0;
 		MMPlayerGstPipelineInfo	*pipeline = player->pipeline;
@@ -190,11 +190,18 @@ __mmplayer_apply_attribute(MMHandleType handle, const char *attribute_name)
 				return MM_ERROR_NONE;
 		}
 
-		if ( MM_ERROR_NONE != _mmplayer_update_video_param( player ) )
+		char *param_name;
+		int str_len = strlen(attribute_name);
+		param_name = g_malloc0(str_len);
+		strncpy(param_name, attribute_name, str_len);
+		LOGD(" param_name: %s", param_name);
+		if ( MM_ERROR_NONE != _mmplayer_update_video_param( player, param_name))
 		{
+			g_free(param_name);
 			LOGE("failed to update video param");
 			return MM_ERROR_PLAYER_INTERNAL;
 		}
+		g_free(param_name);
 	}
 
 	return MM_ERROR_NONE;
