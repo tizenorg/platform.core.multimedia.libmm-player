@@ -1067,6 +1067,7 @@ int mm_player_destroy(MMHandleType player);
  * So, application PID should be set before realizing with mm_player_set_attribute(). \n
  *
  * @param	player		[in]	Handle of player
+ * @param	pid			[in]	application PID
  *
  * @return	This function returns zero on success, or negative value with error code.
  *
@@ -1074,6 +1075,20 @@ int mm_player_destroy(MMHandleType player);
  * @remark	None
  */
 int mm_player_sound_register(MMHandleType player, int pid);
+
+/**
+ * This function get the application PID that is registered \n
+ * So, application PID should be set before realizing with mm_player_set_attribute(). \n
+ *
+ * @param	player		[in]	Handle of player
+ * @param	pid			[out]	application PID
+ *
+ * @return	This function returns zero on success, or negative value with error code.
+ *
+ * @pre		Player state should be MM_PLAYER_STATE_NULL.
+ * @remark	None
+ */
+int mm_player_get_client_pid (MMHandleType player, int* pid);
 
 /**
  * This function parses uri and makes gstreamer pipeline by uri scheme. \n

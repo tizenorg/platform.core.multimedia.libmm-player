@@ -145,6 +145,22 @@ int mm_player_sound_register(MMHandleType player, int pid)
 	return result;
 }
 
+int mm_player_get_client_pid (MMHandleType player, int* pid)
+{
+	int result = MM_ERROR_NONE;
+
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(pid, MM_ERROR_INVALID_ARGUMENT);
+
+	MMPLAYER_CMD_LOCK( player );
+
+	result = _mmplayer_get_client_pid(player, pid);
+
+	MMPLAYER_CMD_UNLOCK( player );
+
+	return result;
+}
+
 int mm_player_realize(MMHandleType player)
 {
 	int result = MM_ERROR_NONE;
