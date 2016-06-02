@@ -49,12 +49,17 @@ Multimedia Framework Player Library files (DEV).
 cp %{SOURCE1001} .
 
 %build
+export CFLAGS+=" -Wall -DTIZEN_DEBUG -D_FILE_OFFSET_BITS=64 -DSYSCONFDIR=\\\"%{_sysconfdir}\\\" -DEXPORT_API=\"__attribute__((visibility(\\\"default\\\")))\" "
 %if %{with x}
-CFLAGS+="  -Wall -DTIZEN_DEBUG -D_FILE_OFFSET_BITS=64 -DHAVE_X11 -DSYSCONFDIR=\\\"%{_sysconfdir}\\\" -DEXPORT_API=\"__attribute__((visibility(\\\"default\\\")))\" "; export CFLAGS
+export CFLAGS+=" -DHAVE_X11"
 %endif
 %if %{with wayland}
-CFLAGS+="  -Wall -DTIZEN_DEBUG -D_FILE_OFFSET_BITS=64 -DHAVE_WAYLAND -DSYSCONFDIR=\\\"%{_sysconfdir}\\\" -DEXPORT_API=\"__attribute__((visibility(\\\"default\\\")))\" "; export CFLAGS
+export CFLAGS+=" -DHAVE_WAYLAND"
 %endif
+%if "%{?profile}" == "tv"
+export CFLAGS+=" -DTIZEN_TV"
+%endif
+
 LDFLAGS+="-Wl,--rpath=%{_prefix}/lib -Wl,--hash-style=both -Wl,--as-needed"; export LDFLAGS
 ./autogen.sh
 # always enable sdk build. This option should go away

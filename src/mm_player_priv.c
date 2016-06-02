@@ -5774,7 +5774,25 @@ __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps, MMDispl
 					/* support shard memory with S/W codec on HawkP */
 					if(strncmp(videosink_element, "waylandsink", strlen(videosink_element)) == 0)
 					{
-						g_object_set(player->pipeline->videobin[MMPLAYER_V_SINK].gst, "use-tbm", use_tbm, NULL);
+						g_object_set(player->pipeline->videobin[MMPLAYER_V_SINK].gst,
+							"use-tbm", use_tbm, NULL);
+
+						if (attrs) {
+							gboolean use_gapless = FALSE;
+							int count = 0;
+							int gapless = 0;
+
+							mm_attrs_get_int_by_name (attrs, "profile_play_count", &count);
+							mm_attrs_get_int_by_name (attrs, "gapless_mode", &gapless);
+
+							if (count == -1 || count > 1 || gapless == 1) /* enable gapless when looping */
+								use_gapless = TRUE;
+
+							if (g_object_class_find_property (G_OBJECT_GET_CLASS (player->pipeline->videobin[MMPLAYER_V_SINK].gst), "use-gapless")) {
+								LOGD("set gapless mode at videosink to %d", use_gapless);
+								g_object_set(player->pipeline->videobin[MMPLAYER_V_SINK].gst, "use-gapless", use_gapless, NULL);
+							}
+						}
 					}
 				}
 				break;
@@ -5848,8 +5866,10 @@ __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps, MMDispl
 	}
 	gst_object_unref(pad);
 
+#ifndef TIZEN_TV
 	player->gapless.video_data_probe_id = gst_pad_add_probe(player->ghost_pad_for_videobin, GST_PAD_PROBE_TYPE_BUFFER,
 			__mmplayer_gapless_sinkbin_data_probe, player, NULL);
+#endif
 
 	/* done. free allocated variables */
 	g_list_free(element_bucket);
@@ -11920,6 +11940,7 @@ __mmplayer_verify_next_play_path(mm_player_t *player)
 	char *uri = NULL;
 	gint mode = MM_PLAYER_PD_MODE_NONE;
 	gint count = 0;
+	gint gapless = 0;
 	guint num_of_list = 0;
 
 	MMPLAYER_FENTER();
@@ -11939,6 +11960,16 @@ __mmplayer_verify_next_play_path(mm_player_t *player)
 		goto ERROR;
 	}
 
+#ifdef TIZEN_TV
+	/* gapless playback is not supported in case of video at TV profile. */
+	mm_attrs_get_int_by_name(attrs, "content_video_found", &mode);
+	if (mode)
+	{
+		LOGW("not support video gapless playback");
+		goto ERROR;
+	}
+#endif
+
 	if (mm_attrs_get_int_by_name (attrs, "pd_mode", &mode) == MM_ERROR_NONE)
 	{
 		if (mode == TRUE)
@@ -11951,6 +11982,20 @@ __mmplayer_verify_next_play_path(mm_player_t *player)
 	if (mm_attrs_get_int_by_name(attrs, "profile_play_count", &count) != MM_ERROR_NONE)
 	{
 		LOGE("can not get play count\n");
+	}
+
+	if (mm_attrs_get_int_by_name(attrs, "gapless_mode", &gapless) != MM_ERROR_NONE)
+	{
+		LOGE("can not get gapless mode\n");
+	}
+
+	if ((count == -1 || count > 1))	/* enable gapless when looping or repeat */
+		gapless = 1;
+
+	if (!gapless)
+	{
+		LOGW("gapless is disabled\n");	/* FIXME: playlist(without gapless) is not implemented. */
+		goto ERROR;
 	}
 
 	num_of_list = g_list_length(player->uri_info.uri_list);
@@ -12048,7 +12093,6 @@ __mmplayer_verify_next_play_path(mm_player_t *player)
 
 	player->uri_info.uri_idx = uri_idx;
 	mm_attrs_set_string_by_name(player->attrs, "profile_uri", uri);
-
 
 	if (mmf_attrs_commit(player->attrs))
 	{
@@ -12569,12 +12613,13 @@ int _mmplayer_set_next_uri(MMHandleType hplayer, const char* uri, bool is_first_
 	}
 	else
 	{
+		MMHandleType attrs = 0;
+		attrs = MMPLAYER_GET_ATTRS(player);
+
 		if (num_of_list == 0)
 		{
-			MMHandleType attrs = 0;
 			char *original_uri = NULL;
 
-			attrs = MMPLAYER_GET_ATTRS(player);
 			if ( attrs )
 			{
 				mm_attrs_get_string_by_name(attrs, "profile_uri", &original_uri);
@@ -12594,6 +12639,20 @@ int _mmplayer_set_next_uri(MMHandleType hplayer, const char* uri, bool is_first_
 
 		player->uri_info.uri_list = g_list_append(player->uri_info.uri_list, g_strdup(uri));
 		LOGD("add new path : %s (total num of list = %d)", uri, g_list_length(player->uri_info.uri_list));
+
+		if (player->pipeline && player->pipeline->videobin &&
+			player->pipeline->videobin[MMPLAYER_V_SINK].gst &&
+			g_object_class_find_property (G_OBJECT_GET_CLASS (player->pipeline->videobin[MMPLAYER_V_SINK].gst), "use-gapless"))
+		{
+			int gapless = 0;
+
+			if (attrs) {
+				mm_attrs_get_int_by_name (attrs, "gapless_mode", &gapless);
+			}
+
+			LOGD("set gapless mode to %d", gapless);
+			g_object_set(player->pipeline->videobin[MMPLAYER_V_SINK].gst, "use-gapless", (gboolean)gapless, NULL);
+		}
 	}
 
 	MMPLAYER_FLEAVE();

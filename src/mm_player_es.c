@@ -837,14 +837,14 @@ _mmplayer_set_media_stream_dynamic_resolution(MMHandleType hplayer, bool drc)
 
 	MMPLAYER_FENTER ();
 
-	MMPLAYER_RETURN_VAL_IF_FAIL (player, FALSE);
+	MMPLAYER_RETURN_VAL_IF_FAIL (player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	mm_attrs_set_int_by_name (player->attrs, MM_PLAYER_DRC_MODE, (int)drc);
 	if (player->v_stream_caps)
 	{
-		LOGD("update video caps with drc information.");
 		gst_caps_set_simple (player->v_stream_caps,
 			"adaptive-streaming", G_TYPE_BOOLEAN, drc, NULL);
+		MMPLAYER_LOG_GST_CAPS_TYPE (player->v_stream_caps);
 	}
 
 	MMPLAYER_FLEAVE ();
