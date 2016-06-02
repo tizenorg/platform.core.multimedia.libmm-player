@@ -7664,9 +7664,14 @@ __mmplayer_gst_destroy_pipeline(mm_player_t* player) // @
 	}
 	_mmplayer_track_destroy(player);
 
-	if ( player->sink_elements )
+	if (player->sink_elements)
 		g_list_free ( player->sink_elements );
 	player->sink_elements = NULL;
+
+	if (player->bufmgr) {
+		tbm_bufmgr_deinit ( player->bufmgr );
+		player->bufmgr = NULL;
+	}
 
 	LOGW("finished destroy pipeline\n");
 
@@ -16363,12 +16368,8 @@ _mmplayer_enable_media_packet_video_stream(MMHandleType hplayer, bool enable)
 	MMPLAYER_FENTER();
 	MMPLAYER_RETURN_VAL_IF_FAIL (player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
-	if(enable)
+	if (enable && !player->bufmgr)
 		player->bufmgr = tbm_bufmgr_init(-1);
-	else {
-		tbm_bufmgr_deinit(player->bufmgr);
-		player->bufmgr = NULL;
-	}
 
 	player->set_mode.media_packet_video_stream = enable;
 
