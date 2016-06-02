@@ -862,6 +862,7 @@ gint __gst_handle_library_error( mm_player_t* player, int code );
 gint __gst_handle_resource_error( mm_player_t* player, int code );
 gint __gst_handle_stream_error( mm_player_t* player, GError* error, GstMessage * message );
 int _mmplayer_sound_register_with_pid(MMHandleType hplayer, int pid);
+int _mmplayer_get_client_pid(MMHandleType hplayer, int* pid);
 int __mmplayer_get_video_angle(mm_player_t* player, int *user_angle, int *org_angle);
 #ifdef __cplusplus
 	}

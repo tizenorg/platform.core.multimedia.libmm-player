@@ -9717,6 +9717,24 @@ _mmplayer_sound_register_with_pid(MMHandleType hplayer, int pid) // @
 }
 
 int
+_mmplayer_get_client_pid(MMHandleType hplayer, int* pid)
+{
+	mm_player_t* player = (mm_player_t*) hplayer;
+
+	MMPLAYER_FENTER();
+
+	MMPLAYER_RETURN_VAL_IF_FAIL ( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
+
+	*pid = player->sound_focus.pid;
+
+	LOGD("registered pid[%d] %p", *pid, player);
+
+	MMPLAYER_FLEAVE();
+
+	return MM_ERROR_NONE;
+}
+
+int
 _mmplayer_realize(MMHandleType hplayer) // @
 {
 	mm_player_t* player =  (mm_player_t*)hplayer;
