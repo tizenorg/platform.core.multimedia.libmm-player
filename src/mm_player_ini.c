@@ -177,6 +177,7 @@ mm_player_ini_load(mm_player_ini_t* ini)
 		ini->async_start = iniparser_getboolean(dict, "general:async start", DEFAULT_ASYNC_START);
 		ini->video_playback_supported = iniparser_getboolean(dict, "general:video playback supported", DEFAULT_VIDEO_PLAYBACK_SUPPORTED);
 		ini->delay_before_repeat = iniparser_getint(dict, "general:delay before repeat", DEFAULT_DELAY_BEFORE_REPEAT);
+		ini->pcm_buffer_size = iniparser_getint(dict, "general:pcm buffer size", DEFAULT_PCM_BUFFER_SIZE);
 
 		MMPLAYER_INI_GET_STRING(dict, ini->videosink_element_overlay, "general:videosink element x", DEFAULT_VIDEOSINK_OVERLAY);
 		MMPLAYER_INI_GET_STRING(dict, ini->videosink_element_evas, "general:videosink element evas", DEFAULT_VIDEOSINK_EVAS);
@@ -230,6 +231,7 @@ mm_player_ini_load(mm_player_ini_t* ini)
 		ini->async_start = DEFAULT_ASYNC_START;
 		ini->delay_before_repeat = DEFAULT_DELAY_BEFORE_REPEAT;
 		ini->video_playback_supported = DEFAULT_VIDEO_PLAYBACK_SUPPORTED;
+		ini->pcm_buffer_size = DEFAULT_PCM_BUFFER_SIZE;
 
 		strncpy( ini->audioresampler_element, DEFAULT_AUDIORESAMPLER, PLAYER_INI_MAX_STRLEN -1 );
 		strncpy( ini->audiosink_element, DEFAULT_AUDIOSINK, PLAYER_INI_MAX_STRLEN -1 );
@@ -281,6 +283,7 @@ mm_player_ini_load(mm_player_ini_t* ini)
 	LOGD("delay before repeat(msec) : %d\n", ini->delay_before_repeat);
 	LOGD("async_start : %d\n", ini->async_start);
 	LOGD("video_playback_supported : %d\n", ini->video_playback_supported);
+	LOGD("pcm buffer size(bytes) : %d\n", ini->pcm_buffer_size);
 	LOGD("gst param1 : %s\n", ini->gst_param[0]);
 	LOGD("gst param2 : %s\n", ini->gst_param[1]);
 	LOGD("gst param3 : %s\n", ini->gst_param[2]);

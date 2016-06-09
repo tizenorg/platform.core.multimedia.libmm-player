@@ -437,6 +437,17 @@ typedef struct {
 } mm_player_gapless_t;
 
 typedef struct {
+	int channel;
+	int bitrate;
+	int depth;
+	bool is_little_endian;
+	guint64 channel_mask;
+	void *pcm_data;
+	int data_size;
+	int buff_size;
+} mm_player_audio_stream_buff_t;
+
+typedef struct {
 	/* STATE */
 	int state;					// player current state
 	int prev_state;				// player previous state
@@ -530,6 +541,7 @@ typedef struct {
 	mm_player_audio_stream_callback audio_stream_cb;
 	void* audio_stream_cb_user_param;
 	bool audio_stream_sink_sync;
+	GList* audio_stream_buff_list; /* buff list of extract pcm data */
 
 	/* audio buffer callback */
 	mm_player_audio_stream_callback_ex audio_stream_render_cb_ex;

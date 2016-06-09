@@ -261,6 +261,8 @@ static gboolean	__gst_seek_audio_data (GstElement * appsrc, guint64 position, gp
 static gboolean	__gst_seek_video_data (GstElement * appsrc, guint64 position, gpointer user_data);
 static gboolean	__gst_seek_subtitle_data (GstElement * appsrc, guint64 position, gpointer user_data);
 static void 	__mmplayer_gst_caps_notify_cb (GstPad * pad, GParamSpec * unused, gpointer data);
+static void		__mmplayer_audio_stream_clear_buffer(mm_player_t* player, gboolean send_all);
+static void		__mmplayer_audio_stream_send_data(mm_player_t* player, mm_player_audio_stream_buff_t *a_buffer);
 
 /*===========================================================================================
 |																							|
@@ -1322,6 +1324,10 @@ __mmplayer_gst_callback(GstBus *bus, GstMessage *msg, gpointer data) // @
 				player->audio_stream_cb = NULL;
 				player->audio_stream_cb_user_param = NULL;
 
+			}
+
+			if ((player->audio_stream_render_cb_ex) && (!player->audio_stream_sink_sync)) {
+				__mmplayer_audio_stream_clear_buffer(player, TRUE);
 			}
 
 			/* rewind if repeat count is greater then zero */
@@ -4721,6 +4727,56 @@ do \
 } while(0);
 
 static void
+__mmplayer_audio_stream_clear_buffer(mm_player_t* player, gboolean send_all)
+{
+	GList *l = NULL;
+
+	MMPLAYER_FENTER();
+	MMPLAYER_RETURN_IF_FAIL(player);
+
+	if (player->audio_stream_buff_list) {
+		for (l = g_list_first(player->audio_stream_buff_list); l; l = g_list_next(l)) {
+			mm_player_audio_stream_buff_t *tmp = (mm_player_audio_stream_buff_t *)l->data;
+			if (tmp) {
+				if (send_all) {
+					LOGD("[%lld] send remained data.", tmp->channel_mask);
+					__mmplayer_audio_stream_send_data(player, tmp);
+				}
+				if (tmp->pcm_data)
+					g_free(tmp->pcm_data);
+				g_free(tmp);
+			}
+		}
+		g_list_free(player->audio_stream_buff_list);
+		player->audio_stream_buff_list = NULL;
+	}
+
+	MMPLAYER_FLEAVE();
+}
+
+static void
+__mmplayer_audio_stream_send_data(mm_player_t* player, mm_player_audio_stream_buff_t *a_buffer)
+{
+	MMPlayerAudioStreamDataType audio_stream = { 0, };
+
+	MMPLAYER_FENTER();
+	MMPLAYER_RETURN_IF_FAIL(player && player->audio_stream_render_cb_ex);
+
+	audio_stream.bitrate = a_buffer->bitrate;
+	audio_stream.channel = a_buffer->channel;
+	audio_stream.depth = a_buffer->depth;
+	audio_stream.is_little_endian = a_buffer->is_little_endian;
+	audio_stream.channel_mask = a_buffer->channel_mask;
+	audio_stream.data_size = a_buffer->data_size;
+	audio_stream.data = a_buffer->pcm_data;
+
+	LOGD ("[%lld] send data size:%d, %p", audio_stream.channel_mask, audio_stream.data_size, player->audio_stream_cb_user_param);
+	player->audio_stream_render_cb_ex(&audio_stream, player->audio_stream_cb_user_param);
+
+	MMPLAYER_FLEAVE();
+}
+
+static void
 __mmplayer_audio_stream_decoded_render_cb(GstElement* object, GstBuffer *buffer, GstPad *pad, gpointer data)
 {
 	mm_player_t* player = (mm_player_t*) data;
@@ -4730,18 +4786,18 @@ __mmplayer_audio_stream_decoded_render_cb(GstElement* object, GstBuffer *buffer,
 	gint depth = 0;
 	gint endianness = 0;
 	guint64 channel_mask = 0;
-
-	MMPlayerAudioStreamDataType audio_stream = { 0, };
+	void *a_data = NULL;
+	gint a_size = 0;
+	mm_player_audio_stream_buff_t *a_buffer = NULL;
 	GstMapInfo mapinfo = GST_MAP_INFO_INIT;
+	GList *l = NULL;
 
 	MMPLAYER_FENTER();
-	MMPLAYER_RETURN_IF_FAIL(player->audio_stream_render_cb_ex);
-
-	LOGD ("__mmplayer_audio_stream_decoded_render_cb new pad: %s", GST_PAD_NAME (pad));
+	MMPLAYER_RETURN_IF_FAIL(player && player->audio_stream_render_cb_ex);
 
 	gst_buffer_map(buffer, &mapinfo, GST_MAP_READ);
-	audio_stream.data = mapinfo.data;
-	audio_stream.data_size = mapinfo.size;
+	a_data = mapinfo.data;
+	a_size = mapinfo.size;
 
 	GstCaps *caps = gst_pad_get_current_caps( pad );
 	GstStructure *structure = gst_caps_get_structure (caps, 0);
@@ -4752,18 +4808,80 @@ __mmplayer_audio_stream_decoded_render_cb(GstElement* object, GstBuffer *buffer,
 	gst_structure_get_int (structure, "depth", &depth);
 	gst_structure_get_int (structure, "endianness", &endianness);
 	gst_structure_get (structure, "channel-mask", GST_TYPE_BITMASK, &channel_mask, NULL);
-
 	gst_caps_unref(GST_CAPS(caps));
 
-	audio_stream.bitrate = rate;
-	audio_stream.channel = channel;
-	audio_stream.depth = depth;
-	audio_stream.is_little_endian = (endianness == 1234 ? 1 : 0);
-	audio_stream.channel_mask = channel_mask;
-	LOGD ("bitrate : %d channel : %d depth: %d ls_little_endian : %d channel_mask: %d, %p", rate, channel, depth, endianness, channel_mask, player->audio_stream_cb_user_param);
-	player->audio_stream_render_cb_ex(&audio_stream, player->audio_stream_cb_user_param);
-	gst_buffer_unmap(buffer, &mapinfo);
+	/* In case of the sync is false, use buffer list.              *
+	 * The num of buffer list depends on the num of audio channels */
+	if (player->audio_stream_buff_list) {
+		for (l = g_list_first(player->audio_stream_buff_list); l; l = g_list_next(l)) {
+			mm_player_audio_stream_buff_t *tmp = (mm_player_audio_stream_buff_t *)l->data;
+			if (tmp) {
+				if (channel_mask == tmp->channel_mask) {
+					LOGD("[%lld] total: %d, data: %d, buffer: %d", channel_mask, tmp->data_size, a_size, tmp->buff_size);
 
+					if (tmp->data_size + a_size < tmp->buff_size) {
+						memcpy(tmp->pcm_data+tmp->data_size, a_data, a_size);
+						tmp->data_size += a_size;
+					} else {
+						/* send data to client */
+						__mmplayer_audio_stream_send_data(player, tmp);
+
+						if (a_size > tmp->buff_size) {
+							LOGD("[%lld] adj buffer size %d -> %d", channel_mask, tmp->buff_size, a_size);
+							tmp->pcm_data = g_realloc(tmp->pcm_data, a_size);
+							if (tmp->pcm_data == NULL) {
+								LOGE("failed to realloc data.");
+								goto DONE;
+							}
+							tmp->buff_size = a_size;
+						}
+						memset(tmp->pcm_data, 0x00, tmp->buff_size);
+						memcpy(tmp->pcm_data, a_data, a_size);
+						tmp->data_size = a_size;
+					}
+					goto DONE;
+				}
+			} else {
+				LOGE("data is empty in list.");
+				goto DONE;
+			}
+		}
+	}
+
+	/* create new audio stream data */
+	a_buffer = (mm_player_audio_stream_buff_t*)g_malloc0(sizeof(mm_player_audio_stream_buff_t));
+	if (a_buffer == NULL) {
+		LOGE("failed to alloc data.");
+		goto DONE;
+	}
+	a_buffer->bitrate = rate;
+	a_buffer->channel = channel;
+	a_buffer->depth = depth;
+	a_buffer->is_little_endian = (endianness == 1234 ? 1 : 0);
+	a_buffer->channel_mask = channel_mask;
+	a_buffer->data_size = a_size;
+
+	if (!player->audio_stream_sink_sync) {
+		/* If sync is FALSE, use buffer list to reduce the IPC. */
+		a_buffer->buff_size = (a_size>player->ini.pcm_buffer_size)?(a_size):(player->ini.pcm_buffer_size);
+		a_buffer->pcm_data = g_malloc(a_buffer->buff_size);
+		if (a_buffer->pcm_data == NULL) {
+			LOGE("failed to alloc data.");
+			g_free(a_buffer);
+			goto DONE;
+		}
+		memcpy(a_buffer->pcm_data, a_data, a_size);
+		LOGD("new [%lld] total:%d buff:%d", channel_mask, a_buffer->data_size, a_buffer->buff_size);
+		player->audio_stream_buff_list = g_list_append (player->audio_stream_buff_list, a_buffer);
+	} else {
+		/* If sync is TRUE, send data directly. */
+		a_buffer->pcm_data = a_data;
+		__mmplayer_audio_stream_send_data(player, a_buffer);
+		g_free(a_buffer);
+	}
+
+DONE:
+	gst_buffer_unmap(buffer, &mapinfo);
 	MMPLAYER_FLEAVE();
 }
 
@@ -13299,6 +13417,11 @@ __mmplayer_release_misc_post(mm_player_t* player)
 		}
 		g_list_free(player->uri_info.uri_list);
 		player->uri_info.uri_list = NULL;
+	}
+
+	/* clean the audio stream buffer list */
+	if (player->audio_stream_buff_list) {
+		__mmplayer_audio_stream_clear_buffer(player, FALSE);
 	}
 
 	player->uri_info.uri_idx = 0;
