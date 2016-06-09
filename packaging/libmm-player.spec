@@ -1,9 +1,6 @@
-%bcond_with wayland
-%bcond_with x
-
 Name:       libmm-player
 Summary:    Multimedia Framework Player Library
-Version:    0.5.79
+Version:    0.5.80
 Release:    0
 Group:      Multimedia/Libraries
 License:    Apache-2.0
@@ -17,9 +14,7 @@ BuildRequires:  pkgconfig(mm-common)
 BuildRequires:  pkgconfig(mm-sound)
 BuildRequires:  pkgconfig(gstreamer-1.0)
 BuildRequires:  pkgconfig(gstreamer-plugins-base-1.0)
-%if %{with wayland}
 BuildRequires:  pkgconfig(gstreamer-wayland-1.0)
-%endif
 BuildRequires:  pkgconfig(gstreamer-video-1.0)
 BuildRequires:  pkgconfig(gstreamer-app-1.0)
 BuildRequires:  pkgconfig(appcore-efl)
@@ -53,9 +48,6 @@ export CFLAGS+=" -Wall -DTIZEN_DEBUG -D_FILE_OFFSET_BITS=64 -DSYSCONFDIR=\\\"%{_
 %if %{with x}
 export CFLAGS+=" -DHAVE_X11"
 %endif
-%if %{with wayland}
-export CFLAGS+=" -DHAVE_WAYLAND"
-%endif
 %if "%{?profile}" == "tv"
 export CFLAGS+=" -DTIZEN_TV"
 %endif
@@ -65,13 +57,9 @@ LDFLAGS+="-Wl,--rpath=%{_prefix}/lib -Wl,--hash-style=both -Wl,--as-needed"; exp
 # always enable sdk build. This option should go away
 CFLAGS=$CFLAGS LDFLAGS=$LDFLAGS ./configure --enable-sdk --prefix=%{_prefix} --disable-static
 %configure \
-%if %{with x}
---disable-static
-%endif
-%if %{with wayland}
 --disable-static \
 --enable-wayland
-%endif
+
 #%__make -j1
 make %{?jobs:-j%jobs}
 

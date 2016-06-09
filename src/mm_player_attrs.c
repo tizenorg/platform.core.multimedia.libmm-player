@@ -714,7 +714,6 @@ _mmplayer_construct_attribute(MMHandleType handle)
 			0,
 			0
 		},
-#ifdef HAVE_WAYLAND
 		{
 			"wl_display",
 			MM_ATTRS_TYPE_DATA,
@@ -769,8 +768,6 @@ _mmplayer_construct_attribute(MMHandleType handle)
 			FALSE,
 			TRUE
 		},
-
-#endif
 		{
 			"display_overlay_user_data",
 			MM_ATTRS_TYPE_DATA,

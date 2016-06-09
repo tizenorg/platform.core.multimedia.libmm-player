@@ -25,9 +25,7 @@
 |  INCLUDE FILES																			|
 |																							|
 ========================================================================================== */
-#ifdef HAVE_WAYLAND
 #include <gst/wayland/wayland.h>
-#endif
 #include <gst/video/videooverlay.h>
 
 #include <dlog.h>
