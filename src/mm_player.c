@@ -1314,3 +1314,16 @@ int mm_player_set_media_stream_dynamic_resolution(MMHandleType player, bool drc)
 	return result;
 }
 
+int mm_player_release_video_stream_bo(MMHandleType player, void* bo)
+{
+	int result = MM_ERROR_NONE;
+
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(bo, MM_ERROR_COMMON_INVALID_ARGUMENT);
+//	MMPLAYER_CMD_LOCK( player );
+
+	result = _mmplayer_video_stream_release_bo(player, bo);
+
+//	MMPLAYER_CMD_UNLOCK( player );
+	return result;
+}

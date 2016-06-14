@@ -447,6 +447,16 @@ typedef struct {
 	int buff_size;
 } mm_player_audio_stream_buff_t;
 
+/**
+ * @brief data of video_bo_list
+ * @details this will be used when the sw codec is running.
+ * @since_tizen 3.0
+ */
+typedef struct {
+	gboolean using;
+	void* bo;
+} mm_player_video_bo_info_t;
+
 typedef struct {
 	/* STATE */
 	int state;					// player current state
@@ -536,12 +546,16 @@ typedef struct {
 	mm_player_video_stream_callback video_stream_cb;
 	void* video_stream_cb_user_param;
 	int use_video_stream;
+	GCond video_bo_cond;
+	GMutex video_bo_mutex;
+	GList* video_bo_list; /* mm_player_video_bo_info_t, bo list for decoded video data by sw codec */
+	int video_bo_size;
 
 	/* audio stram callback */
 	mm_player_audio_stream_callback audio_stream_cb;
 	void* audio_stream_cb_user_param;
 	bool audio_stream_sink_sync;
-	GList* audio_stream_buff_list; /* buff list of extract pcm data */
+	GList* audio_stream_buff_list; /* mm_player_audio_stream_buff_t, buff list of extract pcm data */
 
 	/* audio buffer callback */
 	mm_player_audio_stream_callback_ex audio_stream_render_cb_ex;
@@ -876,6 +890,8 @@ gint __gst_handle_stream_error( mm_player_t* player, GError* error, GstMessage *
 int _mmplayer_sound_register_with_pid(MMHandleType hplayer, int pid);
 int _mmplayer_get_client_pid(MMHandleType hplayer, int* pid);
 int __mmplayer_get_video_angle(mm_player_t* player, int *user_angle, int *org_angle);
+int _mmplayer_video_stream_release_bo(mm_player_t* player, void* bo);
+
 #ifdef __cplusplus
 	}
 #endif

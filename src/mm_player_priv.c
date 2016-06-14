@@ -5389,6 +5389,131 @@ static guint32 _mmplayer_convert_fourcc_string_to_value(const gchar* format_name
     return format_name[0] | (format_name[1] << 8) | (format_name[2] << 16) | (format_name[3] << 24);
 }
 
+int _mmplayer_video_stream_release_bo(mm_player_t* player, void* bo)
+{
+	int ret = MM_ERROR_NONE;
+	GList *l = NULL;
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+	MMPLAYER_RETURN_VAL_IF_FAIL(bo, MM_ERROR_INVALID_ARGUMENT);
+
+	g_mutex_lock(&player->video_bo_mutex);
+
+	if (player->video_bo_list) {
+		for (l=g_list_first(player->video_bo_list);l;l=g_list_next(l)) {
+			mm_player_video_bo_info_t* tmp = (mm_player_video_bo_info_t *)l->data;
+			if (tmp && tmp->bo == bo) {
+				tmp->using = FALSE;
+				LOGD("release bo %p", bo);
+				g_mutex_unlock(&player->video_bo_mutex);
+				g_cond_signal(&player->video_bo_cond);
+				return ret;
+			}
+		}
+	} else {
+		/* hw codec is running or the list was reset for DRC. */
+		LOGW("there is no bo list.");
+	}
+	g_mutex_unlock(&player->video_bo_mutex);
+
+	LOGW("failed to find bo %p", bo);
+	return ret;
+}
+
+static void
+__mmplayer_video_stream_destroy_bo_list(mm_player_t* player)
+{
+	GList *l = NULL;
+
+	MMPLAYER_FENTER();
+	MMPLAYER_RETURN_IF_FAIL(player);
+
+	g_mutex_lock(&player->video_bo_mutex);
+	if (player->video_bo_list) {
+		LOGD("destroy video_bo_list : %d", g_list_length(player->video_bo_list));
+		for (l=g_list_first(player->video_bo_list);l;l=g_list_next(l)) {
+			mm_player_video_bo_info_t* tmp = (mm_player_video_bo_info_t *)l->data;
+			if (tmp) {
+				if (tmp->bo)
+					tbm_bo_unref(tmp->bo);
+				g_free(tmp);
+			}
+		}
+		g_list_free(player->video_bo_list);
+		player->video_bo_list = NULL;
+	}
+	player->video_bo_size = 0;
+	g_mutex_unlock(&player->video_bo_mutex);
+
+	MMPLAYER_FLEAVE();
+	return;
+}
+
+static void*
+__mmplayer_video_stream_get_bo(mm_player_t* player, int size)
+{
+	GList *l = NULL;
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, NULL);
+	gboolean ret = TRUE;
+
+	/* check DRC, if it is, destroy the prev bo list to create again */
+	if (player->video_bo_size != size) {
+		LOGD("video size is changed: %d -> %d", player->video_bo_size, size);
+		__mmplayer_video_stream_destroy_bo_list(player);
+		player->video_bo_size = size;
+	}
+
+	g_mutex_lock(&player->video_bo_mutex);
+
+	if (!player->video_bo_list) {
+		/* create bo list */
+		int idx = 0;
+		LOGD("Create bo list for decoded video stream(num:%d)", player->ini.num_of_video_bo);
+
+		for (idx=0 ; idx<player->ini.num_of_video_bo ; idx++) {
+			mm_player_video_bo_info_t* bo_info = g_new(mm_player_video_bo_info_t, 1);
+			bo_info->bo = tbm_bo_alloc(player->bufmgr, size, TBM_BO_DEFAULT);
+			if (!bo_info->bo) {
+				LOGE("Fail to tbm_bo_alloc.");
+				return NULL;
+			}
+			bo_info->using = FALSE;
+			player->video_bo_list = g_list_append(player->video_bo_list, bo_info);
+		}
+
+		/* update video num buffers */
+		player->video_num_buffers = player->ini.num_of_video_bo;
+		player->video_extra_num_buffers = (player->ini.num_of_video_bo)/2;
+
+		LOGD("Num of video buffers(%d/%d)", player->video_num_buffers, player->video_extra_num_buffers);
+	}
+
+	while (TRUE) {
+		/* get bo from list*/
+		for (l=g_list_first(player->video_bo_list);l;l=g_list_next(l)){
+			mm_player_video_bo_info_t* tmp = (mm_player_video_bo_info_t *)l->data;
+			if (tmp && (tmp->using == FALSE)) {
+				LOGD("found bo %p to use", tmp->bo);
+				tmp->using = TRUE;
+				g_mutex_unlock(&player->video_bo_mutex);
+				return tmp->bo;
+			}
+		}
+		if (!ret) {
+			LOGE("failed to get bo in %d timeout", player->ini.video_bo_timeout);
+			g_mutex_unlock(&player->video_bo_mutex);
+			return NULL;
+		}
+
+		if (player->ini.video_bo_timeout <= 0) {
+			g_cond_wait(&player->video_bo_cond, &player->video_bo_mutex);
+		} else {
+			gint64 timeout = g_get_monotonic_time() + player->ini.video_bo_timeout*G_TIME_SPAN_SECOND;
+			ret = g_cond_wait_until(&player->video_bo_cond, &player->video_bo_mutex, timeout);
+		}
+		continue;
+	}
+}
+
 static GstPadProbeReturn
 __mmplayer_video_stream_probe (GstPad *pad, GstPadProbeInfo *info, gpointer user_data)
 {
@@ -5453,14 +5578,14 @@ __mmplayer_video_stream_probe (GstPad *pad, GstPadProbeInfo *info, gpointer user
 		video_buffer = (MMVideoBuffer *)mapinfo.data;
 	}
 
-	if (video_buffer) {
+	if (video_buffer) { /* hw codec */
 		/* set tbm bo */
 		if (video_buffer->type == MM_VIDEO_BUFFER_TYPE_TBM_BO) {
 			/* copy pointer of tbm bo, stride, elevation */
 			memcpy(stream.bo, video_buffer->handle.bo,
 					sizeof(void *) * MM_VIDEO_BUFFER_PLANE_MAX);
-		}
-		else if (video_buffer->type == MM_VIDEO_BUFFER_TYPE_PHYSICAL_ADDRESS) {
+		} else if (video_buffer->type == MM_VIDEO_BUFFER_TYPE_PHYSICAL_ADDRESS) {
+			/* FIXME: need to check this path */
 			memcpy(stream.data, video_buffer->data,
 					sizeof(void *) * MM_VIDEO_BUFFER_PLANE_MAX);
 		}
@@ -5470,7 +5595,7 @@ __mmplayer_video_stream_probe (GstPad *pad, GstPadProbeInfo *info, gpointer user
 				sizeof(int) * MM_VIDEO_BUFFER_PLANE_MAX);
 		/* set gst buffer */
 		stream.internal_buffer = buffer;
-	} else {
+	} else { /* sw codec */
 		tbm_bo_handle thandle;
 		int stride = GST_ROUND_UP_4 (stream.width);
 		int elevation = stream.height;
@@ -5478,25 +5603,24 @@ __mmplayer_video_stream_probe (GstPad *pad, GstPadProbeInfo *info, gpointer user
 
 		gboolean gst_ret;
 		gst_ret = gst_memory_map(dataBlock, &mapinfo, GST_MAP_READWRITE);
-		if(!gst_ret) {
+		if (!gst_ret) {
 			LOGE("fail to gst_memory_map");
 			return GST_PAD_PROBE_OK;
 		}
 
 		stream.stride[0] = stride;
 		stream.elevation[0] = elevation;
-		if(stream.format == MM_PIXEL_FORMAT_I420) {
+		if (stream.format == MM_PIXEL_FORMAT_I420) {
 			stream.stride[1] = stream.stride[2] = GST_ROUND_UP_4 (GST_ROUND_UP_2 (stream.width) / 2);
 			stream.elevation[1] = stream.elevation[2] = elevation / 2;
-		}
-		else {
+		} else {
 			LOGE("Not support format %d", stream.format);
 			gst_memory_unmap(dataBlock, &mapinfo);
 			return GST_PAD_PROBE_OK;
 		}
 
 		size = (stream.stride[0] + stream.stride[1]) * elevation;
-		stream.bo[0] = tbm_bo_alloc(player->bufmgr, size, TBM_BO_DEFAULT);
+		stream.bo[0] = __mmplayer_video_stream_get_bo(player, size);
 		if(!stream.bo[0]) {
 			LOGE("Fail to tbm_bo_alloc!!");
 			gst_memory_unmap(dataBlock, &mapinfo);
@@ -5508,7 +5632,6 @@ __mmplayer_video_stream_probe (GstPad *pad, GstPadProbeInfo *info, gpointer user
 		else
 			LOGE("data pointer is wrong. dest : %p, src : %p",
 					thandle.ptr, mapinfo.data);
-
 		tbm_bo_unmap(stream.bo[0]);
 	}
 
@@ -5518,9 +5641,8 @@ __mmplayer_video_stream_probe (GstPad *pad, GstPadProbeInfo *info, gpointer user
 
 	if (metaBlock) {
 		gst_memory_unmap(metaBlock, &mapinfo);
-	}else {
+	} else {
 		gst_memory_unmap(dataBlock, &mapinfo);
-		tbm_bo_unref(stream.bo[0]);
 	}
 
 	return GST_PAD_PROBE_OK;
@@ -9316,6 +9438,10 @@ _mmplayer_create_player(MMHandleType handle) // @
 		player->pd_file_save_path = NULL;
 	}
 
+	/* create video bo lock and cond */
+	g_mutex_init(&player->video_bo_mutex);
+	g_cond_init(&player->video_bo_cond);
+
 	player->streaming_type = STREAMING_SERVICE_NONE;
 
 	/* give default value of audio effect setting */
@@ -9557,9 +9683,9 @@ _mmplayer_destroy(MMHandleType handle) // @
 		g_cond_signal( &player->repeat_thread_cond );
 
 		LOGD("waitting for repeat thread exit\n");
-		g_thread_join ( player->repeat_thread );
-		g_mutex_clear(&player->repeat_thread_mutex );
-		g_cond_clear (&player->repeat_thread_cond );
+		g_thread_join(player->repeat_thread);
+		g_mutex_clear(&player->repeat_thread_mutex);
+		g_cond_clear(&player->repeat_thread_cond);
 		LOGD("repeat thread released\n");
 	}
 
@@ -9652,6 +9778,10 @@ _mmplayer_destroy(MMHandleType handle) // @
 	g_mutex_clear(&player->fsink_lock );
 
 	g_mutex_clear(&player->msg_cb_lock );
+
+	/* release video bo lock and cond */
+	g_mutex_clear(&player->video_bo_mutex);
+	g_cond_clear(&player->video_bo_cond);
 
 	MMPLAYER_FLEAVE();
 
@@ -13419,10 +13549,11 @@ __mmplayer_release_misc_post(mm_player_t* player)
 		player->uri_info.uri_list = NULL;
 	}
 
-	/* clean the audio stream buffer list */
-	if (player->audio_stream_buff_list) {
-		__mmplayer_audio_stream_clear_buffer(player, FALSE);
-	}
+	/* clear the audio stream buffer list */
+	__mmplayer_audio_stream_clear_buffer(player, FALSE);
+
+	/* clear the video stream bo list */
+	__mmplayer_video_stream_destroy_bo_list(player);
 
 	player->uri_info.uri_idx = 0;
 	MMPLAYER_FLEAVE();

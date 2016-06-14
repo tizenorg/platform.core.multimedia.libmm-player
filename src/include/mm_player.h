@@ -2314,6 +2314,19 @@ int mm_player_get_num_of_video_out_buffers(MMHandleType player, int *num, int *e
 int mm_player_set_media_stream_dynamic_resolution(MMHandleType player, bool drc);
 
 /**
+ * This function is to release the video stream bo to reuse. \n
+ * It's only supported when sw codec is used to decode video stream. \n
+ *
+ * @param	player  [in] Handle of player.
+ * @param	bo     [in] bo address to be released
+ *
+ * @return	This function returns zero on success, or negative value with error
+ *			code.
+ * @since 3.0
+ */
+int mm_player_release_video_stream_bo(MMHandleType player, void* bo);
+
+/**
 	@}
  */
 

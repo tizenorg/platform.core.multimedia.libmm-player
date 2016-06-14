@@ -82,6 +82,8 @@ typedef struct __mm_player_ini
 	gboolean async_start;
 	gboolean disable_segtrap;
 	gint pcm_buffer_size;
+	gint num_of_video_bo;
+	gint video_bo_timeout;
 
 	/* http streaming */
 	gchar httpsrc_element[PLAYER_INI_MAX_STRLEN];
@@ -154,6 +156,8 @@ typedef struct __mm_player_ini
 #define DEFAULT_LIVE_STATE_CHANGE_TIMEOUT 		30 /* sec */
 #define DEFAULT_LOCALPLAYBACK_STATE_CHANGE_TIMEOUT 	10 /* sec */
 #define DEFAULT_PCM_BUFFER_SIZE			51200 /* bytes */
+#define DEFAULT_NUM_OF_VIDEO_BO			10
+#define DEFAULT_TIMEOUT_OF_VIDEO_BO		10 /* sec */
 
 /* http streaming */
 #define DEFAULT_HTTPSRC				"souphttpsrc"
