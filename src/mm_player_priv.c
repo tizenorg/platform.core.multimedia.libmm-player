@@ -1306,26 +1306,28 @@ __mmplayer_gst_callback(GstBus *bus, GstMessage *msg, gpointer data) // @
 				break;
 			}
 
-			if ( player->pipeline && player->pipeline->textbin)
-				__mmplayer_drop_subtitle(player, TRUE);
-
-			if ( (player->audio_stream_cb) && (player->set_mode.pcm_extraction) && (!player->audio_stream_render_cb_ex))
+			if (player->pipeline)
 			{
-				GstPad *pad = NULL;
+				if (player->pipeline->textbin)
+					__mmplayer_drop_subtitle(player, TRUE);
 
-				pad = gst_element_get_static_pad (player->pipeline->audiobin[MMPLAYER_A_SINK].gst, "sink");
+				if ( (player->audio_stream_cb) && (player->set_mode.pcm_extraction) && (!player->audio_stream_render_cb_ex))
+				{
+					GstPad *pad = NULL;
 
-				LOGD("release audio callback\n");
+					pad = gst_element_get_static_pad (player->pipeline->audiobin[MMPLAYER_A_SINK].gst, "sink");
 
-				/* release audio callback */
-				gst_pad_remove_probe (pad, player->audio_cb_probe_id);
-				player->audio_cb_probe_id = 0;
-				/* audio callback should be free because it can be called even though probe remove.*/
-				player->audio_stream_cb = NULL;
-				player->audio_stream_cb_user_param = NULL;
+					LOGD("release audio callback\n");
 
+					/* release audio callback */
+					gst_pad_remove_probe (pad, player->audio_cb_probe_id);
+					player->audio_cb_probe_id = 0;
+					/* audio callback should be free because it can be called even though probe remove.*/
+					player->audio_stream_cb = NULL;
+					player->audio_stream_cb_user_param = NULL;
+
+				}
 			}
-
 			if ((player->audio_stream_render_cb_ex) && (!player->audio_stream_sink_sync)) {
 				__mmplayer_audio_stream_clear_buffer(player, TRUE);
 			}
@@ -1389,7 +1391,8 @@ __mmplayer_gst_callback(GstBus *bus, GstMessage *msg, gpointer data) // @
 				}
 			}
 
-			MMPLAYER_GENERATE_DOT_IF_ENABLED ( player, "pipeline-status-eos" );
+			if (player->pipeline)
+				MMPLAYER_GENERATE_DOT_IF_ENABLED ( player, "pipeline-status-eos" );
 
 			/* post eos message to application */
 			__mmplayer_handle_eos_delay( player, player->ini.eos_delay );
@@ -1526,7 +1529,9 @@ __mmplayer_gst_callback(GstBus *bus, GstMessage *msg, gpointer data) // @
 		{
 			MMPlayerGstElement *mainbin;
 			const GValue *voldstate, *vnewstate, *vpending;
-			GstState oldstate, newstate, pending;
+			GstState oldstate = GST_STATE_NULL;
+			GstState newstate = GST_STATE_NULL;
+			GstState pending = GST_STATE_NULL;
 
 			if ( ! ( player->pipeline && player->pipeline->mainbin ) )
 			{
@@ -1545,9 +1550,15 @@ __mmplayer_gst_callback(GstBus *bus, GstMessage *msg, gpointer data) // @
 			vnewstate = gst_structure_get_value (gst_message_get_structure(msg), "new-state");
 			vpending = gst_structure_get_value (gst_message_get_structure(msg), "pending-state");
 
+			if (!voldstate || !vnewstate) {
+				LOGE("received msg has wrong format.");
+				break;
+			}
+
 			oldstate = (GstState)voldstate->data[0].v_int;
 			newstate = (GstState)vnewstate->data[0].v_int;
-			pending = (GstState)vpending->data[0].v_int;
+			if (vpending)
+				pending = (GstState)vpending->data[0].v_int;
 
 			LOGD("state changed [%s] : %s ---> %s     final : %s\n",
 				GST_OBJECT_NAME(GST_MESSAGE_SRC(msg)),
@@ -4532,7 +4543,7 @@ __mmplayer_gst_element_link_bucket(GList* element_bucket) // @
 
 		if ( element && element->gst )
 		{
-			/* If next element is audio appsrc then make a seprate audio pipeline */
+			/* If next element is audio appsrc then make a separate audio pipeline */
 			if (!strcmp(GST_ELEMENT_NAME(GST_ELEMENT(element->gst)),"audio_appsrc") ||
 				!strcmp(GST_ELEMENT_NAME(GST_ELEMENT(element->gst)),"subtitle_appsrc"))
 			{
@@ -4540,19 +4551,21 @@ __mmplayer_gst_element_link_bucket(GList* element_bucket) // @
 				continue;
 			}
 
-			if ( GST_ELEMENT_LINK(GST_ELEMENT(prv_element->gst), GST_ELEMENT(element->gst)) )
-			{
-				LOGD("linking [%s] to [%s] success\n",
-					GST_ELEMENT_NAME(GST_ELEMENT(prv_element->gst)),
-					GST_ELEMENT_NAME(GST_ELEMENT(element->gst)) );
-				successful_link_count ++;
-			}
-			else
-			{
-				LOGD("linking [%s] to [%s] failed\n",
-					GST_ELEMENT_NAME(GST_ELEMENT(prv_element->gst)),
-					GST_ELEMENT_NAME(GST_ELEMENT(element->gst)) );
-				return -1;
+			if (prv_element && prv_element->gst) {
+				if ( GST_ELEMENT_LINK(GST_ELEMENT(prv_element->gst), GST_ELEMENT(element->gst)) )
+				{
+					LOGD("linking [%s] to [%s] success\n",
+						GST_ELEMENT_NAME(GST_ELEMENT(prv_element->gst)),
+						GST_ELEMENT_NAME(GST_ELEMENT(element->gst)) );
+					successful_link_count ++;
+				}
+				else
+				{
+					LOGD("linking [%s] to [%s] failed\n",
+						GST_ELEMENT_NAME(GST_ELEMENT(prv_element->gst)),
+						GST_ELEMENT_NAME(GST_ELEMENT(element->gst)) );
+					return -1;
+				}
 			}
 		}
 
@@ -5949,7 +5962,8 @@ __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps, MMDispl
 	}
 
 	/* get first element's sinkpad for creating ghostpad */
-	first_element = (MMPlayerGstElement *)element_bucket->data;
+	if (element_bucket)
+		first_element = (MMPlayerGstElement *)element_bucket->data;
 	if ( !first_element )
 	{
 		LOGE("failed to get first element from bucket\n");
@@ -5978,7 +5992,8 @@ __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps, MMDispl
 #endif
 
 	/* done. free allocated variables */
-	g_list_free(element_bucket);
+	if (element_bucket)
+		g_list_free(element_bucket);
 
 	mm_attrs_set_int_by_name(attrs, "content_video_found", TRUE);
 
@@ -11309,7 +11324,6 @@ __mmplayer_try_to_plug_decodebin(mm_player_t* player, GstPad *srcpad, const GstC
 	GstPad* qsrcpad= NULL;
 	gchar *caps_str = NULL;
 	gint64 dur_bytes = 0L;
-	gchar* file_buffering_path = NULL;
 	gboolean use_file_buffer = FALSE;
 
 	guint max_buffer_size_bytes = 0;
@@ -11361,14 +11375,9 @@ __mmplayer_try_to_plug_decodebin(mm_player_t* player, GstPad *srcpad, const GstC
 				LOGD("dur_bytes = %lld\n", dur_bytes);
 
 				if (dur_bytes > 0)
-				{
 					use_file_buffer = MMPLAYER_USE_FILE_FOR_BUFFERING(player);
-					file_buffering_path = g_strdup(player->ini.http_file_buffer_path);
-				}
 				else
-				{
 					dur_bytes = 0;
-				}
 			}
 
 			/* NOTE : we cannot get any duration info from ts container in case of streaming */
@@ -11386,11 +11395,10 @@ __mmplayer_try_to_plug_decodebin(mm_player_t* player, GstPad *srcpad, const GstC
 												1.0,								// no meaning
 												player->ini.http_buffering_limit,	// no meaning
 												use_file_buffer,
-												file_buffering_path,
+												player->ini.http_file_buffer_path,
 												(guint64)dur_bytes);
 			}
 
-			MMPLAYER_FREEIF(file_buffering_path);
 			if (GST_STATE_CHANGE_FAILURE == gst_element_sync_state_with_parent (queue2))
 			{
 				LOGE("failed to sync queue2 state with parent\n");
@@ -13889,7 +13897,6 @@ const char *padname, const GList *templlist)
 			if (MMPLAYER_IS_HTTP_STREAMING(player))
 			{
 				gint64 dur_bytes = 0L;
-				gchar *file_buffering_path = NULL;
 				gboolean use_file_buffer = FALSE;
 
 				if ( !mainbin[MMPLAYER_M_MUXED_S_BUFFER].gst)
@@ -13935,14 +13942,9 @@ const char *padname, const GList *templlist)
 							LOGE("fail to get duration.\n");
 
 						if (dur_bytes > 0)
-						{
 							use_file_buffer = MMPLAYER_USE_FILE_FOR_BUFFERING(player);
-							file_buffering_path = g_strdup(player->ini.http_file_buffer_path);
-						}
 						else
-						{
 							dur_bytes = 0;
-						}
 					}
 
 					/* NOTE : we cannot get any duration info from ts container in case of streaming */
@@ -13956,11 +13958,9 @@ const char *padname, const GList *templlist)
 							1.0,
 							player->ini.http_buffering_limit,
 							use_file_buffer,
-							file_buffering_path,
+							player->ini.http_file_buffer_path,
 							(guint64)dur_bytes);
 					}
-
-					MMPLAYER_FREEIF(file_buffering_path);
 				}
 			}
 		}

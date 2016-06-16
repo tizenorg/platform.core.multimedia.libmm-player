@@ -22,6 +22,7 @@
 
 #include <sys/vfs.h>
 #include <dlog.h>
+#include <tzplatform_config.h>
 #include "mm_player_utils.h"
 #include "mm_player_streaming.h"
 
@@ -388,10 +389,7 @@ streaming_set_queue2_queue_type (mm_player_streaming_t* streamer, gboolean use_f
 	LOGD("[Queue2] use file for buffering. streaming is played on pull-based. \n");
 
 	if (!file_path || strlen(file_path) <= 0)
-		file_path = g_strdup(DEFAULT_FILE_BUFFER_PATH);
-
-	g_snprintf(file_buffer_name, MM_MAX_URL_LEN, "%s/XXXXXX", file_path);
-	SECURE_LOGD("[Queue2] the buffering file name is %s.\n", file_buffer_name);
+		file_path = (gchar *)tzplatform_getenv(TZ_SYS_DATA);
 
 	if (statfs((const char *)file_path, &buf) < 0)
 	{
@@ -417,6 +415,9 @@ streaming_set_queue2_queue_type (mm_player_streaming_t* streamer, gboolean use_f
 
 	if (file_buffer_size>0)
 		LOGD("[Queue2] use file ring buffer for buffering.");
+
+	g_snprintf(file_buffer_name, MM_MAX_URL_LEN, "%s/XXXXXX", file_path);
+	SECURE_LOGD("[Queue2] the buffering file name is %s.\n", file_buffer_name);
 
 	g_object_set (G_OBJECT(buffer_handle->buffer), "temp-template", file_buffer_name, NULL);
 	g_object_set (G_OBJECT(buffer_handle->buffer), "ring-buffer-max-size", file_buffer_size, NULL);

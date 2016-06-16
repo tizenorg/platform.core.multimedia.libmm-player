@@ -79,3 +79,6 @@ if WAYLAND_SUPPORT
 libmmfplayer_la_CFLAGS += $(GST_WAYLAND_CFLAGS)
 libmmfplayer_la_LIBADD += $(GST_WAYLAND_LIBS)
 endif
+
+libmmfplayer_la_CFLAGS += $(TZPLATFORM_CONFIG_CFLAGS)
+libmmfplayer_la_LIBADD += $(TZPLATFORM_CONFIG_LIBS)

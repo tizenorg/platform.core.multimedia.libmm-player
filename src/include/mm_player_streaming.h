@@ -50,8 +50,6 @@
 #define DEFAULT_BUFFER_LOW_PERCENT 1.0      /* 1%       */
 #define DEFAULT_BUFFER_HIGH_PERCENT 99.0    /* 15%      */
 
-#define DEFAULT_FILE_BUFFER_PATH "/opt/media"
-
 #define STREAMING_USE_FILE_BUFFER
 #define STREAMING_USE_MEMORY_BUFFER
 
