@@ -15103,7 +15103,7 @@ int _mmplayer_change_videosink(MMHandleType handle, MMDisplaySurfaceType surface
 	{
 		mm_attrs_get_int_by_name (player->attrs, "display_surface_type", &prev_display_surface_type);
 		mm_attrs_get_data_by_name (player->attrs, "display_overlay", &prev_display_overlay);
-		LOGD("[0: X surface, 1: EVAS surface] previous surface type(%d), new surface type(%d)", prev_display_surface_type, surface_type);
+		LOGD("[0: Video surface, 1: EVAS surface] previous surface type(%d), new surface type(%d)", prev_display_surface_type, surface_type);
 		if (prev_display_surface_type == surface_type)
 		{
 			LOGD("incoming display surface type is same as previous one, do nothing..");
@@ -15327,7 +15327,7 @@ __mmplayer_do_change_videosink(mm_player_t* player, const int dec_index, const c
 		switch (surface_type)
 		{
 			case MM_DISPLAY_SURFACE_OVERLAY:
-				LOGD("save attributes related to display surface to X : xid = %d", *(int*)display_overlay);
+				LOGD("save attributes related to video display surface : id = %d", *(int*)display_overlay);
 				mm_attrs_set_data_by_name (player->attrs, "display_overlay", display_overlay, sizeof(display_overlay));
 				break;
 			case MM_DISPLAY_SURFACE_EVAS:
