@@ -5767,7 +5767,7 @@ ERROR:
  */
 /**
   * VIDEO PIPELINE
-  * - x surface (arm/x86) : xvimagesink
+  * - video overlay surface (arm/x86) : waylandsink
   * - evas surface  (arm) : evaspixmapsink
   *                         fimcconvert ! evasimagesink
   * - evas surface  (x86) : videoconvertor ! videoflip ! evasimagesink

@@ -181,7 +181,7 @@ mm_player_ini_load(mm_player_ini_t* ini)
 		ini->num_of_video_bo = iniparser_getint(dict, "general:video bo max", DEFAULT_NUM_OF_VIDEO_BO);
 		ini->video_bo_timeout = iniparser_getint(dict, "general:video bo timeout", DEFAULT_TIMEOUT_OF_VIDEO_BO);
 
-		MMPLAYER_INI_GET_STRING(dict, ini->videosink_element_overlay, "general:videosink element x", DEFAULT_VIDEOSINK_OVERLAY);
+		MMPLAYER_INI_GET_STRING(dict, ini->videosink_element_overlay, "general:videosink element overlay", DEFAULT_VIDEOSINK_OVERLAY);
 		MMPLAYER_INI_GET_STRING(dict, ini->videosink_element_evas, "general:videosink element evas", DEFAULT_VIDEOSINK_EVAS);
 		MMPLAYER_INI_GET_STRING(dict, ini->videosink_element_fake, "general:videosink element fake", DEFAULT_VIDEOSINK_FAKE);
 		MMPLAYER_INI_GET_STRING(dict, ini->videosink_element_remote, "general:videosink element remote", DEFAULT_VIDEOSINK_REMOTE);
@@ -271,7 +271,7 @@ mm_player_ini_load(mm_player_ini_t* ini)
 	/* general */
 	LOGD("disable segtrap : %d\n", ini->disable_segtrap);
 	LOGD("skip rescan : %d\n", ini->skip_rescan);
-	LOGD("videosink element x: %s\n", ini->videosink_element_overlay);
+	LOGD("videosink element overlay: %s\n", ini->videosink_element_overlay);
 	LOGD("videosink element evas: %s\n", ini->videosink_element_evas);
 	LOGD("videosink element fake: %s\n", ini->videosink_element_fake);
 	LOGD("videosink element remote: %s\n", ini->videosink_element_remote);
