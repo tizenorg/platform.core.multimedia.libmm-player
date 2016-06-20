@@ -190,9 +190,13 @@ __mmplayer_apply_attribute(MMHandleType handle, const char *attribute_name)
 				return MM_ERROR_NONE;
 		}
 
-		char *param_name;
+		char *param_name = NULL;
 		int str_len = strlen(attribute_name);
 		param_name = g_malloc0(str_len);
+		if (!param_name) {
+			LOGE("failed to alloc param_name");
+			return MM_ERROR_PLAYER_INTERNAL;
+		}
 		strncpy(param_name, attribute_name, str_len);
 		LOGD(" param_name: %s", param_name);
 		if ( MM_ERROR_NONE != _mmplayer_update_video_param( player, param_name))
