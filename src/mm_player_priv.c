@@ -96,7 +96,11 @@
 #define GST_QUEUE_DEFAULT_TIME			4
 #define GST_QUEUE_HLS_TIME				8
 
-#define MMPLAYER_USE_FILE_FOR_BUFFERING(player) (((player)->profile.uri_type != MM_PLAYER_URI_TYPE_HLS) && (player->ini.http_file_buffer_path) && (strlen(player->ini.http_file_buffer_path) > 0) )
+#define MMPLAYER_USE_FILE_FOR_BUFFERING(player) \
+	(((player)->profile.uri_type != MM_PLAYER_URI_TYPE_HLS) && \
+	 (player->ini.http_use_file_buffer) && \
+	 (player->http_file_buffer_path) && \
+	 (strlen(player->http_file_buffer_path) > 0) )
 #define MM_PLAYER_NAME	"mmplayer"
 
 /*---------------------------------------------------------------------------
@@ -3417,7 +3421,7 @@ __mmplayer_gst_decode_no_more_pads (GstElement *elem, gpointer data)
 						init_buffering_time,
 						1.0,								// low percent
 						player->ini.http_buffering_limit,	// high percent
-						FALSE,
+						MUXED_BUFFER_TYPE_MEM_QUEUE,
 						NULL,
 						((dur_bytes>0)?((guint64)dur_bytes):0));
 	}
@@ -7389,7 +7393,7 @@ __mmplayer_gst_create_pipeline(mm_player_t* player) // @
 				pre_buffering_time,
 				1.0,
 				player->ini.http_buffering_limit,
-				FALSE,
+				MUXED_BUFFER_TYPE_MEM_QUEUE,
 				NULL,
 				0);
 	}
@@ -11324,7 +11328,6 @@ __mmplayer_try_to_plug_decodebin(mm_player_t* player, GstPad *srcpad, const GstC
 	GstPad* qsrcpad= NULL;
 	gchar *caps_str = NULL;
 	gint64 dur_bytes = 0L;
-	gboolean use_file_buffer = FALSE;
 
 	guint max_buffer_size_bytes = 0;
 	gdouble init_buffering_time = (gdouble)player->streamer->buffering_req.initial_second;
@@ -11367,24 +11370,29 @@ __mmplayer_try_to_plug_decodebin(mm_player_t* player, GstPad *srcpad, const GstC
 				goto ERROR;
 			}
 
-			// if ( !MMPLAYER_IS_HTTP_LIVE_STREAMING(player))
-			{
-				if ( !gst_element_query_duration(player->pipeline->mainbin[MMPLAYER_M_SRC].gst, GST_FORMAT_BYTES, &dur_bytes))
-					LOGE("fail to get duration.\n");
+			if ( !gst_element_query_duration(player->pipeline->mainbin[MMPLAYER_M_SRC].gst, GST_FORMAT_BYTES, &dur_bytes))
+				LOGE("fail to get duration.\n");
 
-				LOGD("dur_bytes = %lld\n", dur_bytes);
+			LOGD("dur_bytes = %lld\n", dur_bytes);
 
-				if (dur_bytes > 0)
-					use_file_buffer = MMPLAYER_USE_FILE_FOR_BUFFERING(player);
-				else
-					dur_bytes = 0;
+			muxed_buffer_type_e type = MUXED_BUFFER_TYPE_MEM_QUEUE;
+
+			if (dur_bytes > 0) {
+				if (MMPLAYER_USE_FILE_FOR_BUFFERING(player)) {
+					type = MUXED_BUFFER_TYPE_FILE;
+				} else {
+					type = MUXED_BUFFER_TYPE_MEM_RING_BUFFER;
+					player->streamer->ring_buffer_size = player->ini.http_ring_buffer_size;
+				}
+			} else {
+				dur_bytes = 0;
 			}
 
 			/* NOTE : we cannot get any duration info from ts container in case of streaming */
 			// if(!g_strrstr(GST_ELEMENT_NAME(sinkelement), "mpegtsdemux"))
 			if(!g_strrstr(player->type, "video/mpegts"))
 			{
-				max_buffer_size_bytes = (use_file_buffer)?(player->ini.http_max_size_bytes):(5*1024*1024);
+				max_buffer_size_bytes = (type == MUXED_BUFFER_TYPE_FILE)?(player->ini.http_max_size_bytes):(5*1024*1024);
 				LOGD("max_buffer_size_bytes = %d\n", max_buffer_size_bytes);
 
 				__mm_player_streaming_set_queue2(player->streamer,
@@ -11394,8 +11402,8 @@ __mmplayer_try_to_plug_decodebin(mm_player_t* player, GstPad *srcpad, const GstC
 												player->ini.http_buffering_time,
 												1.0,								// no meaning
 												player->ini.http_buffering_limit,	// no meaning
-												use_file_buffer,
-												player->ini.http_file_buffer_path,
+												type,
+												player->http_file_buffer_path,
 												(guint64)dur_bytes);
 			}
 
@@ -12674,6 +12682,22 @@ ERROR:
 	return;
 }
 
+int _mmplayer_set_temp_file_path(MMHandleType hplayer, const char* file_path)
+{
+	int result = MM_ERROR_NONE;
+	mm_player_t* player = (mm_player_t*) hplayer;
+	MMPLAYER_FENTER();
+
+	MMPLAYER_RETURN_VAL_IF_FAIL (player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+
+	if (file_path) {
+		player->http_file_buffer_path = (gchar*)file_path;
+		LOGD("temp file path: %s\n", player->http_file_buffer_path);
+	}
+	MMPLAYER_FLEAVE();
+	return result;
+}
+
 int _mmplayer_set_uri(MMHandleType hplayer, const char* uri)
 {
 	int result = MM_ERROR_NONE;
@@ -13897,7 +13921,7 @@ const char *padname, const GList *templlist)
 			if (MMPLAYER_IS_HTTP_STREAMING(player))
 			{
 				gint64 dur_bytes = 0L;
-				gboolean use_file_buffer = FALSE;
+				muxed_buffer_type_e type = MUXED_BUFFER_TYPE_MEM_QUEUE;
 
 				if ( !mainbin[MMPLAYER_M_MUXED_S_BUFFER].gst)
 				{
@@ -13941,10 +13965,17 @@ const char *padname, const GList *templlist)
 						if ( !gst_element_query_duration(player->pipeline->mainbin[MMPLAYER_M_SRC].gst, GST_FORMAT_BYTES, &dur_bytes))
 							LOGE("fail to get duration.\n");
 
-						if (dur_bytes > 0)
-							use_file_buffer = MMPLAYER_USE_FILE_FOR_BUFFERING(player);
-						else
+						if (dur_bytes > 0) {
+							if (MMPLAYER_USE_FILE_FOR_BUFFERING(player)) {
+								type = MUXED_BUFFER_TYPE_FILE;
+							} else {
+								type = MUXED_BUFFER_TYPE_MEM_RING_BUFFER;
+								if (player->streamer)
+									player->streamer->ring_buffer_size = player->ini.http_ring_buffer_size;
+							}
+						} else {
 							dur_bytes = 0;
+						}
 					}
 
 					/* NOTE : we cannot get any duration info from ts container in case of streaming */
@@ -13957,8 +13988,8 @@ const char *padname, const GList *templlist)
 							player->ini.http_buffering_time,
 							1.0,
 							player->ini.http_buffering_limit,
-							use_file_buffer,
-							player->ini.http_file_buffer_path,
+							type,
+							player->http_file_buffer_path,
 							(guint64)dur_bytes);
 					}
 				}

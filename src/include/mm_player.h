@@ -2327,6 +2327,18 @@ int mm_player_set_media_stream_dynamic_resolution(MMHandleType player, bool drc)
 int mm_player_release_video_stream_bo(MMHandleType player, void* bo);
 
 /**
+ * This function is to set mused temp file path.
+ *
+ * @param       player		[in]    handle of player
+ * @param       file_path	[in]    file path
+ * @return      This function returns zero on success, or negative value with error code.
+ *
+ * @see
+ * @remark      None
+ */
+int mm_player_set_temp_file_path(MMHandleType player, const char *file_path);
+
+/**
 	@}
  */
 

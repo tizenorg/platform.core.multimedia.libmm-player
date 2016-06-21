@@ -87,7 +87,8 @@ typedef struct __mm_player_ini
 
 	/* http streaming */
 	gchar httpsrc_element[PLAYER_INI_MAX_STRLEN];
-	gchar http_file_buffer_path[PLAYER_INI_MAX_STRLEN];
+	gboolean http_use_file_buffer;
+	guint http_ring_buffer_size;
 	gdouble http_buffering_limit;
 	guint http_max_size_bytes;
 	gdouble http_buffering_time;
@@ -161,7 +162,8 @@ typedef struct __mm_player_ini
 
 /* http streaming */
 #define DEFAULT_HTTPSRC				"souphttpsrc"
-#define DEFAULT_HTTP_FILE_BUFFER_PATH		"/home/owner/content"
+#define DEFAULT_HTTP_USE_FILE_BUFFER	FALSE
+#define DEFAULT_HTTP_RING_BUFFER_SIZE	(20*1024*1024) /* bytes : 20MBytes */
 #define DEFAULT_HTTP_BUFFERING_LIMIT	99.0		/* percent */
 #define DEFAULT_HTTP_MAX_SIZE_BYTES		1048576		/* bytes : 1 MBytes  */
 #define DEFAULT_HTTP_BUFFERING_TIME		1.2			/* sec */
@@ -227,8 +229,12 @@ eos delay = 150 ; msec \n\
 \n\
 httppsrc element = souphttpsrc \n\
 \n\
-; if set, use file or not use memory for buffering\n\
-http file buffer path = /opt/usr/media\n\
+; if yes, use file for buffering.\n\
+; if no, use memory for buffering.\n\
+http use file buffer = no\n\
+\n\
+; ring buffer size when use mem buffer \n\
+http ring buffer size = 20971520 ; 20MBytes \n\
 \n\
 http buffering limit = 99 ; percent\n\
 \n\

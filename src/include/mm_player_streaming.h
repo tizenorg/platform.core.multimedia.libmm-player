@@ -49,6 +49,7 @@
 #define DEFAULT_BUFFERING_TIME 3.0          /* 3sec     */
 #define DEFAULT_BUFFER_LOW_PERCENT 1.0      /* 1%       */
 #define DEFAULT_BUFFER_HIGH_PERCENT 99.0    /* 15%      */
+#define DEFAULT_RING_BUFFER_SIZE (20*1024*1024) /* 20MBytes */
 
 #define STREAMING_USE_FILE_BUFFER
 #define STREAMING_USE_MEMORY_BUFFER
@@ -91,6 +92,12 @@ typedef enum {
 	BUFFER_TYPE_DEMUXED, 		/* multi Q in decodebin */
 	BUFFER_TYPE_MAX,
 } BufferType;
+
+typedef enum {
+	MUXED_BUFFER_TYPE_MEM_QUEUE, /* push mode in queue2 */
+	MUXED_BUFFER_TYPE_MEM_RING_BUFFER, /* pull mode in queue2 */
+	MUXED_BUFFER_TYPE_FILE, /* pull mode in queue2 */
+} muxed_buffer_type_e;
 
 typedef struct
 {
@@ -138,7 +145,7 @@ typedef struct
 	guint		buffer_avg_bitrate;
 	gboolean	need_update;
 	gboolean	need_sync;
-
+	gint		ring_buffer_size;
 }mm_player_streaming_t;
 
 
@@ -153,7 +160,7 @@ void __mm_player_streaming_set_queue2( 	mm_player_streaming_t* streamer,
 										gdouble buffering_time,
 										gdouble low_percent,
 										gdouble high_percent,
-										gboolean use_file,
+										muxed_buffer_type_e type,
 										gchar* file_path,
 										guint64 content_size);
 void __mm_player_streaming_set_multiqueue( 	mm_player_streaming_t* streamer,

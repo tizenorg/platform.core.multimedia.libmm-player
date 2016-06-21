@@ -22,7 +22,6 @@
 
 #include <sys/vfs.h>
 #include <dlog.h>
-#include <tzplatform_config.h>
 #include "mm_player_utils.h"
 #include "mm_player_streaming.h"
 
@@ -50,7 +49,7 @@ typedef struct{
 
 static void streaming_check_buffer_percent(gdouble in_low, gdouble in_high, gdouble *out_low, gdouble *out_high);
 static void streaming_set_buffer_percent(mm_player_streaming_t* streamer, BufferType type, gdouble low_percent, gdouble high_percent_byte, gdouble high_percent_time);
-static void streaming_set_queue2_queue_type (mm_player_streaming_t* streamer, gboolean use_file, gchar * file_path, guint64 content_size);
+static void streaming_set_queue2_queue_type (mm_player_streaming_t* streamer, muxed_buffer_type_e type, gchar * file_path, guint64 content_size);
 static void streaming_set_buffer_size(mm_player_streaming_t* streamer, BufferType type, guint buffering_bytes, gdouble buffering_time);
 static void streaming_update_buffering_status(mm_player_streaming_t* streamer, GstMessage *buffering_msg, gint64 position);
 static void streaming_get_current_bitrate_info(	mm_player_streaming_t* streamer,
@@ -137,6 +136,7 @@ void __mm_player_streaming_initialize (mm_player_streaming_t* streamer)
 	streamer->is_adaptive_streaming = FALSE;
 	streamer->buffering_percent = -1;
 
+	streamer->ring_buffer_size = DEFAULT_RING_BUFFER_SIZE;
 	MMPLAYER_FLEAVE();
 	return;
 }
@@ -169,6 +169,7 @@ void __mm_player_streaming_deinitialize (mm_player_streaming_t* streamer)
 	streamer->is_adaptive_streaming = FALSE;
 
 	streamer->buffering_percent = -1;
+	streamer->ring_buffer_size = DEFAULT_RING_BUFFER_SIZE;
 
 	MMPLAYER_FLEAVE();
 	return;
@@ -340,11 +341,11 @@ streaming_set_buffer_percent(	mm_player_streaming_t* streamer,
 }
 
 static void
-streaming_set_queue2_queue_type (mm_player_streaming_t* streamer, gboolean use_file, gchar * file_path, guint64 content_size)
+streaming_set_queue2_queue_type (mm_player_streaming_t* streamer, muxed_buffer_type_e type, gchar * file_path, guint64 content_size)
 {
 	streaming_buffer_t* buffer_handle = NULL;
 	guint64 storage_available_size = 0L; //bytes
-	guint64 file_buffer_size = 0L;  //bytes
+	guint64 buffer_size = 0L;  //bytes
 	gchar file_buffer_name[MM_MAX_URL_LEN] = {0};
 	struct statfs buf = {0};
 	gchar* factory_name = NULL;
@@ -377,50 +378,49 @@ streaming_set_queue2_queue_type (mm_player_streaming_t* streamer, gboolean use_f
 		return;
 	}
 
-	if ((!use_file) || (!g_strrstr(factory_name, "queue2")))
+	if ((type == MUXED_BUFFER_TYPE_MEM_QUEUE) || (!g_strrstr(factory_name, "queue2")))
 	{
-		LOGD("use memory for buffering. streaming is played on push-based. \n"
+		LOGD("use memory queue for buffering. streaming is played on push-based. \n"
 					"buffering position would not be updated.\n"
 					"buffered data would be flushed after played.\n"
 					"seeking and getting duration could be failed due to file format.");
 		return;
 	}
 
-	LOGD("[Queue2] use file for buffering. streaming is played on pull-based. \n");
-
-	if (!file_path || strlen(file_path) <= 0)
-		file_path = (gchar *)tzplatform_getenv(TZ_SYS_DATA);
-
-	if (statfs((const char *)file_path, &buf) < 0)
-	{
-		LOGW ("[Queue2] fail to get availabe storage capacity. just use file buffer.\n");
-		file_buffer_size = 0L;
-	}
-	else
-	{
-		storage_available_size = (guint64)buf.f_bavail * (guint64)buf.f_bsize; //bytes
-
-		LOGD ("[Queue2] the number of available blocks : %"G_GUINT64_FORMAT
-					", the block size is %"G_GUINT64_FORMAT".\n",
-					(guint64)buf.f_bavail, (guint64)buf.f_bsize);
-
-		LOGD ("[Queue2] calculated availabe storage size is %"
-							G_GUINT64_FORMAT" Bytes.\n", storage_available_size);
-
-		if (content_size <= 0 || content_size >= storage_available_size)
-			file_buffer_size = storage_available_size;
+	LOGD("[Queue2] buffering type : %d. streaming is played on pull-based. \n", type);
+	if (type == MUXED_BUFFER_TYPE_FILE && file_path && strlen(file_path)>0) {
+		if (statfs((const char *)file_path, &buf) < 0)
+		{
+			LOGW ("[Queue2] fail to get available storage capacity. set mem ring buffer instead of file buffer.\n");
+			buffer_size = (guint64)((streamer->ring_buffer_size>0)?(streamer->ring_buffer_size):DEFAULT_RING_BUFFER_SIZE);
+		}
 		else
-			file_buffer_size = 0L;
+		{
+			storage_available_size = (guint64)buf.f_bavail * (guint64)buf.f_bsize; //bytes
+
+			LOGD ("[Queue2] the number of available blocks : %"G_GUINT64_FORMAT
+						", the block size is %"G_GUINT64_FORMAT".\n",
+						(guint64)buf.f_bavail, (guint64)buf.f_bsize);
+
+			LOGD ("[Queue2] calculated available storage size is %"
+								G_GUINT64_FORMAT" Bytes.\n", storage_available_size);
+
+			if (content_size <= 0 || content_size >= storage_available_size)
+				buffer_size = storage_available_size;
+			else
+				buffer_size = 0L;
+
+			g_snprintf(file_buffer_name, MM_MAX_URL_LEN, "%sXXXXXX", file_path);
+			SECURE_LOGD("[Queue2] the buffering file name is %s.\n", file_buffer_name);
+
+			g_object_set (G_OBJECT(buffer_handle->buffer), "temp-template", file_buffer_name, NULL);
+		}
+	} else {
+		buffer_size = (guint64)((streamer->ring_buffer_size>0)?(streamer->ring_buffer_size):DEFAULT_RING_BUFFER_SIZE);
 	}
 
-	if (file_buffer_size>0)
-		LOGD("[Queue2] use file ring buffer for buffering.");
-
-	g_snprintf(file_buffer_name, MM_MAX_URL_LEN, "%s/XXXXXX", file_path);
-	SECURE_LOGD("[Queue2] the buffering file name is %s.\n", file_buffer_name);
-
-	g_object_set (G_OBJECT(buffer_handle->buffer), "temp-template", file_buffer_name, NULL);
-	g_object_set (G_OBJECT(buffer_handle->buffer), "ring-buffer-max-size", file_buffer_size, NULL);
+	LOGW ("[Queue2] set ring buffer size: %lld\n", buffer_size);
+	g_object_set (G_OBJECT(buffer_handle->buffer), "ring-buffer-max-size", buffer_size, NULL);
 
 	MMPLAYER_FLEAVE();
 	return;
@@ -493,7 +493,7 @@ void __mm_player_streaming_set_queue2( 	mm_player_streaming_t* streamer,
 										gdouble buffering_time,
 										gdouble low_percent,
 										gdouble high_percent,
-										gboolean use_file,
+										muxed_buffer_type_e type,
 										gchar* file_path,
 										guint64 content_size)
 {
@@ -531,7 +531,7 @@ void __mm_player_streaming_set_queue2( 	mm_player_streaming_t* streamer,
 
 	streaming_set_buffer_size		(streamer, BUFFER_TYPE_MUXED, buffering_bytes, buffering_time);
 	streaming_set_buffer_percent	(streamer, BUFFER_TYPE_MUXED, low_percent, high_percent, 0);
-	streaming_set_queue2_queue_type (streamer, use_file, file_path, content_size);
+	streaming_set_queue2_queue_type (streamer, type, file_path, content_size);
 
 	MMPLAYER_FLEAVE();
 	return;

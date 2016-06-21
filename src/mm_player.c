@@ -1327,3 +1327,18 @@ int mm_player_release_video_stream_bo(MMHandleType player, void* bo)
 //	MMPLAYER_CMD_UNLOCK( player );
 	return result;
 }
+
+int mm_player_set_temp_file_path(MMHandleType player, const char *file_path)
+{
+	int result = MM_ERROR_NONE;
+
+	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
+
+	MMPLAYER_CMD_LOCK( player );
+
+	result = _mmplayer_set_temp_file_path(player, file_path);
+
+	MMPLAYER_CMD_UNLOCK( player );
+
+	return result;
+}

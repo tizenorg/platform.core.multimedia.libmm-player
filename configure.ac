@@ -133,8 +133,6 @@ PKG_CHECK_MODULES(DLOG, dlog)
 AC_SUBST(DLOG_CFLAGS)
 AC_SUBST(DLOG_LIBS)
 
-PKG_CHECK_MODULES(TZPLATFORM_CONFIG, libtzplatform-config)
-
 AC_ARG_ENABLE(sdk, AC_HELP_STRING([--enable-sdk], [sdk build]),
 	 [
 		case "${enableval}" in

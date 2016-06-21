@@ -201,7 +201,8 @@ mm_player_ini_load(mm_player_ini_t* ini)
 
 		/* http streaming */
 		MMPLAYER_INI_GET_STRING( dict, ini->httpsrc_element, "http streaming:httpsrc element", DEFAULT_HTTPSRC );
-		MMPLAYER_INI_GET_STRING( dict, ini->http_file_buffer_path, "http streaming:http file buffer path", DEFAULT_HTTP_FILE_BUFFER_PATH );
+		ini->http_use_file_buffer = iniparser_getboolean(dict, "http streaming:http use file buffer", DEFAULT_HTTP_USE_FILE_BUFFER);
+		ini->http_ring_buffer_size = iniparser_getint(dict, "http streaming:http ring buffer size", DEFAULT_HTTP_RING_BUFFER_SIZE);
 		ini->http_buffering_limit = iniparser_getdouble(dict, "http streaming:http buffering high limit", DEFAULT_HTTP_BUFFERING_LIMIT);
 		ini->http_max_size_bytes = iniparser_getint(dict, "http streaming:http max size bytes", DEFAULT_HTTP_MAX_SIZE_BYTES);
 		ini->http_buffering_time = iniparser_getdouble(dict, "http streaming:http buffering time", DEFAULT_HTTP_BUFFERING_TIME);
@@ -251,8 +252,9 @@ mm_player_ini_load(mm_player_ini_t* ini)
 
 		/* http streaming */
 		strncpy( ini->httpsrc_element, DEFAULT_HTTPSRC, PLAYER_INI_MAX_STRLEN - 1 );
-		strncpy( ini->http_file_buffer_path, DEFAULT_HTTP_FILE_BUFFER_PATH, PLAYER_INI_MAX_STRLEN - 1 );
 		ini->http_buffering_limit = DEFAULT_HTTP_BUFFERING_LIMIT;
+		ini->http_use_file_buffer = DEFAULT_HTTP_USE_FILE_BUFFER;
+		ini->http_ring_buffer_size = DEFAULT_HTTP_RING_BUFFER_SIZE;
 		ini->http_max_size_bytes = DEFAULT_HTTP_MAX_SIZE_BYTES;
 		ini->http_buffering_time = DEFAULT_HTTP_BUFFERING_TIME;
 		ini->http_timeout = DEFAULT_HTTP_TIMEOUT;
@@ -308,8 +310,9 @@ mm_player_ini_load(mm_player_ini_t* ini)
 
 	/* http streaming */
 	LOGD("httpsrc element : %s\n", ini->httpsrc_element);
-	LOGD("http file buffer path : %s \n", ini->http_file_buffer_path);
 	LOGD("http buffering limit : %f \n", ini->http_buffering_limit);
+	LOGD("http use file buffer : %d \n", ini->http_use_file_buffer);
+	LOGD("http ring buffer size : %d \n", ini->http_ring_buffer_size);
 	LOGD("http max_size bytes : %d \n", ini->http_max_size_bytes);
 	LOGD("http buffering time : %f \n", ini->http_buffering_time);
 	LOGD("http timeout : %d \n", ini->http_timeout);
