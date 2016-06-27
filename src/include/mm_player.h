@@ -2327,7 +2327,7 @@ int mm_player_set_media_stream_dynamic_resolution(MMHandleType player, bool drc)
 int mm_player_release_video_stream_bo(MMHandleType player, void* bo);
 
 /**
- * This function is to set mused temp file path.
+ * This function is to set http file buffering path
  *
  * @param       player		[in]    handle of player
  * @param       file_path	[in]    file path
@@ -2336,7 +2336,7 @@ int mm_player_release_video_stream_bo(MMHandleType player, void* bo);
  * @see
  * @remark      None
  */
-int mm_player_set_temp_file_path(MMHandleType player, const char *file_path);
+int mm_player_set_file_buffering_path(MMHandleType player, const char *file_path);
 
 /**
 	@}

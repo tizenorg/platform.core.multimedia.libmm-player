@@ -518,7 +518,7 @@ typedef struct {
 
 	/* streaming player */
 	mm_player_streaming_t *streamer;
-	gchar *http_file_buffer_path;
+	gchar *http_file_buffering_path;
 
 	/* gstreamer pipeline */
 	MMPlayerGstPipelineInfo	*pipeline;
@@ -854,7 +854,7 @@ int _mmplayer_set_video_share_master_clock(MMHandleType hplayer, long long clock
 int _mmplayer_get_video_share_master_clock(MMHandleType hplayer, long long *video_time, long long *media_clock, long long *audio_time);
 int _mmplayer_get_video_rotate_angle(MMHandleType hplayer, int *angle);
 int _mmplayer_enable_sync_handler(MMHandleType hplayer, bool enable);
-int _mmplayer_set_temp_file_path(MMHandleType hplayer, const char* file_path);
+int _mmplayer_set_file_buffering_path(MMHandleType hplayer, const char* file_path);
 int _mmplayer_set_uri(MMHandleType hplayer, const char* uri);
 int _mmplayer_set_next_uri(MMHandleType hplayer, const char* uri, bool is_first_path);
 int _mmplayer_get_next_uri(MMHandleType hplayer, char** uri);

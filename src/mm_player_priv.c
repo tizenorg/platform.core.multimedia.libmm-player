@@ -99,8 +99,8 @@
 #define MMPLAYER_USE_FILE_FOR_BUFFERING(player) \
 	(((player)->profile.uri_type != MM_PLAYER_URI_TYPE_HLS) && \
 	 (player->ini.http_use_file_buffer) && \
-	 (player->http_file_buffer_path) && \
-	 (strlen(player->http_file_buffer_path) > 0) )
+	 (player->http_file_buffering_path) && \
+	 (strlen(player->http_file_buffering_path) > 0) )
 #define MM_PLAYER_NAME	"mmplayer"
 
 /*---------------------------------------------------------------------------
@@ -11403,7 +11403,7 @@ __mmplayer_try_to_plug_decodebin(mm_player_t* player, GstPad *srcpad, const GstC
 												1.0,								// no meaning
 												player->ini.http_buffering_limit,	// no meaning
 												type,
-												player->http_file_buffer_path,
+												player->http_file_buffering_path,
 												(guint64)dur_bytes);
 			}
 
@@ -12682,7 +12682,7 @@ ERROR:
 	return;
 }
 
-int _mmplayer_set_temp_file_path(MMHandleType hplayer, const char* file_path)
+int _mmplayer_set_file_buffering_path(MMHandleType hplayer, const char* file_path)
 {
 	int result = MM_ERROR_NONE;
 	mm_player_t* player = (mm_player_t*) hplayer;
@@ -12691,8 +12691,8 @@ int _mmplayer_set_temp_file_path(MMHandleType hplayer, const char* file_path)
 	MMPLAYER_RETURN_VAL_IF_FAIL (player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
 	if (file_path) {
-		player->http_file_buffer_path = (gchar*)file_path;
-		LOGD("temp file path: %s\n", player->http_file_buffer_path);
+		player->http_file_buffering_path = (gchar*)file_path;
+		LOGD("temp file path: %s\n", player->http_file_buffering_path);
 	}
 	MMPLAYER_FLEAVE();
 	return result;
@@ -13989,7 +13989,7 @@ const char *padname, const GList *templlist)
 							1.0,
 							player->ini.http_buffering_limit,
 							type,
-							player->http_file_buffer_path,
+							player->http_file_buffering_path,
 							(guint64)dur_bytes);
 					}
 				}
