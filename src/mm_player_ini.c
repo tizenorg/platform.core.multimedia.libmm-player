@@ -184,10 +184,9 @@ mm_player_ini_load(mm_player_ini_t* ini)
 		MMPLAYER_INI_GET_STRING(dict, ini->videosink_element_overlay, "general:videosink element overlay", DEFAULT_VIDEOSINK_OVERLAY);
 		MMPLAYER_INI_GET_STRING(dict, ini->videosink_element_evas, "general:videosink element evas", DEFAULT_VIDEOSINK_EVAS);
 		MMPLAYER_INI_GET_STRING(dict, ini->videosink_element_fake, "general:videosink element fake", DEFAULT_VIDEOSINK_FAKE);
-		MMPLAYER_INI_GET_STRING(dict, ini->videosink_element_remote, "general:videosink element remote", DEFAULT_VIDEOSINK_REMOTE);
-		MMPLAYER_INI_GET_STRING(dict, ini->videosrc_element_remote, "general:videosrc element remote", DEFAULT_VIDEOSRC_REMOTE);
 		MMPLAYER_INI_GET_STRING(dict, ini->audioresampler_element, "general:audio resampler element", DEFAULT_AUDIORESAMPLER );
 		MMPLAYER_INI_GET_STRING(dict, ini->audiosink_element, "general:audiosink element", DEFAULT_AUDIOSINK );
+		MMPLAYER_INI_GET_STRING(dict, ini->videocodec_element_hw, "general:video codec element hw", DEFAULT_VIDEOCODEC_HW);
 		MMPLAYER_INI_GET_STRING(dict, ini->videoconverter_element, "general:video converter element", DEFAULT_VIDEO_CONVERTER );
 
 		__get_element_list(ini,
@@ -224,8 +223,6 @@ mm_player_ini_load(mm_player_ini_t* ini)
 		strncpy( ini->videosink_element_overlay, DEFAULT_VIDEOSINK_OVERLAY, PLAYER_INI_MAX_STRLEN - 1 );
 		strncpy( ini->videosink_element_evas, DEFAULT_VIDEOSINK_EVAS, PLAYER_INI_MAX_STRLEN - 1 );
 		strncpy( ini->videosink_element_fake, DEFAULT_VIDEOSINK_FAKE, PLAYER_INI_MAX_STRLEN - 1 );
-		strncpy( ini->videosink_element_remote, DEFAULT_VIDEOSINK_REMOTE, PLAYER_INI_MAX_STRLEN - 1 );
-		strncpy( ini->videosrc_element_remote, DEFAULT_VIDEOSRC_REMOTE, PLAYER_INI_MAX_STRLEN - 1 );
 		ini->generate_dot = DEFAULT_GENERATE_DOT;
 		ini->use_system_clock = DEFAULT_USE_SYSTEM_CLOCK;
 		ini->live_state_change_timeout = DEFAULT_LIVE_STATE_CHANGE_TIMEOUT;
@@ -240,6 +237,7 @@ mm_player_ini_load(mm_player_ini_t* ini)
 
 		strncpy( ini->audioresampler_element, DEFAULT_AUDIORESAMPLER, PLAYER_INI_MAX_STRLEN -1 );
 		strncpy( ini->audiosink_element, DEFAULT_AUDIOSINK, PLAYER_INI_MAX_STRLEN -1 );
+		strncpy( ini->videocodec_element_hw, DEFAULT_VIDEOCODEC_HW, PLAYER_INI_MAX_STRLEN - 1 );
 		strncpy( ini->videoconverter_element, DEFAULT_VIDEO_CONVERTER, PLAYER_INI_MAX_STRLEN -1 );
 
 		__get_element_list(ini, DEFAULT_EXCLUDE_KEYWORD, KEYWORD_EXCLUDE);
@@ -276,9 +274,8 @@ mm_player_ini_load(mm_player_ini_t* ini)
 	LOGD("videosink element overlay: %s\n", ini->videosink_element_overlay);
 	LOGD("videosink element evas: %s\n", ini->videosink_element_evas);
 	LOGD("videosink element fake: %s\n", ini->videosink_element_fake);
-	LOGD("videosink element remote: %s\n", ini->videosink_element_remote);
-	LOGD("videosrc element remote: %s\n", ini->videosrc_element_remote);
 	LOGD("video converter element : %s\n", ini->videoconverter_element);
+	LOGD("video codec element(hw) : %s\n", ini->videocodec_element_hw);
 	LOGD("audio resampler element : %s\n", ini->audioresampler_element);
 	LOGD("audiosink element : %s\n", ini->audiosink_element);
 	LOGD("generate dot : %d\n", ini->generate_dot);

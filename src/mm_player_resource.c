@@ -162,13 +162,18 @@ static void mrp_rset_state_callback(mrp_res_context_t *cx, const mrp_res_resourc
 
 	MMPLAYER_FENTER();
 
-	if(!mrp_res_equal_resource_set(rs, player->resource_manager.rset)){
+	if(!mrp_res_equal_resource_set(rs, player->resource_manager.rset)) {
 		LOGW("- resource set(%p) is not same as this player handle's(%p)", rs, player->resource_manager.rset);
 		return;
 	}
 
-	if (rs->state == MRP_RES_RESOURCE_ACQUIRED)
+	if (rs->state == MRP_RES_RESOURCE_ACQUIRED) {
 		player->resource_manager.state = RESOURCE_STATE_ACQUIRED;
+
+		MMPLAYER_RESOURCE_LOCK(&player->resource_manager);
+		MMPLAYER_RESOURCE_SIGNAL(&player->resource_manager);
+		MMPLAYER_RESOURCE_UNLOCK(&player->resource_manager);
+	}
 
 	LOGD(" - resource set state of player(%p) is changed to [%s]\n", player, state_to_str(rs->state));
 	for (i = 0; i < MRP_RESOURCE_MAX; i++)
@@ -335,6 +340,8 @@ int _mmplayer_resource_manager_init(MMPlayerResourceManager *resource_manager, v
 	}
 
 	resource_manager->state = RESOURCE_STATE_INITIALIZED;
+	g_mutex_init(&resource_manager->lock);
+	g_cond_init(&resource_manager->cond);
 
 	MMPLAYER_FLEAVE();
 
@@ -394,12 +401,29 @@ int _mmplayer_resource_manager_acquire(MMPlayerResourceManager *resource_manager
 		}
 		else
 		{
+			MMPLAYER_RESOURCE_LOCK(resource_manager);
+
 			ret = mrp_res_acquire_resource_set(resource_manager->rset);
 			if (ret)
 			{
 				LOGE("- could not acquire resource, ret(%d)\n", ret);
 				ret = MM_ERROR_RESOURCE_INTERNAL;
 			}
+			else
+			{
+				gint64 end_time = g_get_monotonic_time() + MMPLAYER_RESOURCE_ACQUIRE_TIMEOUT*G_TIME_SPAN_SECOND;
+
+				LOGD("- acquire resource waiting..%p till %lld\n", resource_manager, end_time);
+				if (!MMPLAYER_RESOURCE_WAIT_UNTIL(resource_manager, end_time))
+				{
+					LOGE("- could not acquire resource\n");
+					ret = MM_ERROR_RESOURCE_INTERNAL;
+				} else {
+					LOGD("- resources are acquired\n");
+				}
+			}
+
+			MMPLAYER_RESOURCE_UNLOCK(resource_manager);
 		}
 	}
 
@@ -498,6 +522,8 @@ int _mmplayer_resource_manager_deinit(MMPlayerResourceManager *resource_manager)
 	}
 
 	resource_manager->state = RESOURCE_STATE_NONE;
+	g_mutex_clear(&resource_manager->lock);
+	g_cond_clear(&resource_manager->cond);
 
 	MMPLAYER_FLEAVE();
 

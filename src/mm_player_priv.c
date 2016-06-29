@@ -11251,19 +11251,6 @@ DONE:
 	return;
 }
 
-#ifdef _MM_PLAYER_ALP_PARSER
-void check_name (void *data, void *user_data)
-{
-	mm_player_t* player = user_data;
-
-	if (g_strrstr((gchar*)data, "mpegaudioparse"))
-	{
-		LOGD("mpegaudioparse - set alp-mp3dec\n");
-		g_object_set(player->pipeline->mainbin[MMPLAYER_M_DEMUX].gst, "alp-mp3dec", TRUE, NULL);
-	}
-}
-#endif
-
 static GstElement *
 __mmplayer_create_decodebin (mm_player_t* player)
 {
@@ -11772,11 +11759,6 @@ __mmplayer_try_to_plug(mm_player_t* player, GstPad *pad, const GstCaps *caps) //
 										factory = element_facory;
 										name_to_plug = GST_OBJECT_NAME(factory);
 									}
-
-									/* make parser alp mode */
-									#ifdef _MM_PLAYER_ALP_PARSER
-									g_list_foreach (player->parsers, check_name, player);
-									#endif
 								}
 							}
 						}
@@ -13025,27 +13007,17 @@ GstCaps* caps, GstElementFactory* factory, gpointer data)
 			__mmplayer_set_audio_attrs (player, caps);
 		}
 	}
-	else if ((g_strrstr(klass, "Codec/Decoder/Video")))
+	else if (g_strrstr(klass, "Codec/Decoder/Video"))
 	{
-		if (g_strrstr(factory_name, "omx"))
+		if ((strlen(player->ini.videocodec_element_hw) > 0) &&
+			(g_strrstr(factory_name, player->ini.videocodec_element_hw)))
 		{
-			char *env = getenv ("MM_PLAYER_HW_CODEC_DISABLE");
-			if (env != NULL)
-			{
-				if (strncasecmp(env, "yes", 3) == 0)
-				{
-					LOGD ("skipping [%s] by disabled\n", factory_name);
-					result = GST_AUTOPLUG_SELECT_SKIP;
-					goto DONE;
-				}
-			}
-
 			/* prepare resource manager for video decoder */
 			MMPlayerResourceState resource_state = RESOURCE_STATE_NONE;
 
 			if (_mmplayer_resource_manager_get_state(&player->resource_manager, &resource_state) == MM_ERROR_NONE)
 			{
-				/* prepare resource manager for video overlay */
+				/* prepare resource manager for video decoder */
 				if (resource_state >= RESOURCE_STATE_INITIALIZED)
 				{
 					if (_mmplayer_resource_manager_prepare(&player->resource_manager, RESOURCE_TYPE_VIDEO_DECODER)
@@ -13284,32 +13256,8 @@ __mmplayer_gst_element_added (GstElement *bin, GstElement *element, gpointer dat
 			g_object_set(G_OBJECT(element), "http-pull-mp3dec", TRUE, NULL);
 		}
 	}
-	else if (g_strrstr(factory_name, "omx"))
+	else if (g_strrstr(factory_name, player->ini.videocodec_element_hw))
 	{
-		if (g_strrstr(klass, "Codec/Decoder/Video"))
-		{
-			gboolean ret = FALSE;
-
-			if (player->v_stream_caps != NULL)
-			{
-				GstPad *pad = gst_element_get_static_pad(element, "sink");
-
-				if (pad)
-				{
-					ret = gst_pad_set_caps(pad, player->v_stream_caps);
-					LOGD("found omx decoder, setting gst_pad_set_caps for omx (ret:%d)", ret);
-					MMPLAYER_LOG_GST_CAPS_TYPE(player->v_stream_caps);
-					gst_object_unref (pad);
-				}
-			}
-			g_object_set (G_OBJECT(element), "state-tuning", TRUE, NULL);
-		}
-#ifdef _MM_PLAYER_ALP_PARSER
-		if (g_strrstr(factory_name, "omx_mp3dec"))
-		{
-			g_list_foreach (player->parsers, check_name, player);
-		}
-#endif
 		player->pipeline->mainbin[MMPLAYER_M_DEC1].gst = element;
 	}
 

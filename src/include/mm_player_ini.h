@@ -63,9 +63,8 @@ typedef struct __mm_player_ini
 	gchar videosink_element_overlay[PLAYER_INI_MAX_STRLEN];
 	gchar videosink_element_evas[PLAYER_INI_MAX_STRLEN];
 	gchar videosink_element_fake[PLAYER_INI_MAX_STRLEN];
-	gchar videosink_element_remote[PLAYER_INI_MAX_STRLEN];
-	gchar videosrc_element_remote[PLAYER_INI_MAX_STRLEN];
 	gchar videoconverter_element[PLAYER_INI_MAX_STRLEN];
+	gchar videocodec_element_hw[PLAYER_INI_MAX_STRLEN];
 	gchar audioresampler_element[PLAYER_INI_MAX_STRLEN];
 	gchar audiosink_element[PLAYER_INI_MAX_STRLEN];
 	gboolean skip_rescan;
@@ -144,12 +143,11 @@ typedef struct __mm_player_ini
 #define DEFAULT_VIDEOSINK_OVERLAY			"waylandsink"
 #define DEFAULT_VIDEOSINK_EVAS				"evasimagesink"
 #define DEFAULT_VIDEOSINK_FAKE				"fakesink"
-#define DEFAULT_VIDEOSINK_REMOTE			"shmsink"
-#define DEFAULT_VIDEOSRC_REMOTE				"shmsrc"
 #define DEFAULT_AUDIORESAMPLER			"audioresample"
 #define DEFAULT_AUDIOSINK				"pulsesink"
+#define DEFAULT_VIDEOCODEC_HW			""
 #define DEFAULT_GST_PARAM				""
-#define DEFAULT_EXCLUDE_KEYWORD				""
+#define DEFAULT_EXCLUDE_KEYWORD			""
 #define DEFAULT_ASYNC_START				TRUE
 #define DEFAULT_DISABLE_SEGTRAP				TRUE
 #define DEFAULT_VIDEO_CONVERTER				""

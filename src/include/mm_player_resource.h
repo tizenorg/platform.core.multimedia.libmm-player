@@ -29,6 +29,18 @@
 extern "C" {
 #endif
 
+#define MMPLAYER_RESOURCE_ACQUIRE_TIMEOUT 5
+
+#define MMPLAYER_GET_RESOURCE_LOCK(rm)	(&((MMPlayerResourceManager *)rm)->lock)
+#define MMPLAYER_RESOURCE_LOCK(rm)		(g_mutex_lock(MMPLAYER_GET_RESOURCE_LOCK(rm)))
+#define MMPLAYER_RESOURCE_UNLOCK(rm)	(g_mutex_unlock(MMPLAYER_GET_RESOURCE_LOCK(rm)))
+
+#define MMPLAYER_GET_RESOURCE_COND(rm)	(&((MMPlayerResourceManager *)rm)->cond)
+#define MMPLAYER_RESOURCE_WAIT(rm)		g_cond_wait(MMPLAYER_GET_RESOURCE_COND(rm), MMPLAYER_GET_RESOURCE_LOCK(rm)
+#define MMPLAYER_RESOURCE_WAIT_UNTIL(rm, end_time) \
+	g_cond_wait_until(MMPLAYER_GET_RESOURCE_COND(rm), MMPLAYER_GET_RESOURCE_LOCK(rm), end_time)
+#define MMPLAYER_RESOURCE_SIGNAL(rm)	g_cond_signal(MMPLAYER_GET_RESOURCE_COND(rm));
+
 typedef enum {
 	RESOURCE_TYPE_VIDEO_DECODER,
 	RESOURCE_TYPE_VIDEO_OVERLAY,
@@ -42,7 +54,6 @@ typedef enum {
 	RESOURCE_STATE_MAX,
 } MMPlayerResourceState;
 
-
 typedef struct {
 	mrp_mainloop_t *mloop;
 	mrp_res_context_t *context;
@@ -51,6 +62,8 @@ typedef struct {
 	bool is_connected;
 	void *user_data;
 	bool by_rm_cb;
+	GCond cond;
+	GMutex lock;
 } MMPlayerResourceManager;
 
 int _mmplayer_resource_manager_init(MMPlayerResourceManager *resource_manager, void *user_data);
