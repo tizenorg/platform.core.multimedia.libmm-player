@@ -162,17 +162,18 @@ static void mrp_rset_state_callback(mrp_res_context_t *cx, const mrp_res_resourc
 
 	MMPLAYER_FENTER();
 
+	MMPLAYER_RESOURCE_LOCK(&player->resource_manager);
+
 	if(!mrp_res_equal_resource_set(rs, player->resource_manager.rset)) {
 		LOGW("- resource set(%p) is not same as this player handle's(%p)", rs, player->resource_manager.rset);
+		MMPLAYER_RESOURCE_UNLOCK(&player->resource_manager);
 		return;
 	}
 
 	if (rs->state == MRP_RES_RESOURCE_ACQUIRED) {
 		player->resource_manager.state = RESOURCE_STATE_ACQUIRED;
 
-		MMPLAYER_RESOURCE_LOCK(&player->resource_manager);
 		MMPLAYER_RESOURCE_SIGNAL(&player->resource_manager);
-		MMPLAYER_RESOURCE_UNLOCK(&player->resource_manager);
 	}
 
 	LOGD(" - resource set state of player(%p) is changed to [%s]\n", player, state_to_str(rs->state));
@@ -188,6 +189,7 @@ static void mrp_rset_state_callback(mrp_res_context_t *cx, const mrp_res_resourc
 
 	mrp_res_delete_resource_set(player->resource_manager.rset);
 	player->resource_manager.rset = mrp_res_copy_resource_set(rs);
+	MMPLAYER_RESOURCE_UNLOCK(&player->resource_manager);
 
 	MMPLAYER_FLEAVE();
 }
@@ -483,8 +485,10 @@ int _mmplayer_resource_manager_unprepare(MMPlayerResourceManager *resource_manag
 	}
 	else
 	{
+		MMPLAYER_RESOURCE_LOCK(resource_manager);
 		mrp_res_delete_resource_set(resource_manager->rset);
 		resource_manager->rset = NULL;
+		MMPLAYER_RESOURCE_UNLOCK(resource_manager);
 	}
 
 	resource_manager->state = RESOURCE_STATE_INITIALIZED;
