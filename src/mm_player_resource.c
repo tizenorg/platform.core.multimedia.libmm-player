@@ -245,6 +245,8 @@ static void mrp_resource_release_cb (mrp_res_context_t *cx, const mrp_res_resour
 		}
 		else
 			LOGW("could not find videobin");
+
+		/* lock is called in __mmplayer_can_do_interrupt() */
 		MMPLAYER_CMD_UNLOCK(player);
 	}
 

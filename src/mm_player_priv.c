@@ -5555,7 +5555,7 @@ __mmplayer_video_stream_probe (GstPad *pad, GstPadProbeInfo *info, gpointer user
 		return GST_PAD_PROBE_OK;
 	}
 
-	MMPLAYER_LOG_GST_CAPS_TYPE(caps);
+	/* MMPLAYER_LOG_GST_CAPS_TYPE(caps); */
 
 	/* clear stream data structure */
 	memset(&stream, 0x0, sizeof(MMPlayerVideoStreamDataType));
@@ -9081,6 +9081,8 @@ __mmplayer_can_do_interrupt(mm_player_t *player)
 		if (player->cmd == MMPLAYER_COMMAND_START || player->cmd == MMPLAYER_COMMAND_RESUME)
 		{
 			LOGW("playing.. should wait cmd lock then, will be interrupted");
+
+			/* lock will be released at mrp_resource_release_cb() */
 			g_mutex_lock(&player->cmd_lock);
 			goto INTERRUPT;
 		}
