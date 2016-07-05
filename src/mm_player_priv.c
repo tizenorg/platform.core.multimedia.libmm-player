@@ -5307,6 +5307,11 @@ __mmplayer_gst_create_audio_pipeline(mm_player_t* player)
 
 	/* get first element's sinkpad for creating ghostpad */
 	first_element = (MMPlayerGstElement *)element_bucket->data;
+	if (!first_element)
+	{
+		LOGE("failed to get first elem\n");
+		goto ERROR;
+	}
 
 	pad = gst_element_get_static_pad(GST_ELEMENT(first_element->gst), "sink");
 	if ( ! pad )
@@ -5351,7 +5356,8 @@ ERROR:
 	if ( ghostpad )
 		gst_object_unref(GST_OBJECT(ghostpad));
 
-	g_list_free( element_bucket );
+	if (element_bucket)
+		g_list_free( element_bucket );
 
 	/* release element which are not added to bin */
 	for ( i = 1; i < MMPLAYER_A_NUM; i++ ) 	/* NOTE : skip bin */
@@ -6682,27 +6688,27 @@ _mmplayer_push_buffer(MMHandleType hplayer, unsigned char *buf, int size) // @
 		}
 	}
 
-     	LOGI("app-src: pushing data\n");
+	LOGI("app-src: pushing data\n");
 
-    	if ( buf == NULL )
-    	{
-        	LOGE("buf is null\n");
-        	return MM_ERROR_NONE;
-    	}
+	if ( buf == NULL )
+	{
+		LOGE("buf is null\n");
+		return MM_ERROR_NONE;
+	}
 
-    	buffer = gst_buffer_new ();
+	buffer = gst_buffer_new ();
 
-    	if (size <= 0)
-    	{
-        	LOGD("call eos appsrc\n");
-        	g_signal_emit_by_name (player->pipeline->mainbin[MMPLAYER_M_SRC].gst, "end-of-stream", &gst_ret);
-        	return MM_ERROR_NONE;
-    	}
+	if (size <= 0)
+	{
+		LOGD("call eos appsrc\n");
+		g_signal_emit_by_name (player->pipeline->mainbin[MMPLAYER_M_SRC].gst, "end-of-stream", &gst_ret);
+		return MM_ERROR_NONE;
+	}
 
 	//gst_buffer_insert_memory(buffer, -1, gst_memory_new_wrapped(0, (guint8 *)(buf->buf + buf->offset), len, 0, len, (guint8*)(buf->buf + buf->offset), g_free));
 
-    	LOGD("feed buffer %p, length %u\n", buf, size);
-    	g_signal_emit_by_name (player->pipeline->mainbin[MMPLAYER_M_SRC].gst, "push-buffer", buffer, &gst_ret);
+	LOGD("feed buffer %p, length %u\n", buf, size);
+	g_signal_emit_by_name (player->pipeline->mainbin[MMPLAYER_M_SRC].gst, "push-buffer", buffer, &gst_ret);
 
 	MMPLAYER_FLEAVE();
 
@@ -9098,7 +9104,7 @@ __mmplayer_can_do_interrupt(mm_player_t *player)
 FAILED:    /* with CMD UNLOCKED */
 	return FALSE;
 
-INTERRUPT: /* with CMD LOCKED */
+INTERRUPT: /* with CMD LOCKED, released at mrp_resource_release_cb() */
 	return TRUE;
 }
 
