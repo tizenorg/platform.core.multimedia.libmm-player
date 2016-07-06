@@ -509,7 +509,6 @@ typedef struct {
 	/* message callback */
 	MMMessageCallback msg_cb;
 	void* msg_cb_param;
-	GMutex msg_cb_lock;
 
 	/* progressive download */
 	mm_player_pd_t *pd_downloader;

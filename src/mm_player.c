@@ -38,17 +38,17 @@
 
 int mm_player_create(MMHandleType *player)
 {
-	int result = MM_ERROR_NONE;
+	int result = MM_ERROR_PLAYER_INTERNAL;
 	mm_player_t* new_player = NULL;
 
 	MMPLAYER_RETURN_VAL_IF_FAIL(player, MM_ERROR_PLAYER_NOT_INITIALIZED);
 
-
 	/* alloc player structure */
 	new_player = g_malloc(sizeof(mm_player_t));
-	if ( ! new_player )
+	if (!new_player)
 	{
 		LOGE("Cannot allocate memory for player\n");
+		result = MM_ERROR_PLAYER_RESOURCE_LIMIT;
 		goto ERROR;
 	}
 	memset(new_player, 0, sizeof(mm_player_t));
@@ -59,38 +59,32 @@ int mm_player_create(MMHandleType *player)
 	/* create player lock */
 	g_mutex_init(&new_player->playback_lock);
 
-
-	/* create msg callback lock */
-	g_mutex_init(&new_player->msg_cb_lock);
-
 	/* load ini files */
-	result = mm_player_ini_load(&new_player->ini);
-	if(result != MM_ERROR_NONE)
+	if (MM_ERROR_NONE != mm_player_ini_load(&new_player->ini))
 	{
 		LOGE("can't load ini");
 		goto ERROR;
 	}
 
-	result = mm_player_audio_effect_ini_load(&new_player->ini);
-	if(result != MM_ERROR_NONE)
+	if (MM_ERROR_NONE != mm_player_audio_effect_ini_load(&new_player->ini))
 	{
 		LOGE("can't load audio ini");
 		goto ERROR;
 	}
 
-
 	/* create player */
 	result = _mmplayer_create_player((MMHandleType)new_player);
-
 	if(result != MM_ERROR_NONE)
 	{
 		LOGE("failed to create player");
+		if (result != MM_ERROR_PLAYER_RESOURCE_LIMIT)
+			result = MM_ERROR_PLAYER_INTERNAL;
 		goto ERROR;
 	}
 
 	*player = (MMHandleType)new_player;
 
-	return result;
+	return MM_ERROR_NONE;
 
 ERROR:
 
@@ -104,7 +98,7 @@ ERROR:
 	}
 
 	*player = (MMHandleType)0;
-	return MM_ERROR_PLAYER_NO_FREE_SPACE; // are you sure?
+	return result; /* MM_ERROR_PLAYER_INTERNAL or MM_ERROR_PLAYER_RESOURCE_LIMIT */
 }
 
 int  mm_player_destroy(MMHandleType player)
