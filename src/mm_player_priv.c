@@ -1485,6 +1485,13 @@ __mmplayer_gst_callback(GstBus *bus, GstMessage *msg, gpointer data) // @
 			if (!MMPLAYER_IS_STREAMING(player))
 				break;
 
+			/* ignore the buffering messages during building pipeline, *
+			 * not to block the main loop                              */
+			if (MMPLAYER_CURRENT_STATE(player) <= MM_PLAYER_STATE_READY) {
+				LOGW("ignore the buffering msg (state:%d)", MMPLAYER_CURRENT_STATE(player));
+				break;
+			}
+
 			/* ignore the prev buffering message */
 			if ((player->streamer) && (player->streamer->is_buffering == FALSE) && (player->streamer->is_buffering_done == TRUE))
 			{
@@ -2644,6 +2651,23 @@ __mmplayer_gst_decode_pad_added (GstElement *elem, GstPad *pad, gpointer data)
 		if (stype == MM_DISPLAY_SURFACE_NULL || stype == MM_DISPLAY_SURFACE_REMOTE)
 		{
 			LOGD ("no video sink by null surface or multiple track");
+			MMPlayerResourceState resource_state = RESOURCE_STATE_NONE;
+			if (_mmplayer_resource_manager_get_state(&player->resource_manager, &resource_state)
+					== MM_ERROR_NONE)
+			{
+				/* acquire resources for video playing */
+				if (resource_state >= RESOURCE_STATE_PREPARED)
+				{
+					if (_mmplayer_resource_manager_acquire(&player->resource_manager)
+							!= MM_ERROR_NONE)
+					{
+						LOGE("could not acquire resources for video playing\n");
+						_mmplayer_resource_manager_unprepare(&player->resource_manager);
+						goto ERROR;
+					}
+				}
+			}
+
 			gchar *caps_str = gst_caps_to_string(caps);
 			if (strstr(caps_str, "ST12") || strstr(caps_str, "SN12"))
 			{

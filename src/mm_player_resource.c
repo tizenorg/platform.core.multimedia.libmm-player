@@ -413,7 +413,6 @@ int _mmplayer_resource_manager_acquire(MMPlayerResourceManager *resource_manager
 				LOGE("- could not acquire resource, ret(%d)\n", ret);
 				ret = MM_ERROR_RESOURCE_INTERNAL;
 			}
-#if 0 /* Fix me: Disable below logic temporarily */
 			else
 			{
 				gint64 end_time = g_get_monotonic_time() + MMPLAYER_RESOURCE_ACQUIRE_TIMEOUT*G_TIME_SPAN_SECOND;
@@ -427,8 +426,6 @@ int _mmplayer_resource_manager_acquire(MMPlayerResourceManager *resource_manager
 					LOGD("- resources are acquired\n");
 				}
 			}
-#endif
-
 			MMPLAYER_RESOURCE_UNLOCK(resource_manager);
 		}
 	}
