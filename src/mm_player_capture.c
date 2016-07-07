@@ -55,6 +55,7 @@ static int __mm_player_convert_colorspace(mm_player_t* player, unsigned char* sr
 int
 _mmplayer_initialize_video_capture(mm_player_t* player)
 {
+	int ret = MM_ERROR_NONE;
 	MMPLAYER_RETURN_VAL_IF_FAIL ( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
 	/* create capture mutex */
 	g_mutex_init(&player->capture_thread_mutex);
@@ -71,10 +72,11 @@ _mmplayer_initialize_video_capture(mm_player_t* player)
 
 	if ( ! player->capture_thread )
 	{
+		ret = MM_ERROR_PLAYER_RESOURCE_LIMIT;
 		goto ERROR;
 	}
 
-	return MM_ERROR_NONE;
+	return ret;
 
 ERROR:
 	/* capture thread */
@@ -82,7 +84,7 @@ ERROR:
 
 	g_cond_clear (&player->capture_thread_cond );
 
-	return MM_ERROR_PLAYER_INTERNAL;
+	return ret;
 }
 
 int

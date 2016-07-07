@@ -5487,25 +5487,44 @@ __mmplayer_video_stream_get_bo(mm_player_t* player, int size)
 
 	g_mutex_lock(&player->video_bo_mutex);
 
-	if (!player->video_bo_list) {
+	if ((!player->video_bo_list) ||
+		(g_list_length(player->video_bo_list) < player->ini.num_of_video_bo)) {
+
 		/* create bo list */
 		int idx = 0;
 		LOGD("Create bo list for decoded video stream(num:%d)", player->ini.num_of_video_bo);
 
-		for (idx=0 ; idx<player->ini.num_of_video_bo ; idx++) {
+		if (player->video_bo_list) {
+			/* if bo list did not created all, try it again. */
+			idx = g_list_length(player->video_bo_list);
+			LOGD("bo list exist (len: %d)", idx);
+		}
+
+		for (; idx<player->ini.num_of_video_bo ; idx++) {
 			mm_player_video_bo_info_t* bo_info = g_new(mm_player_video_bo_info_t, 1);
+			if (!bo_info) {
+				LOGE("Fail to alloc bo_info.");
+				break;
+			}
 			bo_info->bo = tbm_bo_alloc(player->bufmgr, size, TBM_BO_DEFAULT);
 			if (!bo_info->bo) {
 				LOGE("Fail to tbm_bo_alloc.");
-				return NULL;
+				g_free(bo_info);
+				break;
 			}
 			bo_info->using = FALSE;
 			player->video_bo_list = g_list_append(player->video_bo_list, bo_info);
 		}
 
 		/* update video num buffers */
-		player->video_num_buffers = player->ini.num_of_video_bo;
-		player->video_extra_num_buffers = (player->ini.num_of_video_bo)/2;
+		player->video_num_buffers = idx;
+		if (idx == player->ini.num_of_video_bo)
+			player->video_extra_num_buffers = player->ini.num_of_video_bo/2;
+
+		if (idx == 0) {
+			g_mutex_unlock(&player->video_bo_mutex);
+			return NULL;
+		}
 
 		LOGD("Num of video buffers(%d/%d)", player->video_num_buffers, player->video_extra_num_buffers);
 	}
@@ -9382,6 +9401,7 @@ EXIT_WITHOUT_UNLOCK:
 int
 _mmplayer_create_player(MMHandleType handle) // @
 {
+	int ret = MM_ERROR_PLAYER_INTERNAL;
 	mm_player_t* player = MM_PLAYER_CAST(handle);
 
 	MMPLAYER_FENTER();
@@ -9403,14 +9423,15 @@ _mmplayer_create_player(MMHandleType handle) // @
 	if ( !player->attrs )
 	{
 		LOGE("Failed to construct attributes\n");
-		goto ERROR;
+		return ret;
 	}
 
 	/* initialize gstreamer with configured parameter */
 	if ( ! __mmplayer_init_gstreamer(player) )
 	{
 		LOGE("Initializing gstreamer failed\n");
-		goto ERROR;
+		_mmplayer_deconstruct_attribute(handle);
+		return ret;
 	}
 
 	/* initialize factories if not using decodebin */
@@ -9429,7 +9450,14 @@ _mmplayer_create_player(MMHandleType handle) // @
 	/* create repeat thread */
 	player->repeat_thread =
 		g_thread_try_new ("repeat_thread", __mmplayer_repeat_thread, (gpointer)player, NULL);
-
+	if (!player->repeat_thread)
+	{
+		LOGE("failed to create repeat_thread(%s)");
+		g_mutex_clear(&player->repeat_thread_mutex);
+		g_cond_clear(&player->repeat_thread_cond);
+		ret = MM_ERROR_PLAYER_RESOURCE_LIMIT;
+		goto ERROR;
+	}
 
 	/* create next play mutex */
 	g_mutex_init(&player->next_play_thread_mutex);
@@ -9440,13 +9468,17 @@ _mmplayer_create_player(MMHandleType handle) // @
 	/* create next play thread */
 	player->next_play_thread =
 		g_thread_try_new ("next_play_thread", __mmplayer_next_play_thread, (gpointer)player, NULL);
-	if ( ! player->next_play_thread )
+	if (!player->next_play_thread)
 	{
 		LOGE("failed to create next play thread");
+		ret = MM_ERROR_PLAYER_RESOURCE_LIMIT;
+		g_mutex_clear(&player->next_play_thread_mutex);
+		g_cond_clear(&player->next_play_thread_cond);
 		goto ERROR;
 	}
 
-	if ( MM_ERROR_NONE != _mmplayer_initialize_video_capture(player))
+	ret = _mmplayer_initialize_video_capture(player);
+	if (ret != MM_ERROR_NONE)
 	{
 		LOGE("failed to initialize video capture\n");
 		goto ERROR;
@@ -9515,42 +9547,29 @@ ERROR:
 		g_thread_join( player->repeat_thread );
 		player->repeat_thread = NULL;
 
-		g_mutex_clear(&player->repeat_thread_mutex );
-
-		g_cond_clear (&player->repeat_thread_cond );
+		g_mutex_clear(&player->repeat_thread_mutex);
+		g_cond_clear(&player->repeat_thread_cond);
 	}
-	/* clear repeat thread mutex/cond if still alive
-	 * this can happen if only thread creating has failed
-	 */
-	g_mutex_clear(&player->repeat_thread_mutex );
-	g_cond_clear ( &player->repeat_thread_cond );
 
 	/* free next play thread */
-	if ( player->next_play_thread )
+	if (player->next_play_thread)
 	{
 		player->next_play_thread_exit = TRUE;
-		g_cond_signal( &player->next_play_thread_cond );
+		g_cond_signal(&player->next_play_thread_cond);
 
-		g_thread_join( player->next_play_thread );
+		g_thread_join(player->next_play_thread);
 		player->next_play_thread = NULL;
 
-		g_mutex_clear(&player->next_play_thread_mutex );
-
-		g_cond_clear ( &player->next_play_thread_cond );
+		g_mutex_clear(&player->next_play_thread_mutex);
+		g_cond_clear(&player->next_play_thread_cond);
 	}
-	/* clear next play thread mutex/cond if still alive
-	 * this can happen if only thread creating has failed
-	 */
-	g_mutex_clear(&player->next_play_thread_mutex );
-
-	g_cond_clear ( &player->next_play_thread_cond );
 
 	/* release attributes */
 	_mmplayer_deconstruct_attribute(handle);
 
 	MMPLAYER_FLEAVE();
 
-	return MM_ERROR_PLAYER_INTERNAL;
+	return ret;
 }
 
 static gboolean
@@ -9803,8 +9822,6 @@ _mmplayer_destroy(MMHandleType handle) // @
 
 	/* release lock */
 	g_mutex_clear(&player->fsink_lock );
-
-	g_mutex_clear(&player->msg_cb_lock );
 
 	/* release video bo lock and cond */
 	g_mutex_clear(&player->video_bo_mutex);

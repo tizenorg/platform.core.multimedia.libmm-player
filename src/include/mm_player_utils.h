@@ -54,8 +54,6 @@ x = NULL;
 
 #define MMPLAYER_CMD_LOCK(x_player) g_mutex_lock(&((mm_player_t *)x_player)->cmd_lock)
 #define MMPLAYER_CMD_UNLOCK(x_player)	g_mutex_unlock( &((mm_player_t*)x_player)->cmd_lock )
-#define MMPLAYER_MSG_POST_LOCK(x_player)	g_mutex_lock( &((mm_player_t*)x_player)->msg_cb_lock )
-#define MMPLAYER_MSG_POST_UNLOCK(x_player)	g_mutex_unlock( &((mm_player_t*)x_player)->msg_cb_lock )
 #define MMPLAYER_PLAYBACK_LOCK(x_player) g_mutex_lock(&((mm_player_t *)x_player)->playback_lock)
 #define MMPLAYER_PLAYBACK_UNLOCK(x_player) g_mutex_unlock( &((mm_player_t*)x_player)->playback_lock )
 #define MMPLAYER_GET_ATTRS(x_player)		((mm_player_t*)x_player)->attrs
