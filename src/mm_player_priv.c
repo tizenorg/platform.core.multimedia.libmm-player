@@ -10758,6 +10758,14 @@ _mmplayer_pause(MMHandleType hplayer) // @
 		LOGE("failed to pause player. ret : 0x%x\n", ret);
 	}
 
+	if (MMPLAYER_PREV_STATE(player) == MM_PLAYER_STATE_READY && MMPLAYER_CURRENT_STATE(player) == MM_PLAYER_STATE_PAUSED)
+	{
+		if ( MM_ERROR_NONE != _mmplayer_update_video_param( player, "display_rotation"))
+		{
+			LOGE("failed to update display_rotation");
+		}
+	}
+
 	MMPLAYER_FLEAVE();
 
 	return ret;
