@@ -29,7 +29,7 @@
 extern "C" {
 #endif
 
-#define MMPLAYER_RESOURCE_ACQUIRE_TIMEOUT 5
+#define MMPLAYER_RESOURCE_TIMEOUT 5
 
 #define MMPLAYER_GET_RESOURCE_LOCK(rm)	(&((MMPlayerResourceManager *)rm)->lock)
 #define MMPLAYER_RESOURCE_LOCK(rm)		(g_mutex_lock(MMPLAYER_GET_RESOURCE_LOCK(rm)))

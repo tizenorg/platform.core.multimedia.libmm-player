@@ -170,12 +170,6 @@ static void mrp_rset_state_callback(mrp_res_context_t *cx, const mrp_res_resourc
 		return;
 	}
 
-	if (rs->state == MRP_RES_RESOURCE_ACQUIRED) {
-		player->resource_manager.state = RESOURCE_STATE_ACQUIRED;
-
-		MMPLAYER_RESOURCE_SIGNAL(&player->resource_manager);
-	}
-
 	LOGD(" - resource set state of player(%p) is changed to [%s]\n", player, state_to_str(rs->state));
 	for (i = 0; i < MRP_RESOURCE_MAX; i++)
 	{
@@ -189,6 +183,18 @@ static void mrp_rset_state_callback(mrp_res_context_t *cx, const mrp_res_resourc
 
 	mrp_res_delete_resource_set(player->resource_manager.rset);
 	player->resource_manager.rset = mrp_res_copy_resource_set(rs);
+
+	if (rs->state == MRP_RES_RESOURCE_ACQUIRED) {
+		LOGD(" - resource set is acquired");
+		player->resource_manager.state = RESOURCE_STATE_ACQUIRED;
+		MMPLAYER_RESOURCE_SIGNAL(&player->resource_manager);
+	} else if ((player->resource_manager.state >= RESOURCE_STATE_ACQUIRED) &&
+			   (rs->state == MRP_RES_RESOURCE_AVAILABLE)) {
+		LOGD(" - resource set is released");
+		player->resource_manager.state = RESOURCE_STATE_PREPARED;
+		MMPLAYER_RESOURCE_SIGNAL(&player->resource_manager);
+	}
+
 	MMPLAYER_RESOURCE_UNLOCK(&player->resource_manager);
 
 	MMPLAYER_FLEAVE();
@@ -415,7 +421,7 @@ int _mmplayer_resource_manager_acquire(MMPlayerResourceManager *resource_manager
 			}
 			else
 			{
-				gint64 end_time = g_get_monotonic_time() + MMPLAYER_RESOURCE_ACQUIRE_TIMEOUT*G_TIME_SPAN_SECOND;
+				gint64 end_time = g_get_monotonic_time() + MMPLAYER_RESOURCE_TIMEOUT*G_TIME_SPAN_SECOND;
 
 				LOGD("- acquire resource waiting..%p till %lld\n", resource_manager, end_time);
 				if (!MMPLAYER_RESOURCE_WAIT_UNTIL(resource_manager, end_time))
@@ -456,16 +462,29 @@ int _mmplayer_resource_manager_release(MMPlayerResourceManager *resource_manager
 		}
 		else
 		{
+			MMPLAYER_RESOURCE_LOCK(resource_manager);
 			ret = mrp_res_release_resource_set(resource_manager->rset);
 			if (ret)
 			{
 				LOGE("- could not release resource, ret(%d)\n", ret);
 				ret = MM_ERROR_RESOURCE_INTERNAL;
 			}
+			else
+			{
+				gint64 end_time = g_get_monotonic_time() + MMPLAYER_RESOURCE_TIMEOUT*G_TIME_SPAN_SECOND;
+
+				LOGD("- release resource waiting..%p till %lld\n", resource_manager, end_time);
+				if (!MMPLAYER_RESOURCE_WAIT_UNTIL(resource_manager, end_time))
+				{
+					LOGW("- could not release resource in time\n");
+					/* ret = MM_ERROR_RESOURCE_INTERNAL */
+				} else {
+					LOGD("- resources are released\n");
+				}
+			}
+			MMPLAYER_RESOURCE_UNLOCK(resource_manager);
 		}
 	}
-
-	resource_manager->state = RESOURCE_STATE_PREPARED;
 
 	MMPLAYER_FLEAVE();
 
