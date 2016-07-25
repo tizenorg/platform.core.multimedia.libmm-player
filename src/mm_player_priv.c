@@ -12108,6 +12108,7 @@ __mmplayer_verify_next_play_path(mm_player_t *player)
 	gint uri_idx = 0, check_cnt = 0;
 	char *uri = NULL;
 	gint mode = MM_PLAYER_PD_MODE_NONE;
+	gint video = 0;
 	gint count = 0;
 	gint gapless = 0;
 	guint num_of_list = 0;
@@ -12129,10 +12130,11 @@ __mmplayer_verify_next_play_path(mm_player_t *player)
 		goto ERROR;
 	}
 
+	mm_attrs_get_int_by_name(attrs, "content_video_found", &video);
+
 #ifdef TIZEN_TV
 	/* gapless playback is not supported in case of video at TV profile. */
-	mm_attrs_get_int_by_name(attrs, "content_video_found", &mode);
-	if (mode)
+	if (video)
 	{
 		LOGW("not support video gapless playback");
 		goto ERROR;
@@ -12156,6 +12158,12 @@ __mmplayer_verify_next_play_path(mm_player_t *player)
 	if (mm_attrs_get_int_by_name(attrs, "gapless_mode", &gapless) != MM_ERROR_NONE)
 	{
 		LOGE("can not get gapless mode\n");
+	}
+
+	if (video && !gapless)
+	{
+		LOGW("not enabled video gapless playback");
+		goto ERROR;
 	}
 
 	if ((count == -1 || count > 1))	/* enable gapless when looping or repeat */
@@ -12599,6 +12607,7 @@ __mmplayer_deactivate_selector(mm_player_t *player, MMPlayerTrackType type)
 	enum MainElementID sinkId = MMPLAYER_M_NUM;
 	GstPad *srcpad = NULL;
 	GstPad *sinkpad = NULL;
+	gboolean send_notice = FALSE;
 
 	MMPLAYER_FENTER();
 	MMPLAYER_RETURN_VAL_IF_FAIL (player, FALSE);
@@ -12616,6 +12625,7 @@ __mmplayer_deactivate_selector(mm_player_t *player, MMPlayerTrackType type)
 			selectorId = MMPLAYER_M_V_INPUT_SELECTOR;
 			sinkId = MMPLAYER_V_BIN;
 			sinkbin = player->pipeline->videobin;
+			send_notice = TRUE;
 		break;
 		case MM_PLAYER_TRACK_TYPE_TEXT:
 			selectorId = MMPLAYER_M_T_INPUT_SELECTOR;
@@ -12647,6 +12657,14 @@ __mmplayer_deactivate_selector(mm_player_t *player, MMPlayerTrackType type)
 				/* after getting drained signal there is no data flows, so no need to do pad_block */
 				LOGD("unlink %s:%s, %s:%s", GST_DEBUG_PAD_NAME(srcpad), GST_DEBUG_PAD_NAME(sinkpad));
 				gst_pad_unlink (srcpad, sinkpad);
+
+				/* send custom event to sink pad to handle it at video sink */
+				if (send_notice) {
+					LOGD("send custom event to sinkpad");
+					GstStructure *s = gst_structure_new_empty ("application/flush-buffer");
+					GstEvent *event = gst_event_new_custom (GST_EVENT_CUSTOM_DOWNSTREAM, s);
+					gst_pad_send_event (sinkpad, event);
+				}
 			}
 
 			gst_object_unref (sinkpad);
