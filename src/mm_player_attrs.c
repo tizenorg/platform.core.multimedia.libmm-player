@@ -172,24 +172,22 @@ __mmplayer_apply_attribute(MMHandleType handle, const char *attribute_name)
 	MMPLAYER_RETURN_VAL_IF_FAIL(attribute_name, MM_ERROR_COMMON_INVALID_ARGUMENT);
 
 	player = MM_PLAYER_CAST(handle);
+	MMPlayerGstPipelineInfo *pipeline = player->pipeline;
+
+	if (!pipeline ||
+		!pipeline->videobin ||
+		!pipeline->videobin[MMPLAYER_V_SINK].gst ) /* Currently, there are only display related implementation at below */
+	{
+		/*
+		 * The attribute should be committed even though videobin is not created yet.
+		 * So, true should be returned here.
+		 * Otherwise, video can be diaplayed abnormal.
+		 */
+		return MM_ERROR_NONE;
+	}
 
 	if ( g_strrstr(attribute_name, "display") || g_strrstr(attribute_name, "wl_window_render_x"))
 	{
-		int pipeline_type = 0;
-		MMPlayerGstPipelineInfo	*pipeline = player->pipeline;
-
-		/* check videosink element is created */
-		if(!pipeline)
-			return MM_ERROR_NONE;
-		mm_attrs_get_int_by_name(player->attrs, "pipeline_type", &pipeline_type);
-		if (pipeline_type == MM_PLAYER_PIPELINE_CLIENT) {
-			if(!pipeline->mainbin || !pipeline->mainbin[MMPLAYER_M_V_SINK].gst)
-				return MM_ERROR_NONE;
-		} else {
-			if(!pipeline->videobin || !pipeline->videobin[MMPLAYER_V_SINK].gst)
-				return MM_ERROR_NONE;
-		}
-
 		char *param_name = NULL;
 		int str_len = strlen(attribute_name);
 		param_name = g_malloc0(str_len);
@@ -206,6 +204,18 @@ __mmplayer_apply_attribute(MMHandleType handle, const char *attribute_name)
 			return MM_ERROR_PLAYER_INTERNAL;
 		}
 		g_free(param_name);
+	}
+
+	if (g_strrstr(attribute_name, MM_PLAYER_GAPLESS_MODE))
+	{
+		int gapless = 0;
+
+		mm_attrs_get_int_by_name (player->attrs, "gapless_mode", &gapless);
+
+		if (gapless > 0) {
+			LOGD("disable last-sample at videosink");
+			g_object_set(player->pipeline->videobin[MMPLAYER_V_SINK].gst, "enable-last-sample", FALSE, NULL);
+		}
 	}
 
 	return MM_ERROR_NONE;
@@ -1086,15 +1096,6 @@ _mmplayer_construct_attribute(MMHandleType handle)
 			MM_ATTRS_VALID_TYPE_INT_RANGE,
 			MM_DISPLAY_SURFACE_OVERLAY,
 			MM_DISPLAY_SURFACE_NUM - 1
-		},
-		{
-			"pipeline_type",
-			MM_ATTRS_TYPE_INT,
-			MM_ATTRS_FLAG_RW,
-			(void *) MM_PLAYER_PIPELINE_LEGACY,
-			MM_ATTRS_VALID_TYPE_INT_RANGE,
-			MM_PLAYER_PIPELINE_LEGACY,
-			MM_PLAYER_PIPELINE_MAX - 1
 		},
 		{
 			"drc_mode",

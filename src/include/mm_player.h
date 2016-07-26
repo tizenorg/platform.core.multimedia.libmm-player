@@ -827,17 +827,6 @@ typedef enum
 } MMPlayerStreamType;
 
 /**
- * Enumeration for pipeline type.
- */
-typedef enum
-{
-	MM_PLAYER_PIPELINE_LEGACY,	/**< Legacy pipeline */
-	MM_PLAYER_PIPELINE_SERVER,	/**< Pipeline for server(src,decoder,demux...) */
-	MM_PLAYER_PIPELINE_CLIENT,	/**< Pipeline for client(sink)*/
-	MM_PLAYER_PIPELINE_MAX
-} MMPlayerPipelineType;
-
-/**
  * Attribute validity structure
  */
 typedef struct {

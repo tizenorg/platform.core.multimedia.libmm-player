@@ -5948,22 +5948,19 @@ __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps, MMDispl
 					{
 						g_object_set(player->pipeline->videobin[MMPLAYER_V_SINK].gst,
 							"use-tbm", use_tbm, NULL);
+					}
+				}
+				else
+				{
+					if (attrs)
+					{
+						int gapless = 0;
 
-						if (attrs) {
-							gboolean use_gapless = FALSE;
-							int count = 0;
-							int gapless = 0;
+						mm_attrs_get_int_by_name (attrs, "gapless_mode", &gapless);
 
-							mm_attrs_get_int_by_name (attrs, "profile_play_count", &count);
-							mm_attrs_get_int_by_name (attrs, "gapless_mode", &gapless);
-
-							if (count == -1 || count > 1 || gapless == 1) /* enable gapless when looping */
-								use_gapless = TRUE;
-
-							if (g_object_class_find_property (G_OBJECT_GET_CLASS (player->pipeline->videobin[MMPLAYER_V_SINK].gst), "use-gapless")) {
-								LOGD("set gapless mode at videosink to %d", use_gapless);
-								g_object_set(player->pipeline->videobin[MMPLAYER_V_SINK].gst, "use-gapless", use_gapless, NULL);
-							}
+						if (gapless > 0) {
+							LOGD("disable last-sample");
+							g_object_set(player->pipeline->videobin[MMPLAYER_V_SINK].gst, "enable-last-sample", FALSE, NULL);
 						}
 					}
 				}
@@ -12842,20 +12839,6 @@ int _mmplayer_set_next_uri(MMHandleType hplayer, const char* uri, bool is_first_
 
 		player->uri_info.uri_list = g_list_append(player->uri_info.uri_list, g_strdup(uri));
 		LOGD("add new path : %s (total num of list = %d)", uri, g_list_length(player->uri_info.uri_list));
-
-		if (player->pipeline && player->pipeline->videobin &&
-			player->pipeline->videobin[MMPLAYER_V_SINK].gst &&
-			g_object_class_find_property (G_OBJECT_GET_CLASS (player->pipeline->videobin[MMPLAYER_V_SINK].gst), "use-gapless"))
-		{
-			int gapless = 0;
-
-			if (attrs) {
-				mm_attrs_get_int_by_name (attrs, "gapless_mode", &gapless);
-			}
-
-			LOGD("set gapless mode to %d", gapless);
-			g_object_set(player->pipeline->videobin[MMPLAYER_V_SINK].gst, "use-gapless", (gboolean)gapless, NULL);
-		}
 	}
 
 	MMPLAYER_FLEAVE();
@@ -12983,7 +12966,6 @@ GstCaps* caps, GstElementFactory* factory, gpointer data)
 	const gchar* klass = NULL;
 	gint idx = 0;
 	int surface_type = 0;
-	int pipeline_type = 0;
 
 	factory_name = GST_OBJECT_NAME (factory);
 	klass = gst_element_factory_get_metadata (factory, GST_ELEMENT_METADATA_KLASS);
@@ -12999,13 +12981,8 @@ GstCaps* caps, GstElementFactory* factory, gpointer data)
 	}
 
 	/* To support evasimagesink, omx is excluded temporarily*/
-	mm_attrs_get_int_by_name(player->attrs, "pipeline_type", &pipeline_type);
-	if (pipeline_type == MM_PLAYER_PIPELINE_LEGACY)
-		mm_attrs_get_int_by_name(player->attrs,
-				"display_surface_type", &surface_type);
-	else
-		mm_attrs_get_int_by_name(player->attrs,
-				"display_surface_client_type", &surface_type);
+	mm_attrs_get_int_by_name(player->attrs,
+			"display_surface_type", &surface_type);
 	LOGD("check display surface type attribute: %d", surface_type);
 	if (surface_type == MM_DISPLAY_SURFACE_EVAS && strstr(factory_name, "omx"))
 	{
