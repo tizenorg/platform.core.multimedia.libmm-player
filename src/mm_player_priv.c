@@ -3680,10 +3680,8 @@ __mmplayer_gst_decode_callback(GstElement *elem, GstPad *pad, gpointer data) // 
 			/* NOTE : not make videobin because application dose not want to play it even though file has video stream. */
 			/* get video surface type */
 			int surface_type = 0;
-			int surface_client_type = 0;
 			mm_attrs_get_int_by_name(player->attrs, "display_surface_type", &surface_type);
-			mm_attrs_get_int_by_name(player->attrs, "display_surface_client_type", &surface_client_type);
-			LOGD("display_surface_type : server(%d), client(%d)\n", surface_type, surface_client_type);
+			LOGD("display_surface_type (%d)\n", surface_type);
 
 			if (surface_type == MM_DISPLAY_SURFACE_NULL || surface_type == MM_DISPLAY_SURFACE_REMOTE)
 			{
@@ -3691,7 +3689,7 @@ __mmplayer_gst_decode_callback(GstElement *elem, GstPad *pad, gpointer data) // 
 				goto ERROR;
 			}
 
-			if (surface_client_type == MM_DISPLAY_SURFACE_OVERLAY)
+			if (surface_type == MM_DISPLAY_SURFACE_OVERLAY)
 			{
 				if (_mmplayer_resource_manager_get_state(&player->resource_manager, &resource_state) == MM_ERROR_NONE)
 				{
