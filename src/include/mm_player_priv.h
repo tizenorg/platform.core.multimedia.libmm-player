@@ -429,11 +429,10 @@ typedef struct {
 	gboolean stream_changed;
 	gboolean reconfigure;
 
-	GstClockTime next_pts;		/* latest decoded buffer's pts+duration */
-	GstClockTime start_time;	/* updated once get SEGMENT event */
+	GstClockTime start_time[MM_PLAYER_TRACK_TYPE_MAX];	/* updated once get SEGMENT event */
+	GstSegment segment[MM_PLAYER_TRACK_TYPE_MAX];
+	gboolean update_segment[MM_PLAYER_TRACK_TYPE_MAX];
 
-	gulong audio_data_probe_id;
-	gulong video_data_probe_id;
 } mm_player_gapless_t;
 
 typedef struct {

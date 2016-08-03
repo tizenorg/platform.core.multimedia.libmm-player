@@ -1649,6 +1649,7 @@ __mmplayer_gst_callback(GstBus *bus, GstMessage *msg, gpointer data) // @
 					if (player->gapless.stream_changed)
 					{
 						_mmplayer_update_content_attrs(player, ATTR_ALL);
+						player->gapless.stream_changed = FALSE;
 					}
 
 					if (player->doing_seek && async_done)
@@ -2528,56 +2529,144 @@ __mmplayer_gst_selector_blocked(GstPad* pad, GstPadProbeInfo *info, gpointer dat
 }
 
 static GstPadProbeReturn
-__mmplayer_gapless_sinkbin_data_probe (GstPad *pad, GstPadProbeInfo *info, gpointer u_data)
-{
-	mm_player_t* player = (mm_player_t*) u_data;
-	GstBuffer *pad_buffer = gst_pad_probe_info_get_buffer(info);
-
-	/* TO_CHECK: performance */
-	MMPLAYER_RETURN_VAL_IF_FAIL (player && GST_IS_BUFFER(pad_buffer), GST_PAD_PROBE_OK);
-
-	if (GST_BUFFER_PTS_IS_VALID(pad_buffer) && GST_BUFFER_DURATION_IS_VALID(pad_buffer)) {
-		/* keep next buffer pts for sychronization of gapless playback */
-		/* see : __mmplayer_gst_selector_event_probe() */
-		/* next buffer start position = current buffer pts + current buffer duration*/
-		player->gapless.next_pts = GST_BUFFER_PTS(pad_buffer) + GST_BUFFER_DURATION(pad_buffer);
-	}
-
-	return GST_PAD_PROBE_OK;
-}
-
-static GstPadProbeReturn
 __mmplayer_gst_selector_event_probe (GstPad * pad, GstPadProbeInfo * info, gpointer data)
 {
 	GstPadProbeReturn ret = GST_PAD_PROBE_OK;
 	GstEvent *event = GST_PAD_PROBE_INFO_DATA (info);
 	mm_player_t* player = (mm_player_t*)data;
+	GstCaps* caps = NULL;
+	GstStructure* str = NULL;
+	const gchar* name = NULL;
+	MMPlayerTrackType stream_type = MM_PLAYER_TRACK_TYPE_VIDEO;
+
+	if (GST_EVENT_TYPE (event) != GST_EVENT_STREAM_START &&
+		GST_EVENT_TYPE (event) != GST_EVENT_FLUSH_STOP &&
+		GST_EVENT_TYPE (event) != GST_EVENT_SEGMENT)
+		return ret;
+
+	caps = gst_pad_query_caps(pad, NULL);
+	if (!caps) {
+		LOGE("failed to get caps from pad[%s:%s]", GST_DEBUG_PAD_NAME(pad));
+		goto ERROR;
+	}
+
+	str = gst_caps_get_structure(caps, 0);
+	if (!str) {
+		LOGE("failed to get structure from caps");
+		goto ERROR;
+	}
+
+	name = gst_structure_get_name(str);
+	if (!name) {
+		LOGE("failed to get name from str");
+		goto ERROR;
+	}
+
+	if (strstr(name, "audio")) {
+		stream_type = MM_PLAYER_TRACK_TYPE_AUDIO;
+	} else if (strstr(name, "video")) {
+		stream_type = MM_PLAYER_TRACK_TYPE_VIDEO;
+	} else {
+		/* text track is not supportable */
+		LOGE("invalid name %s", name);
+		goto ERROR;
+	}
+
+	LOGD("stream type is %d", stream_type);
 
 	switch (GST_EVENT_TYPE (event)) {
 		case GST_EVENT_STREAM_START:
-		break;
+		{
+			gint64 stop_running_time = 0;
+			gint64 position_running_time = 0;
+			gint64 position = 0;
+			gint idx = 0;
+
+			LOGD("[%d] GST_EVENT_STREAM_START", stream_type);
+
+			for (idx=MM_PLAYER_TRACK_TYPE_AUDIO;idx<MM_PLAYER_TRACK_TYPE_TEXT;idx++)
+			{
+				if ((player->gapless.update_segment[idx] == TRUE) ||
+					!(player->selector[idx].event_probe_id))
+				{
+					LOGW("[%d] skip", idx);
+					continue;
+				}
+
+				if (player->gapless.segment[idx].stop != -1)
+				{
+					stop_running_time =
+						gst_segment_to_running_time(&player->gapless.segment[idx],
+								GST_FORMAT_TIME, player->gapless.segment[idx].stop);
+				}
+				else
+				{
+					stop_running_time =
+						gst_segment_to_running_time(&player->gapless.segment[idx],
+								GST_FORMAT_TIME, player->gapless.segment[idx].duration);
+				}
+
+				position_running_time =
+					gst_segment_to_running_time (&player->gapless.segment[idx],
+					GST_FORMAT_TIME, player->gapless.segment[idx].position);
+
+				LOGD("[type:%d] time info %" GST_TIME_FORMAT " , %"
+					GST_TIME_FORMAT" , %" GST_TIME_FORMAT,
+					idx,
+					GST_TIME_ARGS (stop_running_time),
+					GST_TIME_ARGS (position_running_time),
+					GST_TIME_ARGS(gst_segment_to_running_time (&player->gapless.segment[idx],
+					GST_FORMAT_TIME, player->gapless.segment[idx].start)));
+
+				position_running_time = MAX(position_running_time, stop_running_time);
+				position_running_time -= gst_segment_to_running_time(&player->gapless.segment[idx],
+												GST_FORMAT_TIME, player->gapless.segment[idx].start);
+				position_running_time = MAX(0, position_running_time);
+				position = MAX(position, position_running_time);
+			}
+
+			LOGD("start_time from %" GST_TIME_FORMAT " to %" GST_TIME_FORMAT,
+				GST_TIME_ARGS(player->gapless.start_time[stream_type]),
+				GST_TIME_ARGS(player->gapless.start_time[stream_type] + position));
+
+			player->gapless.start_time[stream_type] += position;
+			break;
+		}
+		case GST_EVENT_FLUSH_STOP:
+		{
+			LOGD("[%d] GST_EVENT_FLUSH_STOP", stream_type);
+			gst_segment_init (&player->gapless.segment[stream_type], GST_FORMAT_UNDEFINED);
+			player->gapless.start_time[stream_type] = 0;
+			break;
+		}
 		case GST_EVENT_SEGMENT: {
 			GstSegment segment;
 			GstEvent *tmpev;
 
-			if (!player->gapless.running)
-				break;
-
-			if (player->gapless.stream_changed) {
-				/* FIXME: need to set max(duraion, next_pts)? */
-				player->gapless.start_time += player->gapless.next_pts;
-				player->gapless.stream_changed = FALSE;
-			}
-
-			LOGD ("event: %" GST_PTR_FORMAT, event);
+			LOGD("[%d] GST_EVENT_SEGMENT", stream_type);
 			gst_event_copy_segment (event, &segment);
 
 			if (segment.format == GST_FORMAT_TIME)
 			{
-				segment.base = player->gapless.start_time;
-				LOGD ("base of segment: %" GST_TIME_FORMAT, GST_TIME_ARGS (segment.base));
+				LOGD("segment base:%" GST_TIME_FORMAT ", offset:%" GST_TIME_FORMAT
+					 ", start:%" GST_TIME_FORMAT ", stop: %" GST_TIME_FORMAT
+					 ", time: %" GST_TIME_FORMAT ", pos: %" GST_TIME_FORMAT ", dur: %" GST_TIME_FORMAT,
+					GST_TIME_ARGS(segment.base), GST_TIME_ARGS(segment.offset),
+					GST_TIME_ARGS(segment.start), GST_TIME_ARGS(segment.stop),
+					GST_TIME_ARGS(segment.time), GST_TIME_ARGS(segment.position), GST_TIME_ARGS(segment.duration));
 
-				tmpev = gst_event_new_segment (&segment);
+				/* keep the all the segment ev to cover the seeking */
+				gst_segment_copy_into(&segment, &player->gapless.segment[stream_type]);
+				player->gapless.update_segment[stream_type] = TRUE;
+
+				if (!player->gapless.running)
+					break;
+
+				player->gapless.segment[stream_type].base = player->gapless.start_time[stream_type];
+
+				LOGD("[%d] new base: %" GST_TIME_FORMAT, stream_type, GST_TIME_ARGS(player->gapless.segment[stream_type].base));
+
+				tmpev = gst_event_new_segment (&player->gapless.segment[stream_type]);
 				gst_event_set_seqnum (tmpev, gst_event_get_seqnum (event));
 				gst_event_unref (event);
 				GST_PAD_PROBE_INFO_DATA(info) = tmpev;
@@ -2587,6 +2676,10 @@ __mmplayer_gst_selector_event_probe (GstPad * pad, GstPadProbeInfo * info, gpoin
 		default:
 		break;
 	}
+
+ERROR:
+	if (caps)
+		gst_caps_unref(caps);
 	return ret;
 }
 
@@ -2650,7 +2743,7 @@ __mmplayer_gst_decode_pad_added (GstElement *elem, GstPad *pad, gpointer data)
 		/* don't make video because of not required, and not support multiple track */
 		if (stype == MM_DISPLAY_SURFACE_NULL || stype == MM_DISPLAY_SURFACE_REMOTE)
 		{
-			LOGD ("no video sink by null surface or multiple track");
+			LOGD ("no video sink by null surface or multiple track (%d)", stype);
 			MMPlayerResourceState resource_state = RESOURCE_STATE_NONE;
 			if (_mmplayer_resource_manager_get_state(&player->resource_manager, &resource_state)
 					== MM_ERROR_NONE)
@@ -2820,7 +2913,7 @@ __mmplayer_gst_decode_pad_added (GstElement *elem, GstPad *pad, gpointer data)
 		LOGD ("blocking %s:%s", GST_DEBUG_PAD_NAME(srcpad));
 		player->selector[stream_type].block_id = gst_pad_add_probe(srcpad, GST_PAD_PROBE_TYPE_BLOCK_DOWNSTREAM,
 			__mmplayer_gst_selector_blocked, NULL, NULL);
-		player->selector[stream_type].event_probe_id = gst_pad_add_probe(srcpad, GST_PAD_PROBE_TYPE_EVENT_DOWNSTREAM,
+		player->selector[stream_type].event_probe_id = gst_pad_add_probe(srcpad, GST_PAD_PROBE_TYPE_EVENT_DOWNSTREAM|GST_PAD_PROBE_TYPE_EVENT_FLUSH,
 			__mmplayer_gst_selector_event_probe, player, NULL);
 
 		gst_element_set_state (selector, GST_STATE_PAUSED);
@@ -5355,9 +5448,6 @@ __mmplayer_gst_create_audio_pipeline(mm_player_t* player)
 		goto ERROR;
 	}
 
-	player->gapless.audio_data_probe_id = gst_pad_add_probe(ghostpad, GST_PAD_PROBE_TYPE_BUFFER,
-			__mmplayer_gapless_sinkbin_data_probe, player, NULL);
-
 	gst_object_unref(pad);
 
 	g_list_free(element_bucket);
@@ -6033,11 +6123,6 @@ __mmplayer_gst_create_video_pipeline(mm_player_t* player, GstCaps* caps, MMDispl
 		goto ERROR;
 	}
 	gst_object_unref(pad);
-
-#ifndef TIZEN_TV
-	player->gapless.video_data_probe_id = gst_pad_add_probe(player->ghost_pad_for_videobin, GST_PAD_PROBE_TYPE_BUFFER,
-			__mmplayer_gapless_sinkbin_data_probe, player, NULL);
-#endif
 
 	/* done. free allocated variables */
 	if (element_bucket)
@@ -7719,21 +7804,6 @@ __mmplayer_reset_gapless_state(mm_player_t* player)
 		&& player->pipeline->audiobin
 		&& player->pipeline->audiobin[MMPLAYER_A_BIN].gst);
 
-	if (player->gapless.audio_data_probe_id != 0)
-	{
-		GstPad *sinkpad;
-		sinkpad = gst_element_get_static_pad(player->pipeline->audiobin[MMPLAYER_A_BIN].gst, "sink");
-		gst_pad_remove_probe (sinkpad, player->gapless.audio_data_probe_id);
-		gst_object_unref (sinkpad);
-	}
-
-	if (player->gapless.video_data_probe_id != 0)
-	{
-		GstPad *sinkpad;
-		sinkpad = gst_element_get_static_pad(player->pipeline->videobin[MMPLAYER_V_BIN].gst, "sink");
-		gst_pad_remove_probe (sinkpad, player->gapless.video_data_probe_id);
-		gst_object_unref (sinkpad);
-	}
 	memset(&player->gapless, 0, sizeof(mm_player_gapless_t));
 
 	MMPLAYER_FLEAVE();
@@ -10678,7 +10748,7 @@ _mmplayer_stop(MMHandleType hplayer) // @
 
 	/* check pipline building state */
 	__mmplayer_check_pipeline(player);
-	player->gapless.start_time = 0;
+	__mmplayer_reset_gapless_state(player);
 
 	/* NOTE : application should not wait for EOS after calling STOP */
 	__mmplayer_cancel_eos_timer( player );
@@ -11054,6 +11124,9 @@ _mmplayer_set_position(MMHandleType hplayer, int format, int position) // @
 	MMPLAYER_FENTER();
 
 	MMPLAYER_RETURN_VAL_IF_FAIL ( player, MM_ERROR_PLAYER_NOT_INITIALIZED );
+
+	/* check pipline building state */
+	__mmplayer_check_pipeline(player);
 
 	ret = __gst_set_position ( player, format, (unsigned long)position, FALSE );
 
@@ -12980,7 +13053,7 @@ GstCaps* caps, GstElementFactory* factory, gpointer data)
 
 	/* To support evasimagesink, omx is excluded temporarily*/
 	mm_attrs_get_int_by_name(player->attrs,
-			"display_surface_type", &surface_type);
+				"display_surface_type", &surface_type);
 	LOGD("check display surface type attribute: %d", surface_type);
 	if (surface_type == MM_DISPLAY_SURFACE_EVAS && strstr(factory_name, "omx"))
 	{
@@ -13068,7 +13141,7 @@ GstCaps* caps, GstElementFactory* factory, gpointer data)
 			if (_mmplayer_resource_manager_get_state(&player->resource_manager, &resource_state) == MM_ERROR_NONE)
 			{
 				/* prepare resource manager for video decoder */
-				if (resource_state >= RESOURCE_STATE_INITIALIZED)
+				if ((resource_state >= RESOURCE_STATE_INITIALIZED) && (resource_state < RESOURCE_STATE_ACQUIRED))
 				{
 					if (_mmplayer_resource_manager_prepare(&player->resource_manager, RESOURCE_TYPE_VIDEO_DECODER)
 						!= MM_ERROR_NONE)
@@ -13209,13 +13282,14 @@ __mmplayer_gst_decode_drained(GstElement *bin, gpointer data)
 	if (!__mmplayer_verify_next_play_path(player))
 	{
 		LOGD("decoding is finished.");
-		player->gapless.running = FALSE;
-		player->gapless.start_time = 0;
+		__mmplayer_reset_gapless_state(player);
 		g_mutex_unlock(&player->cmd_lock);
 		return;
 	}
 
 	player->gapless.reconfigure = TRUE;
+	player->gapless.update_segment[MM_PLAYER_TRACK_TYPE_AUDIO] = FALSE;
+	player->gapless.update_segment[MM_PLAYER_TRACK_TYPE_VIDEO] = FALSE;
 
 	/* deactivate pipeline except sinkbins to set up the new pipeline of next uri*/
 	__mmplayer_deactivate_old_path(player);
